@@ -31,7 +31,7 @@ interface AppState {
   // Recording State
   firstChunkWritten: boolean;
   recordingStartTime: number;
-  originalCursorSize: number | null;
+  originalCursorScale: number | null;
   currentRecordingSession: RecordingSession | null;
   currentEditorSessionFiles: RecordingSession | null;
 
@@ -52,7 +52,7 @@ export const appState: AppState = {
   mouseTracker: null,
   firstChunkWritten: true,
   recordingStartTime: 0,
-  originalCursorSize: null,
+  originalCursorScale: null,
   currentRecordingSession: null,
   currentEditorSessionFiles: null,
   isCleanupInProgress: false,

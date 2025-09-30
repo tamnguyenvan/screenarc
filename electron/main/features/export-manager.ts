@@ -8,7 +8,7 @@ import fs from 'node:fs';
 import fsPromises from 'node:fs/promises';
 import { appState } from '../state';
 import { getFFmpegPath, calculateExportDimensions } from '../lib/utils';
-import { VITE_DEV_SERVER_URL, RENDERER_DIST } from '../lib/constants';
+import { VITE_DEV_SERVER_URL, RENDERER_DIST, PRELOAD_SCRIPT } from '../lib/constants';
 
 const FFMPEG_PATH = getFFmpegPath();
 
@@ -26,7 +26,7 @@ export async function startExport(event: IpcMainInvokeEvent, { projectState, exp
     width: 1280,
     height: 720,
     webPreferences: {
-      preload: path.join(process.env.APP_ROOT!, 'dist-electron/preload.mjs'),
+      preload: PRELOAD_SCRIPT,
       offscreen: true,
     },
   });

@@ -9,7 +9,7 @@ import { appState } from '../state';
 import { getFFmpegPath, ensureDirectoryExists } from '../lib/utils';
 import { VITE_PUBLIC } from '../lib/constants';
 import { createMouseTracker } from './mouse-tracker';
-import { getCursorSize, restoreOriginalCursorSize, resetCursorSize } from './cursor-manager';
+import { getCursorScale, restoreOriginalCursorScale, resetCursorScale } from './cursor-manager';
 import { createEditorWindow, cleanupEditorFiles } from '../windows/editor-window';
 import { createCountdownWindow, createSavingWindow, createSelectionWindow } from '../windows/temporary-windows';
 import { app } from 'electron';
@@ -144,12 +144,12 @@ export async function startRecording(options: any) { // Type from preload.ts
     return { canceled: true };
   }
   
-  appState.originalCursorSize = await getCursorSize();
+  appState.originalCursorScale = await getCursorScale();
   return startActualRecording(baseFfmpegArgs, !!webcam, !!mic);
 }
 
 export async function stopRecording() {
-  restoreOriginalCursorSize();
+  restoreOriginalCursorScale();
   log.info('Stopping recording, preparing to save...');
   appState.tray?.destroy();
   appState.tray = null;
@@ -159,7 +159,7 @@ export async function stopRecording() {
 
   await new Promise(resolve => setTimeout(resolve, 500));
   appState.savingWin?.close();
-  resetCursorSize();
+  resetCursorScale();
   
   const session = appState.currentRecordingSession;
   appState.currentRecordingSession = null;
@@ -223,7 +223,7 @@ export async function cleanupAndDiscard() {
     appState.metadataStream.end();
     appState.metadataStream = null;
   }
-  restoreOriginalCursorSize();
+  restoreOriginalCursorScale();
   appState.tray?.destroy();
   appState.tray = null;
 

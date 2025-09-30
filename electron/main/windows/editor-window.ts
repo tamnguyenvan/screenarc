@@ -8,7 +8,7 @@ import fsSync from 'node:fs';
 import Store from 'electron-store';
 import { format as formatUrl } from 'node:url';
 import { appState } from '../state';
-import { VITE_DEV_SERVER_URL, RENDERER_DIST } from '../lib/constants';
+import { VITE_DEV_SERVER_URL, RENDERER_DIST, PRELOAD_SCRIPT } from '../lib/constants';
 import { checkForUpdates } from '../features/update-checker';
 
 const store = new Store(); // Can be configured with schema if needed
@@ -29,7 +29,7 @@ export function createEditorWindow(videoPath: string, metadataPath: string, webc
     titleBarStyle: 'hidden',
     show: false,
     webPreferences: {
-      preload: path.join(process.env.APP_ROOT!, 'dist-electron/preload.mjs'),
+      preload: PRELOAD_SCRIPT,
       webSecurity: !VITE_DEV_SERVER_URL,
     },
   });

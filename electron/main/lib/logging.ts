@@ -6,9 +6,10 @@ export function setupLogging() {
   log.transports.file.format = '[{y}-{m}-{d} {h}:{i}:{s}.{ms}] [{level}] {text}';
   log.transports.file.maxSize = 5 * 1024 * 1024; // 5 MB
 
-  if (process.env.NODE_ENV !== 'development') {
-    log.transports.console.level = false;
-  }
+  log.transports.console.level = 'debug';
+  // if (process.env.NODE_ENV !== 'development') {
+  //   log.transports.console.level = false;
+  // }
 
   process.on('uncaughtException', (error) => {
     log.error('Unhandled Exception:', error);
