@@ -11,7 +11,7 @@ import { VITE_PUBLIC } from '../lib/constants';
 import { createMouseTracker } from './mouse-tracker';
 import { getCursorScale, restoreOriginalCursorScale, resetCursorScale } from './cursor-manager';
 import { createEditorWindow, cleanupEditorFiles } from '../windows/editor-window';
-import { createCountdownWindow, createSavingWindow, createSelectionWindow } from '../windows/temporary-windows';
+import { createSavingWindow, createSelectionWindow } from '../windows/temporary-windows';
 import { app } from 'electron';
 
 const FFMPEG_PATH = getFFmpegPath();
@@ -28,38 +28,33 @@ async function startActualRecording(inputArgs: string[], hasWebcam: boolean, has
   appState.currentRecordingSession = { screenVideoPath, webcamVideoPath, metadataPath };
 
   appState.recorderWin?.hide();
-  createCountdownWindow();
 
-  setTimeout(() => {
-    appState.countdownWin?.close();
+  appState.firstChunkWritten = true;
+  appState.recordingStartTime = Date.now();
+  appState.mouseTracker = createMouseTracker();
+  appState.metadataStream = fs.createWriteStream(metadataPath);
+  appState.metadataStream.write('[\n');
 
-    appState.firstChunkWritten = true;
-    appState.recordingStartTime = Date.now();
-    appState.mouseTracker = createMouseTracker();
-    appState.metadataStream = fs.createWriteStream(metadataPath);
-    appState.metadataStream.write('[\n');
-
-    if (appState.mouseTracker) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      appState.mouseTracker.on('data', (data: any) => {
-        const relativeTimestampData = { ...data, timestamp: data.timestamp - appState.recordingStartTime };
-        if (appState.metadataStream?.writable) {
-          if (!appState.firstChunkWritten) appState.metadataStream.write(',\n');
-          appState.metadataStream.write(JSON.stringify(relativeTimestampData));
-          appState.firstChunkWritten = false;
-        }
-      });
-      appState.mouseTracker.start();
-    }
-
-    const finalArgs = buildFfmpegArgs(inputArgs, hasWebcam, hasMic, screenVideoPath, webcamVideoPath);
-    log.info(`Starting FFmpeg with args: ${finalArgs.join(' ')}`);
-    appState.ffmpegProcess = spawn(FFMPEG_PATH, finalArgs);
+  if (appState.mouseTracker) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    appState.ffmpegProcess.stderr.on('data', (data: any) => log.info(`FFmpeg: ${data}`));
+    appState.mouseTracker.on('data', (data: any) => {
+      const relativeTimestampData = { ...data, timestamp: data.timestamp - appState.recordingStartTime };
+      if (appState.metadataStream?.writable) {
+        if (!appState.firstChunkWritten) appState.metadataStream.write(',\n');
+        appState.metadataStream.write(JSON.stringify(relativeTimestampData));
+        appState.firstChunkWritten = false;
+      }
+    });
+    appState.mouseTracker.start();
+  }
 
-    createTray();
-  }, 3800);
+  const finalArgs = buildFfmpegArgs(inputArgs, hasWebcam, hasMic, screenVideoPath, webcamVideoPath);
+  log.info(`Starting FFmpeg with args: ${finalArgs.join(' ')}`);
+  appState.ffmpegProcess = spawn(FFMPEG_PATH, finalArgs);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  appState.ffmpegProcess.stderr.on('data', (data: any) => log.info(`FFmpeg: ${data}`));
+
+  createTray();
 
   return { canceled: false, ...appState.currentRecordingSession };
 }

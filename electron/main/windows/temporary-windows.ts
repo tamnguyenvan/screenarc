@@ -27,11 +27,6 @@ function createTemporaryWindow(options: Electron.BrowserWindowConstructorOptions
   return win;
 }
 
-export function createCountdownWindow() {
-  appState.countdownWin = createTemporaryWindow({ width: 380, height: 380 }, 'countdown/index.html');
-  appState.countdownWin.on('closed', () => { appState.countdownWin = null; });
-}
-
 export function createSavingWindow() {
   appState.savingWin = createTemporaryWindow({ width: 350, height: 200 }, 'saving/index.html');
   appState.savingWin.on('closed', () => { appState.savingWin = null; });

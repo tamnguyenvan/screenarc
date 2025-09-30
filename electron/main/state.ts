@@ -15,7 +15,6 @@ interface AppState {
   // Windows
   recorderWin: BrowserWindow | null;
   editorWin: BrowserWindow | null;
-  countdownWin: BrowserWindow | null;
   renderWorker: BrowserWindow | null;
   savingWin: BrowserWindow | null;
   selectionWin: BrowserWindow | null;
@@ -42,7 +41,6 @@ interface AppState {
 export const appState: AppState = {
   recorderWin: null,
   editorWin: null,
-  countdownWin: null,
   renderWorker: null,
   savingWin: null,
   selectionWin: null,
