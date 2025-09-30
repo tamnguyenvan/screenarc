@@ -1,0 +1,25 @@
+# ScreenArc - Detailed User Flows
+
+This document details the user's journey through the application, describing actions, UI responses, and underlying processes based on the current implementation.
+
+## 1. Recording Flow
+
+| User Action | UI Response | State Changes | Background Tasks / System Logic |
+| :--- | :--- | :--- | :--- |
+| **1. Launch App** | The main control bar (`RecorderPage`) appears on the screen, ready for input. | `recordingState: 'idle'` | Electron main process starts, renderer window is created. |
+| **2. Click "Record"** | 1. The control bar window hides. <br> 2. A system tray icon appears. <br> 3. A large countdown (3...2...1) appears in the center of the screen. | `recordingState: 'recording'` | 1. Main process hides the recorder window and creates the countdown window. |
+| **3. Recording Starts** | Countdown disappears. The tray icon indicates recording is active. Nothing else is visible on screen from the app. | `startTime: Date.now()` | 1. **Main Process:** Spawns Python `pynput` script as a child process. <br> 2. **Main Process:** Starts `ffmpeg` screen capture for the full screen. <br> 3. **Main Process:** Listens to `stdout` from the Python script for mouse data and writes it to a `.json` metadata file. |
+| **4. Stop Recording** (clicks tray icon and selects "Stop") | 1. The recording processes are terminated. <br> 2. A "Saving..." window briefly appears. <br> 3. A new "Editor Studio" window opens, automatically loading the new recording. | `appState: 'editing'` | 1. **Main Process:** Sends a termination signal to the `pynput` and `ffmpeg` processes. <br> 2. **Main Process:** Finalizes and saves the video and metadata files. <br> 3. **Main Process:** Creates a new Electron browser window for the editor and sends it the project file paths via IPC. |
+
+## 2. Editing & Exporting Flow
+
+| User Action | UI Response | State Changes (Zustand) | Background Tasks / System Logic |
+| :--- | :--- | :--- | :--- |
+| **1. Editor Opens** | The Editor window is displayed. <br> - Video preview shows the first frame. <br> - Side panel shows default "Frame" settings. <br> - Timeline is populated with video and auto-generated zoom regions. | `videoUrl`, `metadata`, `zoomRegions` are populated. | 1. Editor's renderer process receives file paths from the main process. <br> 2. It parses the metadata file to auto-generate `zoomRegions` in the state. <br> 3. The video is loaded into a `<video>` element. |
+| **2. Change Frame Setting** (e.g., clicks a background wallpaper) | The background of the video preview area instantly updates. | `frameStyles.background` is updated. | The React component re-renders based on the new state. |
+| **3. Scrub Timeline** (drags playhead) | The video preview updates in real-time to the corresponding frame, applying any active zoom/pan effects for that timestamp. | `currentTime` is updated continuously. | The app seeks the `<video>` element to the correct time and re-calculates/applies CSS transforms for the preview. |
+| **4. Add a Manual Zoom** (clicks "Add Zoom" button) | 1. A new zoom region rectangle appears on the timeline. <br> 2. The side panel switches to show settings for this new region. | `zoomRegions` array is updated with a new object. `selectedRegionId` is set. | A new object is added to the state. The UI re-renders to show the new region and the updated side panel. |
+| **5. Modify a Region** (drags the edge of a zoom region) | The rectangle visually resizes on the timeline. | The `duration` or `startTime` of the specific region object is updated. | The corresponding object in the state is updated. The change is immediately reflected in the playback logic. |
+| **6. Click "Export"** | An export settings modal appears, overlaying the editor. | `isExportModalOpen: true` | - |
+| **7. Confirm Export** (configures settings and clicks "Start Export") | 1. The modal closes. <br> 2. A progress overlay appears. The UI remains responsive. | `isExporting: true`, `exportProgress: 0` | 1. **Main Process:** Spawns `ffmpeg` configured to accept raw video data from `stdin`. <br> 2. **Main Process:** Creates a hidden, offscreen `BrowserWindow` (render worker). <br> 3. **Render Worker:** <br>   - Loads project state. <br>   - For each frame: seeks the video, draws the scene to a `<canvas>`, extracts pixel data. <br>   - Sends the pixel buffer and progress % to the main process via IPC. <br> 4. **Main Process:** Receives each frame buffer from the worker and pipes it to `ffmpeg`'s `stdin` for encoding. |
+| **8. Export Finishes** | A system alert appears: "Export Complete!". The progress overlay disappears. | `isExporting: false`, `exportProgress: 100` | The render worker signals completion. The main process closes the `ffmpeg` stream and sends a completion event to the editor UI, which triggers the alert. |

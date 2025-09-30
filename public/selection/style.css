@@ -1,0 +1,79 @@
+/* public/selection/style.css */
+body, html {
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    width: 100vw;
+    height: 100vh;
+    cursor: crosshair;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+    user-select: none; /* Prevent text selection */
+}
+
+#overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: 1;
+}
+
+#selection-box {
+    position: absolute;
+    border: 2px solid #3b82f6;
+    box-sizing: border-box;
+    cursor: move;
+    z-index: 2;
+    /* This will punch a hole in the overlay */
+    box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.5);
+}
+
+.resize-handle {
+    position: absolute;
+    width: 10px;
+    height: 10px;
+    background-color: #fff;
+    border: 1px solid #3b82f6;
+    border-radius: 50%;
+    box-sizing: border-box;
+    z-index: 3;
+}
+
+/* Position the resize handles */
+.nw { top: -5px; left: -5px; cursor: nwse-resize; }
+.n { top: -5px; left: 50%; transform: translateX(-50%); cursor: ns-resize; }
+.ne { top: -5px; right: -5px; cursor: nesw-resize; }
+.w { top: 50%; left: -5px; transform: translateY(-50%); cursor: ew-resize; }
+.e { top: 50%; right: -5px; transform: translateY(-50%); cursor: ew-resize; }
+.sw { bottom: -5px; left: -5px; cursor: nesw-resize; }
+.s { bottom: -5px; left: 50%; transform: translateX(-50%); cursor: ns-resize; }
+.se { bottom: -5px; right: -5px; cursor: nwse-resize; }
+
+
+#size-badge {
+    position: absolute;
+    background-color: rgba(0, 0, 0, 0.8);
+    color: white;
+    padding: 4px 8px;
+    font-size: 12px;
+    border-radius: 4px;
+    z-index: 4;
+    white-space: nowrap;
+}
+
+#tooltip {
+    position: absolute;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 10px 20px;
+    background-color: rgba(0, 0, 0, 0.8);
+    color: white;
+    border-radius: 8px;
+    font-size: 14px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+    z-index: 1000;
+}

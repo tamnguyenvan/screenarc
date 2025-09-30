@@ -1,0 +1,30 @@
+<!-- public/selection/index.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Select Area</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Overlay will be managed by the selection box's shadow -->
+    <div id="selection-box" style="display: none;">
+        <div class="resize-handle nw"></div>
+        <div class="resize-handle n"></div>
+        <div class="resize-handle ne"></div>
+        <div class="resize-handle w"></div>
+        <div class="resize-handle e"></div>
+        <div class="resize-handle sw"></div>
+        <div class="resize-handle s"></div>
+        <div class="resize-handle se"></div>
+    </div>
+    <div id="size-badge" style="display: none;"></div>
+
+    <div id="tooltip">
+        Click and drag to select an area. Press <strong>Enter</strong> to confirm or <strong>Esc</strong> to cancel.
+    </div>
+
+    <script src="renderer.js"></script>
+</body>
+</html>

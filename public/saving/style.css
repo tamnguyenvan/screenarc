@@ -1,0 +1,92 @@
+/* Reset and base styles */
+*, *::before, *::after {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background-color: transparent; /* Essential for Electron transparency */
+    height: 100vh;
+    width: 100vw;
+    overflow: hidden;
+    color: rgba(255, 255, 255, 0.9);
+}
+
+/* Centering container */
+.container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100%;
+    width: 100%;
+    animation: fadeIn 0.3s ease-out;
+}
+
+/* The main frosted glass card */
+.card {
+    width: 300px;
+    padding: 2.5rem 1.5rem;
+    border-radius: 16px; /* macOS style rounded corners */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 0.75rem;
+
+    /* macOS Glass Effect */
+    background-color: rgba(40, 40, 40, 0.4); /* Dark semi-transparent base */
+    backdrop-filter: blur(25px) saturate(180%);
+    -webkit-backdrop-filter: blur(25px) saturate(180%);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
+}
+
+/* Spinner styles */
+.spinner {
+    width: 2.5rem;
+    height: 2.5rem;
+    color: rgba(255, 255, 255, 0.8);
+    animation: spin 1s linear infinite;
+    margin-bottom: 0.5rem;
+}
+
+.spinner svg {
+    width: 100%;
+    height: 100%;
+}
+
+/* Text styles */
+h2 {
+    margin: 0;
+    font-size: 1.125rem; /* 18px */
+    font-weight: 600;
+}
+
+p {
+    margin: 0;
+    font-size: 0.875rem; /* 14px */
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.6);
+}
+
+/* Animations */
+@keyframes spin {
+    from {
+        transform: rotate(0deg);
+    }
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}

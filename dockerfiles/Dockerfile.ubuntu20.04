@@ -1,0 +1,42 @@
+FROM ubuntu:20.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+# 1. Cài các gói cơ bản
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    curl \
+    wget \
+    git \
+    ca-certificates \
+    xvfb \
+    libxss1 \
+    libnss3 \
+    libxtst6 \
+    pkg-config \
+    python3.8 \
+    python3.8-dev \
+    python3.8-venv \
+    python3-pip \
+    && rm -rf /var/lib/apt/lists/*
+
+# 2. Cài Node.js 20 + npm
+RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+    && apt-get install -y nodejs \
+    && npm install -g npm@latest
+
+# 3. Cài Python dependencies
+RUN python3.8 -m pip install --upgrade pip setuptools wheel \
+    && pip install pynput pyinstaller
+
+WORKDIR /app
+COPY . .
+
+# 4. Tải sẵn ffmpeg (static build)
+RUN mkdir -p /app/binaries/linux && \
+    curl -L -o /tmp/ffmpeg.tar.xz https://johnvansickle.com/ffmpeg/builds/ffmpeg-git-amd64-static.tar.xz && \
+    tar -xf /tmp/ffmpeg.tar.xz --strip-components=1 -C /app/binaries/linux/ $(tar -tf /tmp/ffmpeg.tar.xz | head -n 1)ffmpeg && \
+    chmod +x /app/binaries/linux/ffmpeg && \
+    rm /tmp/ffmpeg.tar.xz
+
+CMD ["/bin/bash"]
