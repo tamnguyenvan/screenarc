@@ -8,8 +8,9 @@ import fsSync from 'node:fs';
 import Store from 'electron-store';
 import { format as formatUrl } from 'node:url';
 import { appState } from '../state';
-import { VITE_DEV_SERVER_URL, RENDERER_DIST, PRELOAD_SCRIPT } from '../lib/constants';
+import { cleanupOrphanedRecordings } from '../features/recording-manager'; 
 import { checkForUpdates } from '../features/update-checker';
+import { VITE_DEV_SERVER_URL, RENDERER_DIST, PRELOAD_SCRIPT } from '../lib/constants';
 
 const store = new Store(); // Can be configured with schema if needed
 
@@ -33,6 +34,9 @@ export function createEditorWindow(videoPath: string, metadataPath: string, webc
       webSecurity: !VITE_DEV_SERVER_URL,
     },
   });
+
+  // Cleanup orphaned recordings
+  cleanupOrphanedRecordings();
 
   // Save bounds logic
   let resizeTimeout: NodeJS.Timeout;
