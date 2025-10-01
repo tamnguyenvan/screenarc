@@ -76,11 +76,13 @@ export async function getVideoFrame(_event: IpcMainInvokeEvent, { videoPath, tim
 
 export async function getMediaDevices() {
   if (process.platform !== 'win32') {
+    log.info('[Desktop] Fetching media devices via ffmpeg: Not available on this platform');
     return { webcams: [], mics: [] };
   }
 
   const FFMPEG_PATH = getFFmpegPath();
   const command = `"${FFMPEG_PATH}" -list_devices true -f dshow -i dummy`;
+  log.info(`[Desktop] Fetching media devices via ffmpeg: ${command}`);
 
   return new Promise((resolve) => {
     exec(command, (_error, _stdout, stderr) => {

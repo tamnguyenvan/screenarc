@@ -113,7 +113,7 @@ async function startActualRecording(inputArgs: string[], hasWebcam: boolean, has
   appState.ffmpegProcess.on('exit', (code, signal) => {
     // This event fires when the process terminates. We only care about unexpected exits.
     // 'SIGINT' is what we send to stop, so we ignore it.
-    if (code !== 0 && code !== 255 && signal !== 'SIGINT' && signal !== 'SIGTERM') {
+    if (code !== 0 && code !== null && code !== 255 && signal !== 'SIGINT' && signal !== 'SIGTERM') {
       log.error(`[FFMPEG] Process exited unexpectedly with code ${code} and signal ${signal}.`);
       const lastError = ffmpegErrors.slice(-3).join('');
       dialog.showErrorBox(
