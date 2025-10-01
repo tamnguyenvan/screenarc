@@ -193,6 +193,34 @@ export function RecorderPage() {
   const webcamStreamRef = useRef<MediaStream | null>(null);
 
   useEffect(() => {
+    const cleanupListener = window.electronAPI.onReleaseWebcamRequest(() => {
+      console.log("[RecorderPage] Received request to release webcam.");
+      if (webcamStreamRef.current) {
+        webcamStreamRef.current.getTracks().forEach(track => track.stop());
+        webcamStreamRef.current = null;
+        if (webcamPreviewRef.current) {
+          webcamPreviewRef.current.srcObject = null;
+        }
+        console.log("[RecorderPage] Webcam stream stopped.");
+      } else {
+        console.log("[RecorderPage] No active webcam stream to stop.");
+      }
+
+      // Gửi xác nhận cho main process BẤT KỂ có stream hay không.
+      // Đây là dòng quan trọng nhất để sửa lỗi treo.
+      console.log("[RecorderPage] Sending confirmation back to main process.");
+      window.electronAPI.sendWebcamReleasedConfirmation();
+    });
+
+    // Return the cleanup function
+    return () => {
+      if (cleanupListener && typeof cleanupListener === 'function') {
+        cleanupListener();
+      }
+    };
+  }, []);
+
+  useEffect(() => {
     const handleMouseDown = (e: MouseEvent) => {
       const target = e.target as HTMLElement;
       if (!target.closest('[data-interactive="true"]') && !target.closest('[data-radix-select-content]')) {
@@ -352,14 +380,14 @@ export function RecorderPage() {
   const handleStart = async (options: { geometry?: WindowSource['geometry'], windowTitle?: string } = {}) => {
     // Stop the preview stream BEFORE telling the main process to start recording.
     // This releases the webcam so FFmpeg can use it.
-    if (webcamStreamRef.current) {
-      console.log("Stopping webcam preview stream to release device...");
-      webcamStreamRef.current.getTracks().forEach(track => track.stop());
-      webcamStreamRef.current = null;
-      if (webcamPreviewRef.current) {
-        webcamPreviewRef.current.srcObject = null;
-      }
-    }
+    // if (webcamStreamRef.current) {
+    //   console.log("Stopping webcam preview stream to release device...");
+    //   webcamStreamRef.current.getTracks().forEach(track => track.stop());
+    //   webcamStreamRef.current = null;
+    //   if (webcamPreviewRef.current) {
+    //     webcamPreviewRef.current.srcObject = null;
+    //   }
+    // }
 
     try {
       setRecordingState('recording');

@@ -96,6 +96,12 @@ export const electronAPI = {
       ipcRenderer.removeListener('recording-finished', listener);
     };
   },
+  onReleaseWebcamRequest: (callback: () => void) => {
+    const listener = () => callback();
+    ipcRenderer.on('recorder:release-webcam', listener);
+    return () => ipcRenderer.removeListener('recorder:release-webcam', listener);
+  },
+  sendWebcamReleasedConfirmation: () => ipcRenderer.send('recorder:webcam-released'),
 
   // --- Editor window ---
   onProjectOpen: (callback: (payload: ProjectPayload) => void) => {
