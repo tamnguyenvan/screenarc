@@ -189,6 +189,7 @@ export function RecorderPage() {
   const [mics, setMics] = useState<MicDevice[]>([]);
   const [selectedMicId, setSelectedMicId] = useState<string>('none');
   const [cursorScale, setCursorScale] = useState<number>(1);
+  const [isInitializing, setIsInitializing] = useState(true);
   const webcamPreviewRef = useRef<HTMLVideoElement>(null);
   const webcamStreamRef = useRef<MediaStream | null>(null);
 
@@ -235,34 +236,47 @@ export function RecorderPage() {
   }, []);
 
   useEffect(() => {
-    // Get platform
-    window.electronAPI.getPlatform().then(platform => {
-      setPlatform(platform);
-      // Load persisted scale, default to 1 (1x)
-      const savedScale = localStorage.getItem('screenarc_cursorScale');
-      const initialScale = savedScale ? Number(savedScale) : 1;
+    const initialize = async () => {
+      try {
+        const [platformResult, initialScale] = await Promise.all([
+          window.electronAPI.getPlatform(),
+          window.electronAPI.getSetting<number>('recorder.cursorScale'),
+        ]);
 
-      setCursorScale(initialScale);
-      window.electronAPI.setCursorScale(initialScale); // Apply on startup
-    });
+        setPlatform(platformResult);
 
-    // Get the list of displays
-    window.electronAPI.getDisplays().then(fetchedDisplays => {
-      setDisplays(fetchedDisplays);
-      const primary = fetchedDisplays.find(d => d.isPrimary);
-      if (primary) {
-        setSelectedDisplayId(String(primary.id));
-      } else if (fetchedDisplays.length > 0) {
-        setSelectedDisplayId(String(fetchedDisplays[0].id));
+        const scaleToUse = initialScale ?? 1; // Fallback về 1 nếu chưa có setting
+        console.log(`[RecorderPage] Loaded cursor scale from electron-store: ${scaleToUse}`);
+        setCursorScale(scaleToUse);
+        window.electronAPI.setCursorScale(scaleToUse);
+
+        const [fetchedDisplays] = await Promise.all([
+          window.electronAPI.getDisplays(),
+          fetchWebcams(),
+          fetchMics(),
+        ]);
+
+        setDisplays(fetchedDisplays);
+        const primary = fetchedDisplays.find(d => d.isPrimary);
+        if (primary) {
+          setSelectedDisplayId(String(primary.id));
+        } else if (fetchedDisplays.length > 0) {
+          setSelectedDisplayId(String(fetchedDisplays[0].id));
+        }
+      } catch (error) {
+        console.error("Failed to initialize recorder:", error);
+      } finally {
+        setIsInitializing(false);
       }
-    });
+    };
+
+    initialize();
 
     const cleanup = window.electronAPI.onRecordingFinished(() => {
-      // No longer need to setRecorderSize
       setRecordingState('idle');
     });
-
     return () => cleanup();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -284,7 +298,7 @@ export function RecorderPage() {
     const devices = (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === 'videoinput') as WebcamDevice[];
     setWebcams(devices);
 
-    const savedWebcamId = localStorage.getItem('screenarc_selectedWebcamId');
+    const savedWebcamId = await window.electronAPI.getSetting<string>('recorder.selectedWebcamId');
     if (savedWebcamId && devices.some(d => d.deviceId === savedWebcamId)) {
       setSelectedWebcamId(savedWebcamId);
     } else {
@@ -294,20 +308,19 @@ export function RecorderPage() {
 
   const fetchMics = async () => {
     try {
-      // Request audio access permission
       await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
     } catch (err) { console.warn("Could not get microphone permission:", err); }
 
     const devices = (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === 'audioinput') as MicDevice[];
     setMics(devices);
 
-    const savedMicId = localStorage.getItem('screenarc_selectedMicId');
+    const savedMicId = await window.electronAPI.getSetting<string>('recorder.selectedMicId');
     if (savedMicId && devices.some(d => d.deviceId === savedMicId)) {
       setSelectedMicId(savedMicId);
     } else {
       setSelectedMicId('none');
     }
-  }
+  };
 
   useEffect(() => {
     const videoEl = webcamPreviewRef.current;
@@ -378,16 +391,15 @@ export function RecorderPage() {
   };
 
   const handleStart = async (options: { geometry?: WindowSource['geometry'], windowTitle?: string } = {}) => {
-    // Stop the preview stream BEFORE telling the main process to start recording.
-    // This releases the webcam so FFmpeg can use it.
-    // if (webcamStreamRef.current) {
-    //   console.log("Stopping webcam preview stream to release device...");
-    //   webcamStreamRef.current.getTracks().forEach(track => track.stop());
-    //   webcamStreamRef.current = null;
-    //   if (webcamPreviewRef.current) {
-    //     webcamPreviewRef.current.srcObject = null;
-    //   }
-    // }
+    if (webcamStreamRef.current) {
+      console.log("Stopping webcam preview stream to release device BEFORE starting recording...");
+      webcamStreamRef.current.getTracks().forEach(track => track.stop());
+      webcamStreamRef.current = null;
+      if (webcamPreviewRef.current) {
+        webcamPreviewRef.current.srcObject = null;
+      }
+    }
+    await new Promise(resolve => setTimeout(resolve, 100));
 
     try {
       setRecordingState('recording');
@@ -442,17 +454,18 @@ export function RecorderPage() {
 
   const handleWebcamChange = (deviceId: string) => {
     setSelectedWebcamId(deviceId);
-    localStorage.setItem('screenarc_selectedWebcamId', deviceId);
+    window.electronAPI.setSetting('recorder.selectedWebcamId', deviceId);
   };
+
   const handleMicChange = (deviceId: string) => {
     setSelectedMicId(deviceId);
-    localStorage.setItem('screenarc_selectedMicId', deviceId);
+    window.electronAPI.setSetting('recorder.selectedMicId', deviceId);
   }
 
   const handleCursorScaleChange = (newScale: number) => {
     setCursorScale(newScale);
     window.electronAPI.setCursorScale(newScale);
-    localStorage.setItem('screenarc_cursorScale', newScale.toString());
+    window.electronAPI.setSetting('recorder.cursorScale', newScale);
   };
   const cursorScales = platform === 'win32' ? WINDOWS_SCALES : LINUX_SCALES;
 
@@ -466,9 +479,11 @@ export function RecorderPage() {
   const showWindowPicker = isWindowMode && !showLinuxWarning;
 
   let buttonIcon = <Video size={20} />;
-  let isButtonDisabled = false;
+  let isButtonDisabled = isInitializing;
 
-  if (isWindowMode) {
+  if (isInitializing) {
+    buttonIcon = <Loader2 size={20} className="animate-spin" />;
+  } else if (isWindowMode) {
     isButtonDisabled = true;
     if (showLinuxWarning) {
       buttonIcon = <AlertTriangle size={20} />;
@@ -492,7 +507,7 @@ export function RecorderPage() {
             className={cn(
               "flex items-stretch gap-4 p-2 rounded-2xl",
               "bg-card border border-border text-card-foreground",
-              "shadow-lg backdrop-blur-xl"
+              "shadow-lg backdrop-blur-xl",
             )}
             style={{ WebkitAppRegion: 'drag' }}
           >
@@ -551,8 +566,9 @@ export function RecorderPage() {
                 className={cn(
                   "h-12 w-12",
                   "rounded-full",
-                  isButtonDisabled && showLinuxWarning && "bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/30",
-                  isButtonDisabled && !showLinuxWarning && "opacity-50"
+                  isInitializing && "cursor-wait",
+                  isButtonDisabled && !isInitializing && showLinuxWarning && "bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/30",
+                  isButtonDisabled && !isInitializing && !showLinuxWarning && "opacity-50"
                 )}
               >
                 {buttonIcon}

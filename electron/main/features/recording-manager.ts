@@ -49,23 +49,6 @@ async function startActualRecording(inputArgs: string[], hasWebcam: boolean, has
     appState.mouseTracker.start();
   }
 
-  await new Promise<void>((resolve) => {
-    if (hasWebcam && appState.recorderWin) {
-      log.info('[RecordingManager] Requesting renderer to release webcam...');
-      // 1. Send request to release webcam
-      appState.recorderWin.webContents.send('recorder:release-webcam');
-      
-      // 2. Wait for confirmation from renderer
-      ipcMain.once('recorder:webcam-released', () => {
-        log.info('[RecordingManager] Received confirmation: webcam released.');
-        resolve();
-      });
-    } else {
-      // If no webcam, continue immediately
-      resolve();
-    }
-  });
-
   const finalArgs = buildFfmpegArgs(inputArgs, hasWebcam, hasMic, screenVideoPath, webcamVideoPath);
   log.info(`Starting FFmpeg with args: ${finalArgs.join(' ')}`);
   appState.ffmpegProcess = spawn(FFMPEG_PATH, finalArgs);
