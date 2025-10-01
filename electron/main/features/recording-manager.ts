@@ -5,7 +5,7 @@ import { spawn } from 'node:child_process';
 import path from 'node:path';
 import fs from 'node:fs';
 import fsPromises from 'node:fs/promises';
-import { Menu, Tray, nativeImage, screen, ipcMain } from 'electron';
+import { app, Menu, Tray, nativeImage, screen, ipcMain, dialog } from 'electron';
 import { appState } from '../state';
 import { getFFmpegPath, ensureDirectoryExists } from '../lib/utils';
 import { VITE_PUBLIC } from '../lib/constants';
@@ -13,9 +13,43 @@ import { createMouseTracker } from './mouse-tracker';
 import { getCursorScale, restoreOriginalCursorScale, resetCursorScale } from './cursor-manager';
 import { createEditorWindow, cleanupEditorFiles } from '../windows/editor-window';
 import { createSavingWindow, createSelectionWindow } from '../windows/temporary-windows';
-import { app } from 'electron';
+import type { RecordingSession } from '../state';
 
 const FFMPEG_PATH = getFFmpegPath();
+
+async function validateRecordingFiles(session: RecordingSession): Promise<boolean> {
+  log.info('[Validation] Validating recorded files...');
+  const filesToValidate = [session.screenVideoPath];
+  if (session.webcamVideoPath) {
+    filesToValidate.push(session.webcamVideoPath);
+  }
+
+  for (const filePath of filesToValidate) {
+    try {
+      const stats = await fsPromises.stat(filePath);
+      if (stats.size === 0) {
+        const errorMessage = `The recording produced an empty video file (${path.basename(filePath)}). This could be due to incorrect permissions, lack of disk space, or a hardware issue.`;
+        log.error(`[Validation] ${errorMessage}`);
+        dialog.showErrorBox('Recording Validation Failed', errorMessage);
+        return false;
+      }
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+        const errorMessage = `The recording process failed to create the video file: ${path.basename(filePath)}.`;
+        log.error(`[Validation] ${errorMessage}`);
+        dialog.showErrorBox('Recording Validation Failed', errorMessage);
+      } else {
+        const errorMessage = `Could not access the recorded file (${path.basename(filePath)}). Error: ${(error as Error).message}`;
+        log.error(`[Validation] ${errorMessage}`, error);
+        dialog.showErrorBox('File Error', errorMessage);
+      }
+      return false;
+    }
+  }
+
+  log.info('[Validation] All recorded files appear valid (exist and are not empty).');
+  return true;
+}
 
 async function startActualRecording(inputArgs: string[], hasWebcam: boolean, hasMic: boolean) {
   const recordingDir = path.join(process.env.HOME || process.env.USERPROFILE || '.', '.screenarc');
@@ -52,8 +86,44 @@ async function startActualRecording(inputArgs: string[], hasWebcam: boolean, has
   const finalArgs = buildFfmpegArgs(inputArgs, hasWebcam, hasMic, screenVideoPath, webcamVideoPath);
   log.info(`Starting FFmpeg with args: ${finalArgs.join(' ')}`);
   appState.ffmpegProcess = spawn(FFMPEG_PATH, finalArgs);
+
+  const ffmpegErrors: string[] = [];
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  appState.ffmpegProcess.stderr.on('data', (data: any) => log.info(`FFmpeg: ${data}`));
+  appState.ffmpegProcess.stderr.on('data', (data: any) => {
+    const message = data.toString();
+    log.warn(`FFmpeg stderr: ${message}`); // Log as warning instead of info
+    ffmpegErrors.push(message);
+
+    // Check for known fatal errors that can occur early
+    const fatalErrorKeywords = [
+      'Cannot open display',
+      'Invalid argument',
+      'Device not found',
+      'Unknown input format',
+      'error opening device'
+    ];
+    if (fatalErrorKeywords.some(keyword => message.includes(keyword))) {
+      log.error(`[FFMPEG] Fatal error detected: ${message}`);
+      dialog.showErrorBox('Recording Failed', `A critical error occurred while starting the recording process:\n\n${message}\n\nPlease check your device permissions and configurations.`);
+      // Use a small timeout to ensure the process is fully spawned before trying to kill it.
+      setTimeout(() => cleanupAndDiscard(), 100);
+    }
+  });
+
+  appState.ffmpegProcess.on('exit', (code, signal) => {
+    // This event fires when the process terminates. We only care about unexpected exits.
+    // 'SIGINT' is what we send to stop, so we ignore it.
+    if (code !== 0 && signal !== 'SIGINT' && signal !== 'SIGTERM') {
+      log.error(`[FFMPEG] Process exited unexpectedly with code ${code} and signal ${signal}.`);
+      const lastError = ffmpegErrors.slice(-3).join('');
+      dialog.showErrorBox(
+        'Recording Process Crashed',
+        `The recording stopped unexpectedly. This might be due to a hardware issue or configuration problem.\n\nLast error message:\n${lastError}`
+      );
+      cleanupAndDiscard();
+      appState.recorderWin?.show();
+    }
+  });
 
   createTray();
 
@@ -155,13 +225,33 @@ export async function stopRecording() {
   appState.tray = null;
   createSavingWindow();
   await cleanupAndSave();
-  log.info('Files saved successfully.');
+  log.info('FFmpeg process finished.');
 
+  const session = appState.currentRecordingSession;
+  if (!session) {
+    log.error('[StopRecord] No recording session found after cleanup. Aborting.');
+    appState.savingWin?.close();
+    appState.recorderWin?.show();
+    return;
+  }
+
+  const isValid = await validateRecordingFiles(session);
+
+  if (!isValid) {
+    log.error('[StopRecord] Recording validation failed. Discarding files.');
+    await cleanupEditorFiles(session); // Use existing function to delete bad files
+    appState.currentRecordingSession = null;
+    appState.savingWin?.close();
+    resetCursorScale();
+    appState.recorderWin?.show(); // Re-open the recorder for the user
+    return; // Abort opening the editor
+  }
+
+  // If validation passes, proceed as normal
   await new Promise(resolve => setTimeout(resolve, 500));
   appState.savingWin?.close();
   resetCursorScale();
 
-  const session = appState.currentRecordingSession;
   appState.currentRecordingSession = null;
   if (session) {
     createEditorWindow(session.screenVideoPath, session.metadataPath, session.webcamVideoPath);
