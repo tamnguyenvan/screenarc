@@ -8,6 +8,7 @@
   "scripts": {
     "dev": "vite",
     "clean": "rimraf dist dist-electron build",
+    "build": "npm run clean && tsc && vite build",
     "dist": "tsc && npm run build && electron-builder",
     "dist:appimage": "tsc && npm run build && electron-builder build -l AppImage",
     "dist:flatpak": "tsc && npm run build && electron-builder build -l flatpak",
