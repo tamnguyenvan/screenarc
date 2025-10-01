@@ -124,7 +124,7 @@ jobs:
       - name: Install dependencies
         run: |
           npm install -g node-gyp
-          npm ci --loglevel verbose
+          npm ci
           echo "Checking if ffi-rs is installed..."
           npm list ffi-rs || echo "ffi-rs is not installed"
       

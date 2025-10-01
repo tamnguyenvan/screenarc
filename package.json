@@ -3,7 +3,7 @@
   "description": "Screen recording and editing app",
   "author": "Tam Nguyen",
   "private": true,
-  "version": "1.0.74",
+  "version": "1.0.75",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -63,7 +63,7 @@
     "global-mouse-events": "github:tamnguyenvan/global-mouse-events",
     "winreg": "^1.2.4",
     "x11": "github:tamnguyenvan/node-x11",
-    "ffi-rs": "^1.3.0"
+    "@yuuang/ffi-rs-win32-x64-msvc": "^1.3.0"
   },
   "main": "dist-electron/index.js",
   "build": {
