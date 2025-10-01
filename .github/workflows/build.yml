@@ -127,6 +127,9 @@ jobs:
           npm ci --loglevel verbose
           echo "Checking if ffi-rs is installed..."
           npm list ffi-rs || echo "ffi-rs is not installed"
+      
+      - name: Rebuild native modules
+        run: npm run postinstall
 
       - name: Build and Publish Windows App
         run: npm run dist:win
