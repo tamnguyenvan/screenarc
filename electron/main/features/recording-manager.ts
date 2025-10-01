@@ -200,9 +200,11 @@ async function cleanupAndSave(): Promise<void> {
         log.info(`FFmpeg process exited with code ${code}`);
         resolve();
       });
-      log.info('Sending SIGINT to FFmpeg...');
-      ffmpeg.stdin.write('q');
-      ffmpeg.stdin.end();
+      // This is the reliable, cross-platform way to gracefully stop ffmpeg.
+      // FFmpeg is designed to catch SIGINT, finalize the file container (e.g., write the moov atom for MP4), and then exit.
+      // This prevents file corruption.
+      log.info('Sending SIGINT to FFmpeg for graceful shutdown...');
+      ffmpeg.kill('SIGINT');
     } else {
       resolve();
     }
