@@ -27,7 +27,7 @@ export function initializeMouseTrackerDependencies() {
 
   if (process.platform === 'win32') {
     try {
-      mouseEvents = require('global-mouse-events').default;
+      mouseEvents = require('global-mouse-events');
       log.info('[MouseTracker] Successfully loaded global-mouse-events for Windows.');
     } catch (e) {
       log.error('[MouseTracker] Failed to load global-mouse-events. Mouse tracking on Windows will be disabled.', e);
