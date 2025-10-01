@@ -10,7 +10,7 @@ const require = createRequire(import.meta.url);
 
 const LINUX_SCALES = [1, 1.5, 2];
 const LINUX_BASE_SIZE = 24;
-const WINDOWS_SCALES = [1, 2, 3, 4];
+const WINDOWS_SCALES = [1, 2, 3];
 const WINDOWS_BASE_SIZE = 32;
 
 // --- Dynamic Imports ---
