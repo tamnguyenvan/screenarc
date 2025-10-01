@@ -10,6 +10,7 @@ import * as shellHandlers from './handlers/shell';
 export function registerIpcHandlers() {
   // App & Window
   ipcMain.handle('app:getPath', appHandlers.handleGetPath);
+  ipcMain.handle('app:getVersion', appHandlers.handleGetVersion);
   ipcMain.handle('app:getPlatform', appHandlers.handleGetPlatform);
   ipcMain.on('window:minimize', appHandlers.minimizeWindow);
   ipcMain.on('window:maximize', appHandlers.maximizeWindow);

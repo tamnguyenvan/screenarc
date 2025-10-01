@@ -6,6 +6,10 @@ export function handleGetPath(_event: IpcMainInvokeEvent, name: 'home' | 'userDa
   return app.getPath(name);
 }
 
+export function handleGetVersion() {
+  return app.getVersion();
+}
+
 export function handleGetPlatform() {
   return process.platform;
 }

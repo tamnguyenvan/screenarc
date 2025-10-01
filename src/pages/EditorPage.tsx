@@ -9,7 +9,8 @@ import { ExportButton } from '../components/editor/ExportButton';
 import { ExportModal } from '../components/editor/ExportModal';
 import { WindowControls } from '../components/editor/WindowControls';
 import { PresetModal } from '../components/editor/PresetModal';
-import { Layers3, Moon, Sun, Loader2, Check } from 'lucide-react';
+import { SettingsModal } from '../components/settings/SettingsModal';
+import { Layers3, Moon, Sun, Loader2, Check, Settings } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
 import { useExportProcess } from '../hooks/useExportProcess';
@@ -40,6 +41,7 @@ export function EditorPage() {
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const [isPresetModalOpen, setPresetModalOpen] = useState(false);
+  const [isSettingsModalOpen, setSettingsModalOpen] = useState(false);
   const [updateInfo, setUpdateInfo] = useState<{ version: string; url: string } | null>(null);
   const [platform, setPlatform] = useState<NodeJS.Platform | null>(null);
 
@@ -124,6 +126,9 @@ export function EditorPage() {
               <Button variant="ghost" size="icon" onClick={toggleTheme} aria-label="Toggle theme" className={cn('h-8 w-8 text-muted-foreground hover:text-foreground')}>
                 {currentTheme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
               </Button>
+              <Button variant="ghost" size="icon" onClick={() => setSettingsModalOpen(true)} aria-label="Open Settings" className={cn('h-8 w-8 text-muted-foreground hover:text-foreground')}>
+                <Settings className="w-4 h-4" />
+              </Button>
               <Button
                 variant="secondary"
                 size="sm"
@@ -166,6 +171,7 @@ export function EditorPage() {
         result={exportResult}
       />
       <PresetModal isOpen={isPresetModalOpen} onClose={() => setPresetModalOpen(false)} />
+      <SettingsModal isOpen={isSettingsModalOpen} onClose={() => setSettingsModalOpen(false)} />
     </main>
   );
 }

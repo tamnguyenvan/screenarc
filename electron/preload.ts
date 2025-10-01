@@ -175,6 +175,7 @@ export const electronAPI = {
   maximizeWindow: () => ipcRenderer.send('window:maximize'),
   closeWindow: () => ipcRenderer.send('window:close'),
   recorderClickThrough: () => ipcRenderer.send('recorder:click-through'),
+  getVersion: (): Promise<string> => ipcRenderer.invoke('app:getVersion'),
   getPlatform: (): Promise<NodeJS.Platform> => ipcRenderer.invoke('app:getPlatform'),
   getVideoFrame: (options: { videoPath: string; time: number }): Promise<string> => ipcRenderer.invoke('video:get-frame', options),
 }
