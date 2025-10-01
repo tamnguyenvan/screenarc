@@ -4,14 +4,15 @@ import log from 'electron-log/main';
 import { spawn } from 'node:child_process';
 import path from 'node:path';
 import fs from 'node:fs';
+import fsPromises from 'node:fs/promises';
 import { Menu, Tray, nativeImage, screen, ipcMain } from 'electron';
 import { appState } from '../state';
 import { getFFmpegPath, ensureDirectoryExists } from '../lib/utils';
 import { VITE_PUBLIC } from '../lib/constants';
 import { createMouseTracker } from './mouse-tracker';
-import { getCursorSize, restoreOriginalCursorSize, resetCursorSize } from './cursor-manager';
+import { getCursorScale, restoreOriginalCursorScale, resetCursorScale } from './cursor-manager';
 import { createEditorWindow, cleanupEditorFiles } from '../windows/editor-window';
-import { createCountdownWindow, createSavingWindow, createSelectionWindow } from '../windows/temporary-windows';
+import { createSavingWindow, createSelectionWindow } from '../windows/temporary-windows';
 import { app } from 'electron';
 
 const FFMPEG_PATH = getFFmpegPath();
@@ -28,71 +29,74 @@ async function startActualRecording(inputArgs: string[], hasWebcam: boolean, has
   appState.currentRecordingSession = { screenVideoPath, webcamVideoPath, metadataPath };
 
   appState.recorderWin?.hide();
-  createCountdownWindow();
 
-  setTimeout(() => {
-    appState.countdownWin?.close();
+  appState.firstChunkWritten = true;
+  appState.recordingStartTime = Date.now();
+  appState.mouseTracker = createMouseTracker();
+  appState.metadataStream = fs.createWriteStream(metadataPath);
+  appState.metadataStream.write('[\n');
 
-    appState.firstChunkWritten = true;
-    appState.recordingStartTime = Date.now();
-    appState.mouseTracker = createMouseTracker();
-    appState.metadataStream = fs.createWriteStream(metadataPath);
-    appState.metadataStream.write('[\n');
-
-    if (appState.mouseTracker) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      appState.mouseTracker.on('data', (data: any) => {
-        const relativeTimestampData = { ...data, timestamp: data.timestamp - appState.recordingStartTime };
-        if (appState.metadataStream?.writable) {
-          if (!appState.firstChunkWritten) appState.metadataStream.write(',\n');
-          appState.metadataStream.write(JSON.stringify(relativeTimestampData));
-          appState.firstChunkWritten = false;
-        }
-      });
-      appState.mouseTracker.start();
-    }
-
-    const finalArgs = buildFfmpegArgs(inputArgs, hasWebcam, hasMic, screenVideoPath, webcamVideoPath);
-    log.info(`Starting FFmpeg with args: ${finalArgs.join(' ')}`);
-    appState.ffmpegProcess = spawn(FFMPEG_PATH, finalArgs);
+  if (appState.mouseTracker) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    appState.ffmpegProcess.stderr.on('data', (data: any) => log.info(`FFmpeg: ${data}`));
+    appState.mouseTracker.on('data', (data: any) => {
+      const relativeTimestampData = { ...data, timestamp: data.timestamp - appState.recordingStartTime };
+      if (appState.metadataStream?.writable) {
+        if (!appState.firstChunkWritten) appState.metadataStream.write(',\n');
+        appState.metadataStream.write(JSON.stringify(relativeTimestampData));
+        appState.firstChunkWritten = false;
+      }
+    });
+    appState.mouseTracker.start();
+  }
 
-    createTray();
-  }, 3800);
+  if (hasWebcam) {
+    await new Promise(resolve => setTimeout(resolve, 300));
+  }
+
+  const finalArgs = buildFfmpegArgs(inputArgs, hasWebcam, hasMic, screenVideoPath, webcamVideoPath);
+  log.info(`Starting FFmpeg with args: ${finalArgs.join(' ')}`);
+  appState.ffmpegProcess = spawn(FFMPEG_PATH, finalArgs);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  appState.ffmpegProcess.stderr.on('data', (data: any) => log.info(`FFmpeg: ${data}`));
+
+  createTray();
 
   return { canceled: false, ...appState.currentRecordingSession };
 }
 
 function buildFfmpegArgs(inputArgs: string[], hasWebcam: boolean, hasMic: boolean, screenOut: string, webcamOut?: string): string[] {
-    const finalArgs = [...inputArgs];
-    const micIndex = hasMic ? 0 : -1;
-    const webcamIndex = hasMic ? (hasWebcam ? 1 : -1) : (hasWebcam ? 0 : -1);
-    const screenIndex = (hasMic ? 1 : 0) + (hasWebcam ? 1 : 0);
+  const finalArgs = [...inputArgs];
+  const micIndex = hasMic ? 0 : -1;
+  const webcamIndex = hasMic ? (hasWebcam ? 1 : -1) : (hasWebcam ? 0 : -1);
+  const screenIndex = (hasMic ? 1 : 0) + (hasWebcam ? 1 : 0);
 
-    finalArgs.push('-map', `${screenIndex}:v`);
-    if (hasMic) {
-      finalArgs.push('-map', `${micIndex}:a`, '-c:a', 'aac', '-b:a', '192k');
-    }
-    finalArgs.push('-c:v', 'libx264', '-preset', 'ultrafast', '-pix_fmt', 'yuv420p', screenOut);
-    if (hasWebcam) {
-      finalArgs.push('-map', `${webcamIndex}:v`, '-c:v', 'libx264', '-preset', 'ultrafast', '-pix_fmt', 'yuv420p', webcamOut!);
-    }
-    return finalArgs;
+  finalArgs.push('-map', `${screenIndex}:v`);
+  if (hasMic) {
+    finalArgs.push('-map', `${micIndex}:a`, '-c:a', 'aac', '-b:a', '192k');
+  }
+  finalArgs.push('-c:v', 'libx264', '-preset', 'ultrafast', '-pix_fmt', 'yuv420p', screenOut);
+  if (hasWebcam) {
+    finalArgs.push('-map', `${webcamIndex}:v`, '-c:v', 'libx264', '-preset', 'ultrafast', '-pix_fmt', 'yuv420p', webcamOut!);
+  }
+  return finalArgs;
 }
 
 function createTray() {
   const icon = nativeImage.createFromPath(path.join(VITE_PUBLIC, 'screenarc-appicon-tray.png'));
   appState.tray = new Tray(icon);
   const contextMenu = Menu.buildFromTemplate([
-    { label: 'Stop Recording', click: async () => {
+    {
+      label: 'Stop Recording', click: async () => {
         await stopRecording();
         appState.recorderWin?.webContents.send('recording-finished', { canceled: false, ...appState.currentRecordingSession });
-    }},
-    { label: 'Cancel Recording', click: async () => {
+      }
+    },
+    {
+      label: 'Cancel Recording', click: async () => {
         await cancelRecording();
         appState.recorderWin?.webContents.send('recording-finished', { canceled: true });
-    }},
+      }
+    },
   ]);
   appState.tray.setToolTip('ScreenArc is recording...');
   appState.tray.setContextMenu(contextMenu);
@@ -103,7 +107,7 @@ export async function startRecording(options: any) { // Type from preload.ts
   const { source, displayId, mic, webcam } = options;
   const display = process.env.DISPLAY || ':0.0';
   const baseFfmpegArgs: string[] = [];
-  
+
   if (mic) {
     switch (process.platform) {
       case 'linux': baseFfmpegArgs.push('-f', 'alsa', '-i', 'default'); break;
@@ -143,13 +147,13 @@ export async function startRecording(options: any) { // Type from preload.ts
   } else { /* window source logic here if re-enabled */
     return { canceled: true };
   }
-  
-  appState.originalCursorSize = await getCursorSize();
+
+  appState.originalCursorScale = await getCursorScale();
   return startActualRecording(baseFfmpegArgs, !!webcam, !!mic);
 }
 
 export async function stopRecording() {
-  restoreOriginalCursorSize();
+  restoreOriginalCursorScale();
   log.info('Stopping recording, preparing to save...');
   appState.tray?.destroy();
   appState.tray = null;
@@ -159,8 +163,8 @@ export async function stopRecording() {
 
   await new Promise(resolve => setTimeout(resolve, 500));
   appState.savingWin?.close();
-  resetCursorSize();
-  
+  resetCursorScale();
+
   const session = appState.currentRecordingSession;
   appState.currentRecordingSession = null;
   if (session) {
@@ -181,7 +185,7 @@ async function cleanupAndSave(): Promise<void> {
       appState.mouseTracker.stop();
       appState.mouseTracker = null;
     }
-    if (appState.metadataStream) {
+    if (appState.metadataStream?.writable) {
       if (!appState.metadataStream.writableEnded) {
         appState.metadataStream.write('\n]');
         appState.metadataStream.end();
@@ -223,7 +227,7 @@ export async function cleanupAndDiscard() {
     appState.metadataStream.end();
     appState.metadataStream = null;
   }
-  restoreOriginalCursorSize();
+  restoreOriginalCursorScale();
   appState.tray?.destroy();
   appState.tray = null;
 
@@ -231,6 +235,63 @@ export async function cleanupAndDiscard() {
     await cleanupEditorFiles(sessionToDiscard);
   }, 200);
 }
+
+export async function cleanupOrphanedRecordings() {
+  log.info('[Cleanup] Starting orphaned recording cleanup...');
+  const recordingDir = path.join(process.env.HOME || process.env.USERPROFILE || '.', '.screenarc');
+
+  // 1. Collect all file paths that are currently in use and should NOT be deleted.
+  const protectedFiles = new Set<string>();
+  if (appState.currentEditorSessionFiles) {
+    protectedFiles.add(appState.currentEditorSessionFiles.screenVideoPath);
+    protectedFiles.add(appState.currentEditorSessionFiles.metadataPath);
+    if (appState.currentEditorSessionFiles.webcamVideoPath) {
+      protectedFiles.add(appState.currentEditorSessionFiles.webcamVideoPath);
+    }
+  }
+  if (appState.currentRecordingSession) {
+    protectedFiles.add(appState.currentRecordingSession.screenVideoPath);
+    protectedFiles.add(appState.currentRecordingSession.metadataPath);
+    if (appState.currentRecordingSession.webcamVideoPath) {
+      protectedFiles.add(appState.currentRecordingSession.webcamVideoPath);
+    }
+  }
+
+  try {
+    const allFiles = await fsPromises.readdir(recordingDir);
+    const filePattern = /^ScreenArc-recording-\d+(-screen\.mp4|-webcam\.mp4|\.json)$/;
+
+    const filesToDelete = allFiles
+      .filter(file => filePattern.test(file)) // Only target files matching our naming convention
+      .map(file => path.join(recordingDir, file)) // Get the full path
+      .filter(fullPath => !protectedFiles.has(fullPath)); // Exclude files from the current session
+
+    if (filesToDelete.length === 0) {
+      log.info('[Cleanup] No orphaned files found.');
+      return;
+    }
+
+    log.warn(`[Cleanup] Found ${filesToDelete.length} orphaned files to delete.`);
+
+    let deletedCount = 0;
+    for (const filePath of filesToDelete) {
+      try {
+        await fsPromises.unlink(filePath);
+        log.info(`[Cleanup] Deleted orphaned file: ${filePath}`);
+        deletedCount++;
+      } catch (unlinkError) {
+        log.error(`[Cleanup] Failed to delete orphaned file: ${filePath}`, unlinkError);
+      }
+    }
+    log.info(`[Cleanup] Successfully deleted ${deletedCount} of ${filesToDelete.length} orphaned files.`);
+
+  } catch (error: unknown) {
+    if (error instanceof Error && 'code' in error && (error as NodeJS.ErrnoException).code !== 'ENOENT') {
+      log.error('[Cleanup] Error during orphaned file cleanup:', error);
+    }
+  }
+}
+
 
 export async function onAppQuit(event: Electron.Event) {
   if (appState.currentRecordingSession && !appState.isCleanupInProgress) {

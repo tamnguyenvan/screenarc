@@ -240,7 +240,6 @@ export function ExportModal({ isOpen, onClose, onStartExport, onCancelExport, is
   return (
     <div
       className="modal-backdrop z-50 flex items-center justify-center"
-      onClick={onClose}
     >
       <div
         className="card-clean w-full max-w-2xl m-4 flex flex-col"

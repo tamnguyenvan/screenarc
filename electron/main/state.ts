@@ -15,7 +15,6 @@ interface AppState {
   // Windows
   recorderWin: BrowserWindow | null;
   editorWin: BrowserWindow | null;
-  countdownWin: BrowserWindow | null;
   renderWorker: BrowserWindow | null;
   savingWin: BrowserWindow | null;
   selectionWin: BrowserWindow | null;
@@ -31,7 +30,7 @@ interface AppState {
   // Recording State
   firstChunkWritten: boolean;
   recordingStartTime: number;
-  originalCursorSize: number | null;
+  originalCursorScale: number | null;
   currentRecordingSession: RecordingSession | null;
   currentEditorSessionFiles: RecordingSession | null;
 
@@ -42,7 +41,6 @@ interface AppState {
 export const appState: AppState = {
   recorderWin: null,
   editorWin: null,
-  countdownWin: null,
   renderWorker: null,
   savingWin: null,
   selectionWin: null,
@@ -52,7 +50,7 @@ export const appState: AppState = {
   mouseTracker: null,
   firstChunkWritten: true,
   recordingStartTime: 0,
-  originalCursorSize: null,
+  originalCursorScale: null,
   currentRecordingSession: null,
   currentEditorSessionFiles: null,
   isCleanupInProgress: false,

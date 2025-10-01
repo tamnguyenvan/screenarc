@@ -18,8 +18,8 @@ export function registerIpcHandlers() {
   // Desktop
   ipcMain.handle('desktop:get-displays', desktopHandlers.getDisplays);
   ipcMain.handle('desktop:get-sources', desktopHandlers.getDesktopSources);
-  ipcMain.handle('desktop:get-cursor-size', desktopHandlers.handleGetCursorSize);
-  ipcMain.on('desktop:set-cursor-size', desktopHandlers.handleSetCursorSize);
+  ipcMain.handle('desktop:get-cursor-scale', desktopHandlers.handleGetCursorScale);
+  ipcMain.on('desktop:set-cursor-scale', desktopHandlers.handleSetCursorScale);
   ipcMain.handle('dialog:showSaveDialog', desktopHandlers.showSaveDialog);
   ipcMain.handle('video:get-frame', desktopHandlers.getVideoFrame);
 

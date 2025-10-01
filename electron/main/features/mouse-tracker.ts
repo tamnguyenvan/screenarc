@@ -4,36 +4,44 @@ import log from 'electron-log/main';
 import { EventEmitter } from 'node:events';
 import { dialog } from 'electron';
 import { MOUSE_RECORDING_FPS } from '../lib/constants';
+import { createRequire } from 'node:module';
+
+const require = createRequire(import.meta.url);
+
 
 // --- Dynamic Imports for Platform-Specific Modules ---
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let X11Module: any;
-if (process.platform === 'linux') {
-  try {
-    X11Module = require('x11');
-    log.info('[MouseTracker] Successfully loaded x11 module for Linux.');
-  } catch (e) {
-    log.error('[MouseTracker] Failed to load x11 module. Mouse tracking on Linux will be disabled.', e);
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let mouseEvents: any;
+
+export function initializeMouseTrackerDependencies() {
+  if (process.platform === 'linux') {
+    try {
+      X11Module = require('x11');
+      log.info('[MouseTracker] Successfully loaded x11 module for Linux.');
+    } catch (e) {
+      log.error('[MouseTracker] Failed to load x11 module. Mouse tracking on Linux will be disabled.', e);
+    }
+  }
+
+  if (process.platform === 'win32') {
+    try {
+      mouseEvents = require('global-mouse-events');
+      log.info('[MouseTracker] Successfully loaded global-mouse-events for Windows.');
+    } catch (e) {
+      log.error('[MouseTracker] Failed to load global-mouse-events. Mouse tracking on Windows will be disabled.', e);
+    }
   }
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-let mouseEvents: any;
-if (process.platform === 'win32') {
-  try {
-    mouseEvents = require('global-mouse-events');
-    log.info('[MouseTracker] Successfully loaded global-mouse-events for Windows.');
-  } catch (e) {
-    log.error('[MouseTracker] Failed to load global-mouse-events. Mouse tracking on Windows will be disabled.', e);
-  }
-}
 
 // --- Interfaces and Classes ---
 export interface IMouseTracker extends EventEmitter {
   start(): void;
   stop(): void;
 }
-
+// ... (rest of the file is unchanged)
 class LinuxMouseTracker extends EventEmitter implements IMouseTracker {
   private intervalId: NodeJS.Timeout | null = null;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

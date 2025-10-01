@@ -9,6 +9,19 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { cn } from '../lib/utils';
 import "../index.css";
 
+const LINUX_SCALES = [
+  { value: 2, label: '2x' },
+  { value: 1.5, label: '1.5x' },
+  { value: 1, label: '1x' },
+];
+
+const WINDOWS_SCALES = [
+  { value: 4, label: '4x' },
+  { value: 3, label: '3x' },
+  { value: 2, label: '2x' },
+  { value: 1, label: '1x' },
+];
+
 type RecordingState = 'idle' | 'recording';
 type RecordingSource = 'area' | 'fullscreen' | 'window';
 
@@ -175,22 +188,20 @@ export function RecorderPage() {
   const [selectedWebcamId, setSelectedWebcamId] = useState<string>('none');
   const [mics, setMics] = useState<MicDevice[]>([]);
   const [selectedMicId, setSelectedMicId] = useState<string>('none');
-  const [cursorSize, setCursorSize] = useState<number>(2);
+  const [cursorScale, setCursorScale] = useState<number>(1);
   const webcamPreviewRef = useRef<HTMLVideoElement>(null);
   const webcamStreamRef = useRef<MediaStream | null>(null);
 
   useEffect(() => {
-    // Get platform and cursor size
+    // Get platform
     window.electronAPI.getPlatform().then(platform => {
       setPlatform(platform);
-      if (platform === 'linux') {
-        // Load persisted size, default to 2 (2x)
-        const savedSize = localStorage.getItem('screenarc_cursorSize');
-        const initialSize = savedSize ? parseInt(savedSize, 10) : 2;
+      // Load persisted scale, default to 1 (1x)
+      const savedScale = localStorage.getItem('screenarc_cursorScale');
+      const initialScale = savedScale ? Number(savedScale) : 1;
 
-        setCursorSize(initialSize);
-        window.electronAPI.setCursorSize(initialSize); // Apply on startup
-      }
+      setCursorScale(initialScale);
+      window.electronAPI.setCursorScale(initialScale); // Apply on startup
     });
 
     // Get the list of displays
@@ -396,11 +407,12 @@ export function RecorderPage() {
     localStorage.setItem('screenarc_selectedMicId', deviceId);
   }
 
-  const handleCursorSizeChange = (newSize: number) => {
-    setCursorSize(newSize);
-    window.electronAPI.setCursorSize(newSize);
-    localStorage.setItem('screenarc_cursorSize', newSize.toString());
+  const handleCursorScaleChange = (newScale: number) => {
+    setCursorScale(newScale);
+    window.electronAPI.setCursorScale(newScale);
+    localStorage.setItem('screenarc_cursorScale', newScale.toString());
   };
+  const cursorScales = platform === 'win32' ? WINDOWS_SCALES : LINUX_SCALES;
 
   if (recordingState === 'recording') {
     return null;
@@ -576,16 +588,16 @@ export function RecorderPage() {
                 <div className="flex items-center gap-2" style={{ WebkitAppRegion: 'no-drag' }}>
                   <MousePointer size={18} className="text-muted-foreground" />
                   <Select
-                    value={String(cursorSize)}
-                    onValueChange={(value) => handleCursorSizeChange(Number(value))}
+                    value={String(cursorScale)}
+                    onValueChange={(value) => handleCursorScaleChange(Number(value))}
                   >
-                    <SelectTrigger className="w-12 h-10 border-border/50 bg-background/60">
+                    <SelectTrigger className="w-16 h-10 border-border/50 bg-background/60">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="2">2x</SelectItem>
-                      <SelectItem value="1.5">1.5x</SelectItem>
-                      <SelectItem value="1">1x</SelectItem>
+                      {cursorScales.map(s => (
+                        <SelectItem key={s.value} value={String(s.value)}>{s.label}</SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>

@@ -4,7 +4,7 @@ import { IpcMainEvent, IpcMainInvokeEvent, screen, desktopCapturer, dialog } fro
 import { exec } from 'node:child_process';
 import log from 'electron-log/main';
 import { getFFmpegPath } from '../../lib/utils';
-import { getCursorSize, setCursorSize } from '../../features/cursor-manager';
+import { getCursorScale, setCursorScale } from '../../features/cursor-manager';
 import { GRAY_PLACEHOLDER_URL, EXCLUDED_WINDOW_NAMES } from '../../lib/constants';
 
 export function getDisplays() {
@@ -47,12 +47,12 @@ export async function getDesktopSources() {
     .map(s => ({ id: s.id, name: s.name, thumbnailUrl: s.thumbnail.toDataURL() }));
 }
 
-export function handleGetCursorSize() {
-  return getCursorSize();
+export function handleGetCursorScale() {
+  return getCursorScale();
 }
 
-export function handleSetCursorSize(_event: IpcMainEvent, size: number) {
-  setCursorSize(size);
+export function handleSetCursorScale(_event: IpcMainEvent, scale: number) {
+  setCursorScale(scale);
 }
 
 export function showSaveDialog(_event: IpcMainInvokeEvent, options: Electron.SaveDialogOptions) {

@@ -3,7 +3,7 @@
 import { BrowserWindow } from 'electron';
 import path from 'node:path';
 import { appState } from '../state';
-import { VITE_DEV_SERVER_URL, RENDERER_DIST } from '../lib/constants';
+import { VITE_DEV_SERVER_URL, RENDERER_DIST, PRELOAD_SCRIPT } from '../lib/constants';
 
 function createTemporaryWindow(options: Electron.BrowserWindowConstructorOptions, htmlPath: string) {
   const win = new BrowserWindow({
@@ -14,6 +14,7 @@ function createTemporaryWindow(options: Electron.BrowserWindowConstructorOptions
     resizable: false,
     webPreferences: {
       nodeIntegration: true,
+      preload: PRELOAD_SCRIPT,
       contextIsolation: false,
     }
   });
@@ -24,11 +25,6 @@ function createTemporaryWindow(options: Electron.BrowserWindowConstructorOptions
 
   win.loadFile(url);
   return win;
-}
-
-export function createCountdownWindow() {
-  appState.countdownWin = createTemporaryWindow({ width: 380, height: 380 }, 'countdown/index.html');
-  appState.countdownWin.on('closed', () => { appState.countdownWin = null; });
 }
 
 export function createSavingWindow() {

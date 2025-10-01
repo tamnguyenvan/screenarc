@@ -4,9 +4,9 @@ import log from 'electron-log/main';
 import { BrowserWindow, screen, ipcMain } from 'electron';
 import path from 'node:path';
 import { appState } from '../state';
-import { VITE_DEV_SERVER_URL, RENDERER_DIST } from '../lib/constants';
+import { VITE_DEV_SERVER_URL, RENDERER_DIST, PRELOAD_SCRIPT } from '../lib/constants';
 import { cleanupAndDiscard } from '../features/recording-manager';
-import { resetCursorSize } from '../features/cursor-manager';
+import { resetCursorScale } from '../features/cursor-manager';
 
 export function createRecorderWindow() {
   const primaryDisplay = screen.getPrimaryDisplay();
@@ -27,7 +27,7 @@ export function createRecorderWindow() {
     resizable: false,
     webPreferences: {
       nodeIntegration: true,
-      preload: path.join(process.env.APP_ROOT!, 'dist-electron/preload.mjs'),
+      preload: PRELOAD_SCRIPT,
     },
   });
 
@@ -47,8 +47,8 @@ export function createRecorderWindow() {
         }
       });
     } else {
-      log.info('[RecorderWindow] Closed before recording. Resetting cursor size.');
-      resetCursorSize();
+      log.info('[RecorderWindow] Closed before recording. Resetting cursor scale.');
+      resetCursorScale();
     }
   });
 
