@@ -34,6 +34,7 @@ export function createEditorWindow(videoPath: string, metadataPath: string, webc
       webSecurity: !VITE_DEV_SERVER_URL,
     },
   });
+  appState.editorWin.maximize();
 
   // Cleanup orphaned recordings
   cleanupOrphanedRecordings();

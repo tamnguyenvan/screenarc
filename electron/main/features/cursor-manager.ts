@@ -78,7 +78,7 @@ export async function getCursorScale(): Promise<number> {
       return 1; // Default scale is 1x
   }
 }
-// ... (rest of the file is unchanged)
+
 export function setCursorScale(scale: number) {
   switch (process.platform) {
     case 'win32': {
