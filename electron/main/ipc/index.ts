@@ -19,6 +19,7 @@ export function registerIpcHandlers() {
   // Desktop
   ipcMain.handle('desktop:get-displays', desktopHandlers.getDisplays);
   ipcMain.handle('desktop:get-sources', desktopHandlers.getDesktopSources);
+  ipcMain.handle('desktop:get-media-devices', desktopHandlers.getMediaDevices);
   ipcMain.handle('desktop:get-cursor-scale', desktopHandlers.handleGetCursorScale);
   ipcMain.on('desktop:set-cursor-scale', desktopHandlers.handleSetCursorScale);
   ipcMain.handle('dialog:showSaveDialog', desktopHandlers.showSaveDialog);

@@ -73,3 +73,57 @@ export async function getVideoFrame(_event: IpcMainInvokeEvent, { videoPath, tim
     });
   });
 }
+
+export async function getMediaDevices() {
+  if (process.platform !== 'win32') {
+    return { webcams: [], mics: [] };
+  }
+
+  const FFMPEG_PATH = getFFmpegPath();
+  const command = `"${FFMPEG_PATH}" -list_devices true -f dshow -i dummy`;
+
+  return new Promise((resolve) => {
+    exec(command, (_error, _stdout, stderr) => {
+      const output = stderr.toString();
+      const lines = output.split('\n');
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const devices = { webcams: [] as any[], mics: [] as any[] };
+
+      // Regex to capture the friendly name and device type, e.g., "Integrated Camera" (video)
+      const deviceInfoRegex = /\[dshow @ [^\]]+\]\s+"([^"]+)"\s+\((video|audio)\)/;
+      
+      // Regex to capture the alternative name (moniker)
+      const alternativeNameRegex = /Alternative name "([^"]+)"/;
+
+      let pendingDevice: { name: string; type: 'webcams' | 'mics' } | null = null;
+
+      for (const line of lines) {
+        const infoMatch = line.match(deviceInfoRegex);
+        if (infoMatch) {
+          // Found a new device's friendly name and type.
+          // Store it and wait for its alternative name on the next line.
+          pendingDevice = {
+            name: infoMatch[1],
+            type: infoMatch[2] === 'video' ? 'webcams' : 'mics',
+          };
+          continue; // Move to the next line
+        }
+
+        const altMatch = line.match(alternativeNameRegex);
+        if (altMatch && pendingDevice) {
+          // Found the alternative name for the pending device.
+          // Create the full device object and add it to our list.
+          devices[pendingDevice.type].push({
+            label: pendingDevice.name,
+            ffmpegInput: altMatch[1], // The reliable moniker
+          });
+          // Reset for the next device
+          pendingDevice = null;
+        }
+      }
+      log.info('[Desktop] Fetched media devices via ffmpeg:', devices);
+      resolve(devices);
+    });
+  });
+}

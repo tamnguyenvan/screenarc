@@ -76,13 +76,17 @@ export const electronAPI = {
     geometry?: WindowSource['geometry'];
     windowTitle?: string; 
     displayId?: number,
-    webcam?: { deviceId: string; deviceLabel: string; index: number };
-    mic?: { deviceId: string; deviceLabel: string; index: number };
+    webcam?: { deviceId: string; deviceLabel: string; index: number; ffmpegInput: string };
+    mic?: { deviceId: string; deviceLabel: string; index: number; ffmpegInput: string };
   }): Promise<RecordingResult> => ipcRenderer.invoke('recording:start', options),
   getCursorScale: (): Promise<number> => ipcRenderer.invoke('desktop:get-cursor-scale'),
   setCursorScale: (scale: number): void => ipcRenderer.send('desktop:set-cursor-scale', scale),
 
   getDisplays: (): Promise<DisplayInfo[]> => ipcRenderer.invoke('desktop:get-displays'),
+  getMediaDevices: (): Promise<{ 
+    webcams: { label: string, ffmpegInput: string }[], 
+    mics: { label: string, ffmpegInput: string }[] 
+  }> => ipcRenderer.invoke('desktop:get-media-devices'),
   getWebcams: (): Promise<Electron.DesktopCapturerSource[]> => ipcRenderer.invoke('desktop:get-webcams'),
 
   getDesktopSources: (): Promise<WindowSource[]> => ipcRenderer.invoke('desktop:get-sources'),

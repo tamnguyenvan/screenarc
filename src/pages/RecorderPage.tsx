@@ -46,12 +46,14 @@ type WebcamDevice = {
   deviceId: string;
   label: string;
   kind: 'videoinput';
+  ffmpegInput?: string;
 };
 
 type MicDevice = {
   deviceId: string;
   label: string;
   kind: 'audioinput';
+  ffmpegInput?: string;
 };
 
 const LinuxToolsWarningPanel = ({ missingTools }: { missingTools: string[] }) => {
@@ -294,11 +296,25 @@ export function RecorderPage() {
       await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
     } catch (err) { console.warn("Could not get webcam permission:", err); }
 
-    const devices = (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === 'videoinput') as WebcamDevice[];
-    setWebcams(devices);
+    const browserDevices = (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === 'videoinput') as Omit<WebcamDevice, 'ffmpegInput'>[];
+
+    let finalDevices: WebcamDevice[] = [...browserDevices];
+
+    if (platform === 'win32') {
+      const ffmpegDevices = (await window.electronAPI.getMediaDevices()).webcams;
+      finalDevices = browserDevices.map(bDevice => {
+        const ffmpegMatch = ffmpegDevices.find(fDevice => fDevice.label === bDevice.label);
+        return {
+          ...bDevice,
+          ffmpegInput: ffmpegMatch?.ffmpegInput,
+        };
+      }).filter(d => d.ffmpegInput); // Only keep devices ffmpeg can see
+    }
+
+    setWebcams(finalDevices);
 
     const savedWebcamId = await window.electronAPI.getSetting<string>('recorder.selectedWebcamId');
-    if (savedWebcamId && devices.some(d => d.deviceId === savedWebcamId)) {
+    if (savedWebcamId && finalDevices.some(d => d.deviceId === savedWebcamId)) {
       setSelectedWebcamId(savedWebcamId);
     } else {
       setSelectedWebcamId('none');
@@ -310,11 +326,25 @@ export function RecorderPage() {
       await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
     } catch (err) { console.warn("Could not get microphone permission:", err); }
 
-    const devices = (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === 'audioinput') as MicDevice[];
-    setMics(devices);
+    const browserDevices = (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === 'audioinput') as Omit<MicDevice, 'ffmpegInput'>[];
+
+    let finalDevices: MicDevice[] = [...browserDevices];
+
+    if (platform === 'win32') {
+      const ffmpegDevices = (await window.electronAPI.getMediaDevices()).mics;
+      finalDevices = browserDevices.map(bDevice => {
+        const ffmpegMatch = ffmpegDevices.find(fDevice => fDevice.label === bDevice.label);
+        return {
+          ...bDevice,
+          ffmpegInput: ffmpegMatch?.ffmpegInput,
+        };
+      }).filter(d => d.ffmpegInput); // Only keep devices ffmpeg can see
+    }
+
+    setMics(finalDevices);
 
     const savedMicId = await window.electronAPI.getSetting<string>('recorder.selectedMicId');
-    if (savedMicId && devices.some(d => d.deviceId === savedMicId)) {
+    if (savedMicId && finalDevices.some(d => d.deviceId === savedMicId)) {
       setSelectedMicId(savedMicId);
     } else {
       setSelectedMicId('none');
@@ -411,7 +441,8 @@ export function RecorderPage() {
           webcamPayload = {
             deviceId: selectedDevice.deviceId,
             deviceLabel: selectedDevice.label,
-            index: selectedDeviceIndex
+            index: selectedDeviceIndex,
+            ffmpegInput: selectedDevice.ffmpegInput || `video=${selectedDevice.label}` // Fallback for non-windows
           };
         }
       }
@@ -425,7 +456,8 @@ export function RecorderPage() {
           micPayload = {
             deviceId: selectedDevice.deviceId,
             deviceLabel: selectedDevice.label,
-            index: selectedDeviceIndex
+            index: selectedDeviceIndex,
+            ffmpegInput: selectedDevice.ffmpegInput || `audio=${selectedDevice.label}` // Fallback for non-windows
           }
         }
       }
