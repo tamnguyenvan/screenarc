@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 // Contains logic to track mouse on different platforms.
 
 import log from 'electron-log/main';
@@ -10,9 +11,7 @@ const require = createRequire(import.meta.url);
 
 
 // --- Dynamic Imports for Platform-Specific Modules ---
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 let X11Module: any;
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 let mouseEvents: any;
 
 export function initializeMouseTrackerDependencies() {
@@ -41,10 +40,8 @@ export interface IMouseTracker extends EventEmitter {
   start(): void;
   stop(): void;
 }
-// ... (rest of the file is unchanged)
 class LinuxMouseTracker extends EventEmitter implements IMouseTracker {
   private intervalId: NodeJS.Timeout | null = null;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private X: any | null = null;
 
   async start() {
@@ -59,7 +56,6 @@ class LinuxMouseTracker extends EventEmitter implements IMouseTracker {
 
       const queryPointer = () => {
         if (!this.X) return;
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         this.X.QueryPointer(root, (err: any, pointer: any) => {
           if (err) {
             log.error('[MouseTracker-Linux] Error querying pointer:', err);
@@ -78,7 +74,6 @@ class LinuxMouseTracker extends EventEmitter implements IMouseTracker {
         });
       };
       this.intervalId = setInterval(queryPointer, 1000 / MOUSE_RECORDING_FPS);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       this.X.on('error', (err: any) => log.error('[MouseTracker-Linux] X11 client error:', err));
     } catch (err) {
       log.error('[MouseTracker-Linux] Failed to start:', err);
@@ -95,11 +90,9 @@ class LinuxMouseTracker extends EventEmitter implements IMouseTracker {
     log.info('[MouseTracker-Linux] Stopped.');
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private createClient(): Promise<any> {
     return new Promise((resolve, reject) => {
       if (!X11Module) return reject(new Error("x11 module is not available."));
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       X11Module.createClient((err: Error, display: any) => err ? reject(err) : resolve(display));
     });
   }
@@ -108,15 +101,11 @@ class LinuxMouseTracker extends EventEmitter implements IMouseTracker {
 }
 
 class WindowsMouseTracker extends EventEmitter implements IMouseTracker {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private mouseEvents: any | null = null;
   start() {
     this.mouseEvents = mouseEvents;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     this.mouseEvents.on('mousemove', (event: any) => this.emit('data', { timestamp: Date.now(), x: event.x, y: event.y, type: 'move' }));
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     this.mouseEvents.on('mousedown', (event: any) => this.emit('data', { timestamp: Date.now(), x: event.x, y: event.y, type: 'click', button: this.mapButton(event.button), pressed: true }));
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     this.mouseEvents.on('mouseup', (event: any) => this.emit('data', { timestamp: Date.now(), x: event.x, y: event.y, type: 'click', button: this.mapButton(event.button), pressed: false }));
     log.info('[MouseTracker-Windows] Started.');
   }
