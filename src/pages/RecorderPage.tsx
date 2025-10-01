@@ -193,6 +193,20 @@ export function RecorderPage() {
   const webcamStreamRef = useRef<MediaStream | null>(null);
 
   useEffect(() => {
+    const handleMouseDown = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target.closest('[data-interactive="true"]') && !target.closest('[data-radix-select-content]')) {
+        window.electronAPI.recorderClickThrough();
+      }
+    };
+
+    window.addEventListener('mousedown', handleMouseDown);
+    return () => {
+      window.removeEventListener('mousedown', handleMouseDown);
+    };
+  }, []);
+
+  useEffect(() => {
     // Get platform
     window.electronAPI.getPlatform().then(platform => {
       setPlatform(platform);
@@ -438,13 +452,13 @@ export function RecorderPage() {
   return (
     <div className="relative h-screen w-screen bg-transparent select-none">
       <div className="absolute top-0 left-0 right-0 flex flex-col items-center pt-8">
-
         {/* --- 1. Main Control Bar --- */}
         <div
           className={cn(
             "relative flex items-stretch gap-4 p-2 rounded-2xl",
             "bg-transparent text-card-foreground",
           )}
+          data-interactive="true"
         >
           <div
             className={cn(
@@ -609,21 +623,25 @@ export function RecorderPage() {
 
         {/* --- 2. Linux Tools Warning Panel --- */}
         {showLinuxWarning && (
-          <LinuxToolsWarningPanel missingTools={missingLinuxTools} />
+          <div data-interactive="true">
+            <LinuxToolsWarningPanel missingTools={missingLinuxTools} />
+          </div>
         )}
 
         {/* --- 2. Window Picker Panel --- */}
         {showWindowPicker && (
-          <WindowPickerPanel
-            sources={windowSources}
-            isLoading={isLoadingWindows}
-            onRefresh={() => platform && checkAndFetchSources(platform)}
-            onSelect={(selectedSource) => handleStart({ geometry: selectedSource.geometry, windowTitle: selectedSource.name })}
-          />
+          <div data-interactive="true">
+            <WindowPickerPanel
+              sources={windowSources}
+              isLoading={isLoadingWindows}
+              onRefresh={() => platform && checkAndFetchSources(platform)}
+              onSelect={(selectedSource) => handleStart({ geometry: selectedSource.geometry, windowTitle: selectedSource.name })}
+            />
+          </div>
         )}
 
         {selectedWebcamId !== 'none' && (
-          <div className="mt-4 w-48 aspect-square rounded-[35%] overflow-hidden shadow-2xl bg-black">
+          <div data-interactive="true" className="mt-4 w-48 aspect-square rounded-[35%] overflow-hidden shadow-2xl bg-black">
             <video ref={webcamPreviewRef} autoPlay playsInline muted className="w-full h-full object-cover" />
           </div>
         )}

@@ -23,7 +23,7 @@ export function createRecorderWindow() {
     x, y,
     frame: false,
     transparent: true,
-    alwaysOnTop: true,
+    alwaysOnTop: false,
     resizable: false,
     webPreferences: {
       nodeIntegration: true,
@@ -61,6 +61,19 @@ export function createRecorderWindow() {
     if (appState.recorderWin) {
       log.info(`Resizing recorder window to ${width}x${height}`);
       appState.recorderWin.setSize(width, height, true);
+    }
+  });
+
+  ipcMain.on('recorder:click-through', () => {
+    const win = appState.recorderWin;
+    if (win && !win.isDestroyed()) {
+      // Use Electron's built-in solution for Windows & macOS
+      win.setIgnoreMouseEvents(true, { forward: true });
+      setTimeout(() => {
+        if (win && !win.isDestroyed()) {
+          win.setIgnoreMouseEvents(false);
+        }
+      }, 100);
     }
   });
 }

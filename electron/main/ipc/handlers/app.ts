@@ -28,3 +28,11 @@ export function closeWindow(event: IpcMainEvent) {
   const window = BrowserWindow.fromWebContents(event.sender);
   window?.close();
 }
+
+export function recorderClickThrough(event: IpcMainEvent) {
+  const window = BrowserWindow.fromWebContents(event.sender);
+  window?.setIgnoreMouseEvents(true, { forward: true });
+  setTimeout(() => {
+    window?.setIgnoreMouseEvents(false);
+  }, 100);
+}

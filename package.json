@@ -8,7 +8,16 @@
   "scripts": {
     "dev": "vite",
     "clean": "rimraf dist dist-electron build",
-    "build": "npm run clean && tsc && vite build && electron-builder",
+    "dist": "tsc && npm run build && electron-builder",
+    "dist:appimage": "tsc && npm run build && electron-builder build -l AppImage",
+    "dist:flatpak": "tsc && npm run build && electron-builder build -l flatpak",
+    "dist:deb": "tsc && npm run build && electron-builder build -l deb",
+    "dist:rpm": "tsc && npm run build && electron-builder build -l rpm",
+    "dist:zip": "tsc && npm run build && electron-builder build -l zip",
+    "dist:linux": "tsc && npm run build && electron-builder --linux",
+    "dist:win": "tsc && npm run build && electron-builder --win",
+    "publish-linux-app": "tsc && npm run build && electron-builder -l --publish always",
+    "publish-win-app": "tsc && npm run build && electron-builder -w --publish always",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview",
     "postinstall": "electron-rebuild"
