@@ -12,7 +12,7 @@ export function createRecorderWindow() {
   const primaryDisplay = screen.getPrimaryDisplay();
   const { width: screenWidth, height: screenHeight } = primaryDisplay.workAreaSize;
   const windowWidth = 900;
-  const windowHeight = 800;
+  const windowHeight = 360;
   const x = Math.round((screenWidth - windowWidth) / 2);
   const y = Math.max(0, Math.round(screenHeight / 4));
 
