@@ -200,7 +200,7 @@ const _recalculateZIndices = (set: (fn: (state: EditorState) => void) => void) =
   set(state => {
     const allRegions = [
       ...Object.values(state.zoomRegions),
-      ...Object.values(state.cutRegions).filter(r => !r.trimType)
+      ...Object.values(state.cutRegions)
     ];
 
     // Sort by duration ASC (shorter regions get higher z-index)

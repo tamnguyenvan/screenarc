@@ -163,16 +163,40 @@ export function Timeline({ videoRef }: { videoRef: React.RefObject<HTMLVideoElem
             <Ruler ticks={rulerTicks} timeToPx={timeToPx} formatTime={formatTime} />
             <div className="absolute top-0 left-0 right-0 bottom-0 pointer-events-none">
               {allCutRegionsToRender.map(region => (
-                <div key={region.id} className="absolute top-0 h-full pointer-events-auto" style={{ left: `${timeToPx(region.startTime)}px`, width: `${timeToPx(region.duration)}px`, zIndex: selectedRegionId === region.id ? 100 : (region.trimType ? 5 : region.zIndex ?? 10) }}>
-                  <CutRegionBlock region={region} isSelected={selectedRegionId === region.id} isDraggable={region.id !== previewCutRegion?.id} isBeingDragged={draggingRegionId === region.id} onMouseDown={handleRegionMouseDown} setRef={el => regionRefs.current.set(region.id, el)} />
+                <div
+                  key={region.id}
+                  className="absolute top-0 h-full pointer-events-auto"
+                  style={{
+                    left: `${timeToPx(region.startTime)}px`,
+                    width: `${timeToPx(region.duration)}px`,
+                    zIndex: selectedRegionId === region.id ? 100 : (region.zIndex ?? 10)
+                  }}
+                >
+                  <CutRegionBlock
+                    region={region}
+                    isSelected={selectedRegionId === region.id}
+                    isDraggable={region.id !== previewCutRegion?.id}
+                    isBeingDragged={draggingRegionId === region.id}
+                    onMouseDown={handleRegionMouseDown}
+                    setRef={el => regionRefs.current.set(region.id, el)}
+                  />
                 </div>
               ))}
             </div>
             <div className="relative pt-6 space-y-4">
               <div className="h-24 relative bg-gradient-to-b from-background/50 to-background/20">
                 {zoomRegions.map(region => (
-                  <div key={region.id} className="absolute h-14" style={{ left: `${timeToPx(region.startTime)}px`, width: `${timeToPx(region.duration)}px`, zIndex: selectedRegionId === region.id ? 100 : (region.zIndex ?? 10) }}>
-                    <ZoomRegionBlock region={region} isSelected={selectedRegionId === region.id} isBeingDragged={draggingRegionId === region.id} onMouseDown={handleRegionMouseDown} setRef={el => regionRefs.current.set(region.id, el)} />
+                  <div
+                    key={region.id}
+                    className="absolute h-14"
+                    style={{ left: `${timeToPx(region.startTime)}px`, width: `${timeToPx(region.duration)}px`, zIndex: selectedRegionId === region.id ? 100 : (region.zIndex ?? 10) }}>
+                    <ZoomRegionBlock
+                      region={region}
+                      isSelected={selectedRegionId === region.id}
+                      isBeingDragged={draggingRegionId === region.id}
+                      onMouseDown={handleRegionMouseDown}
+                      setRef={el => regionRefs.current.set(region.id, el)}
+                    />
                   </div>
                 ))}
               </div>
