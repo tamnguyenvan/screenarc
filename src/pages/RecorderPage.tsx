@@ -164,8 +164,8 @@ export function RecorderPage() {
       if (videoEl) videoEl.srcObject = null;
     };
 
-    // Do not start stream if not idle, no webcam selected, or on Windows
-    if (recordingState !== 'idle' || selectedWebcamId === 'none' || !videoEl || platform === 'win32') {
+    // Do not start stream if not idle or no webcam selected
+    if (recordingState !== 'idle' || selectedWebcamId === 'none' || !videoEl) {
       stopStream();
       return;
     }
@@ -173,7 +173,14 @@ export function RecorderPage() {
     const startStream = async () => {
       stopStream(); // Stop previous stream first
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: { deviceId: { exact: selectedWebcamId } } });
+        // For Windows, dshow provides the device, but getUserMedia needs the standard deviceId.
+        // We will assume the first webcam is the one to preview if platform is win32.
+        // A more robust solution might involve mapping dshow names to deviceIds.
+        const constraints = platform === 'win32'
+          ? { video: true } // Request default camera on windows
+          : { video: { deviceId: { exact: selectedWebcamId } } };
+        
+        const stream = await navigator.mediaDevices.getUserMedia(constraints);
         webcamStreamRef.current = stream;
         if (videoEl) videoEl.srcObject = stream;
       } catch (error) {
@@ -183,7 +190,7 @@ export function RecorderPage() {
 
     startStream();
     return stopStream;
-  }, [selectedWebcamId, platform, recordingState]); // <<< FIX: Added recordingState here
+  }, [selectedWebcamId, platform, recordingState]);
 
   const handleStart = async () => {
     setRecordingState('preparing');
@@ -207,12 +214,12 @@ export function RecorderPage() {
         displayId: source === 'fullscreen' ? Number(selectedDisplayId) : undefined,
         webcam: webcam ? {
           deviceId: webcam.id,
-          deviceLabel: webcam.id,
+          deviceLabel: webcam.id, // On Windows, this is the 'alternativeName'
           index: webcams.indexOf(webcam),
         } : undefined,
         mic: mic ? {
           deviceId: mic.id,
-          deviceLabel: mic.id,
+          deviceLabel: mic.id, // On Windows, this is the 'alternativeName'
           index: mics.indexOf(mic),
         } : undefined,
       });
@@ -291,7 +298,7 @@ export function RecorderPage() {
           data-interactive="true"
           className={cn(
             "mt-4 w-48 aspect-square rounded-[35%] overflow-hidden shadow-2xl bg-black transition-opacity duration-300",
-            (selectedWebcamId !== 'none' && platform !== 'win32' && recordingState === 'idle')
+            (selectedWebcamId !== 'none' && recordingState === 'idle')
               ? 'opacity-100'
               : 'opacity-0'
           )}
