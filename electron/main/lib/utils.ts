@@ -4,7 +4,6 @@ import log from 'electron-log/main';
 import { app } from 'electron';
 import path from 'node:path';
 import fs from 'node:fs/promises';
-import { exec } from 'node:child_process';
 import { ResolutionKey, RESOLUTIONS } from './constants';
 
 export function getFFmpegPath(): string {
@@ -38,22 +37,6 @@ export function getLinuxDE(): 'GNOME' | 'KDE' | 'XFCE' | 'Unknown' {
   if (de?.includes('XFCE')) return 'XFCE';
   log.warn(`[Main] Unknown or unsupported desktop environment: ${de}`);
   return 'Unknown';
-}
-
-export async function checkLinuxTools(): Promise<{ [key: string]: boolean }> {
-  log.info('Checking Linux tools...');
-  if (process.platform !== 'linux') {
-    return { wmctrl: true, xwininfo: true, import: true };
-  }
-  const tools = ['wmctrl', 'xwininfo', 'import'];
-  const results: { [key: string]: boolean } = {};
-  for (const tool of tools) {
-    results[tool] = await new Promise((resolve) => {
-      exec(`command -v ${tool}`, (error) => resolve(!error));
-    });
-  }
-  log.info('Linux tools check results:', results);
-  return results;
 }
 
 export function calculateExportDimensions(resolutionKey: ResolutionKey, aspectRatio: string): { width: number; height: number } {

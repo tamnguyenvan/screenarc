@@ -1,11 +1,10 @@
 // Handlers for desktop-related IPC (displays, sources, cursor).
 
-import { IpcMainEvent, IpcMainInvokeEvent, screen, desktopCapturer, dialog } from 'electron';
+import { IpcMainEvent, IpcMainInvokeEvent, screen, dialog } from 'electron';
 import { exec } from 'node:child_process';
 import log from 'electron-log/main';
 import { getFFmpegPath } from '../../lib/utils';
 import { getCursorScale, setCursorScale } from '../../features/cursor-manager';
-import { GRAY_PLACEHOLDER_URL, EXCLUDED_WINDOW_NAMES } from '../../lib/constants';
 
 export function getDisplays() {
   const primaryDisplay = screen.getPrimaryDisplay();
@@ -15,36 +14,6 @@ export function getDisplays() {
     bounds: display.bounds,
     isPrimary: display.id === primaryDisplay.id,
   }));
-}
-
-export async function getDesktopSources() {
-  // ... (logic for Linux and other OS is unchanged)
-  if (process.platform === 'linux') {
-    return new Promise((resolve, reject) => {
-      exec('wmctrl -lG', (error, stdout) => {
-        if (error) return reject(error);
-        const lines = stdout.trim().split('\n');
-        const sourcesPromises = lines.map(line => {
-          const match = line.match(/^(0x[0-9a-f]+)\s+[\d-]+\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+[\w-]+\s+(.*)$/);
-          if (!match) return null;
-          const [, id, x, y, width, height, name] = match;
-          if (!name || EXCLUDED_WINDOW_NAMES.some(ex => name.includes(ex)) || parseInt(width) < 50 || parseInt(height) < 50) return null;
-          return new Promise(resolveSource => {
-            const geometry = { x: parseInt(x), y: parseInt(y), width: parseInt(width), height: parseInt(height) };
-            exec(`import -window ${id} -resize 320x180! png:-`, { encoding: 'binary', maxBuffer: 10 * 1024 * 1024 }, (err, stdout) => {
-              const thumbnailUrl = err ? GRAY_PLACEHOLDER_URL : `data:image/png;base64,${Buffer.from(stdout, 'binary').toString('base64')}`;
-              resolveSource({ id, name, thumbnailUrl, geometry });
-            });
-          });
-        }).filter(p => p !== null);
-        Promise.all(sourcesPromises).then(sources => resolve(sources));
-      });
-    });
-  }
-  const sources = await desktopCapturer.getSources({ types: ['window'], thumbnailSize: { width: 320, height: 180 } });
-  return sources
-    .filter(s => s.name && !EXCLUDED_WINDOW_NAMES.some(ex => s.name.includes(ex)))
-    .map(s => ({ id: s.id, name: s.name, thumbnailUrl: s.thumbnail.toDataURL() }));
 }
 
 export function handleGetCursorScale() {
@@ -70,6 +39,49 @@ export async function getVideoFrame(_event: IpcMainInvokeEvent, { videoPath, tim
         return reject(error);
       }
       resolve(`data:image/png;base64,${Buffer.from(stdout, 'binary').toString('base64')}`);
+    });
+  });
+}
+
+export async function getDshowDevices(): Promise<{ video: { name: string, alternativeName: string }[], audio: { name: string, alternativeName: string }[] }> {
+  if (process.platform !== 'win32') {
+    return { video: [], audio: [] };
+  }
+
+  const FFMPEG_PATH = getFFmpegPath();
+  const command = `"${FFMPEG_PATH}" -hide_banner -list_devices true -f dshow -i dummy`;
+
+  return new Promise((resolve) => {
+    exec(command, (_error, _stdout, stderr) => {
+      // The command is expected to "fail" and output to stderr, which is normal for this command.
+      const lines = stderr.split('\n');
+      const video: { name: string, alternativeName: string }[] = [];
+      const audio: { name: string, alternativeName: string }[] = [];
+
+      let lastDevice: { name: string, type: 'video' | 'audio' } | null = null;
+
+      for (const line of lines) {
+        const friendlyNameMatch = line.match(/\[dshow.*\] "([^"]+)" \((video|audio)\)/);
+        if (friendlyNameMatch) {
+          const [, name, type] = friendlyNameMatch;
+          lastDevice = { name, type: type as 'video' | 'audio' };
+          continue;
+        }
+
+        const altNameMatch = line.match(/\[dshow.*\]\s+Alternative name "([^"]+)"/);
+        if (altNameMatch && lastDevice) {
+          const [, alternativeName] = altNameMatch;
+          if (lastDevice.type === 'video') {
+            video.push({ name: lastDevice.name, alternativeName });
+          } else {
+            audio.push({ name: lastDevice.name, alternativeName });
+          }
+          lastDevice = null; // Reset for the next device
+        }
+      }
+
+      log.info(`[Desktop] Found dshow devices: ${video.length} video, ${audio.length} audio.`);
+      resolve({ video, audio });
     });
   });
 }

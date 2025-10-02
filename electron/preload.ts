@@ -68,6 +68,12 @@ type UpdateInfo = {
   url: string;
 };
 
+// --- Dshow Devices ---
+type DshowDevice = {
+  name: string;
+  alternativeName: string;
+}
+
 // Define API to be exposed to window object
 export const electronAPI = {
   // --- Recording ---
@@ -83,10 +89,7 @@ export const electronAPI = {
   setCursorScale: (scale: number): void => ipcRenderer.send('desktop:set-cursor-scale', scale),
 
   getDisplays: (): Promise<DisplayInfo[]> => ipcRenderer.invoke('desktop:get-displays'),
-  getWebcams: (): Promise<Electron.DesktopCapturerSource[]> => ipcRenderer.invoke('desktop:get-webcams'),
-
-  getDesktopSources: (): Promise<WindowSource[]> => ipcRenderer.invoke('desktop:get-sources'),
-  linuxCheckTools: (): Promise<{ [key: string]: boolean }> => ipcRenderer.invoke('linux:check-tools'),
+  getDshowDevices: (): Promise<{ video: DshowDevice[], audio: DshowDevice[] }> => ipcRenderer.invoke('desktop:get-dshow-devices'),
 
   onRecordingFinished: (callback: (result: RecordingResult) => void) => {
     const listener = (_event: IpcRendererEvent, result: RecordingResult) => callback(result);
@@ -162,7 +165,7 @@ export const electronAPI = {
     ipcRenderer.send('export:render-finished');
   },
 
-  // --- Presets ---
+  // --- Presets & Settings ---
   loadPresets: (): Promise<Record<string, Preset>> => ipcRenderer.invoke('presets:load'),
   savePresets: (presets: Record<string, Preset>): Promise<{ success: boolean; error?: string }> => ipcRenderer.invoke('presets:save', presets),
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

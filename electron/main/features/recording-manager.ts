@@ -84,14 +84,14 @@ async function startActualRecording(inputArgs: string[], hasWebcam: boolean, has
   }
 
   const finalArgs = buildFfmpegArgs(inputArgs, hasWebcam, hasMic, screenVideoPath, webcamVideoPath);
-  log.info(`Starting FFmpeg with args: ${finalArgs.join(' ')}`);
+  log.info(`[FFMPEG] Starting FFmpeg with args: ${finalArgs.join(' ')}`);
   appState.ffmpegProcess = spawn(FFMPEG_PATH, finalArgs);
 
   const ffmpegErrors: string[] = [];
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   appState.ffmpegProcess.stderr.on('data', (data: any) => {
     const message = data.toString();
-    log.warn(`FFmpeg stderr: ${message}`); // Log as warning instead of info
+    log.warn(`[FFMPEG stderr]: ${message}`); // Log as warning instead of info
     ffmpegErrors.push(message);
 
     // Check for known fatal errors that can occur early
@@ -102,26 +102,11 @@ async function startActualRecording(inputArgs: string[], hasWebcam: boolean, has
       'Unknown input format',
       'error opening device'
     ];
-    if (fatalErrorKeywords.some(keyword => message.includes(keyword))) {
+    if (fatalErrorKeywords.some(keyword => message.toLowerCase().includes(keyword.toLowerCase()))) {
       log.error(`[FFMPEG] Fatal error detected: ${message}`);
       dialog.showErrorBox('Recording Failed', `A critical error occurred while starting the recording process:\n\n${message}\n\nPlease check your device permissions and configurations.`);
       // Use a small timeout to ensure the process is fully spawned before trying to kill it.
       setTimeout(() => cleanupAndDiscard(), 100);
-    }
-  });
-
-  appState.ffmpegProcess.on('exit', (code, signal) => {
-    // This event fires when the process terminates. We only care about unexpected exits.
-    // 'SIGINT' is what we send to stop, so we ignore it.
-    if (code !== 0 && code !== 255 && signal !== 'SIGINT' && signal !== 'SIGTERM') {
-      log.error(`[FFMPEG] Process exited unexpectedly with code ${code} and signal ${signal}.`);
-      const lastError = ffmpegErrors.slice(-3).join('');
-      dialog.showErrorBox(
-        'Recording Process Crashed',
-        `The recording stopped unexpectedly. This might be due to a hardware issue or configuration problem.\n\nLast error message:\n${lastError}`
-      );
-      cleanupAndDiscard();
-      appState.recorderWin?.show();
     }
   });
 
@@ -171,20 +156,21 @@ function createTray() {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function startRecording(options: any) { // Type from preload.ts
   const { source, displayId, mic, webcam } = options;
+  log.info('[RecordingManager] Received start recording request with options:', options);
   const display = process.env.DISPLAY || ':0.0';
   const baseFfmpegArgs: string[] = [];
 
   if (mic) {
     switch (process.platform) {
       case 'linux': baseFfmpegArgs.push('-f', 'alsa', '-i', 'default'); break;
-      case 'win32': baseFfmpegArgs.push('-f', 'dshow', '-i', `audio="${mic.deviceLabel}"`); break;
+      case 'win32': baseFfmpegArgs.push('-f', 'dshow', '-i', `audio=${mic.deviceLabel}`); break; // [FIX] Use `audio=` not `audio=`
       case 'darwin': baseFfmpegArgs.push('-f', 'avfoundation', '-i', `:${mic.index}`); break;
     }
   }
   if (webcam) {
     switch (process.platform) {
       case 'linux': baseFfmpegArgs.push('-f', 'v4l2', '-i', `/dev/video${webcam.index}`); break;
-      case 'win32': baseFfmpegArgs.push('-f', 'dshow', '-i', `video="${webcam.deviceLabel}"`); break;
+      case 'win32': baseFfmpegArgs.push('-f', 'dshow', '-i', `video=${webcam.deviceLabel}`); break; // [FIX] Use `video=` not `video=`
       case 'darwin': baseFfmpegArgs.push('-f', 'avfoundation', '-i', `${webcam.index}:none`); break;
     }
   }

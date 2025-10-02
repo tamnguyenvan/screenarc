@@ -18,7 +18,7 @@ export function registerIpcHandlers() {
 
   // Desktop
   ipcMain.handle('desktop:get-displays', desktopHandlers.getDisplays);
-  ipcMain.handle('desktop:get-sources', desktopHandlers.getDesktopSources);
+  ipcMain.handle('desktop:get-dshow-devices', desktopHandlers.getDshowDevices);
   ipcMain.handle('desktop:get-cursor-scale', desktopHandlers.handleGetCursorScale);
   ipcMain.on('desktop:set-cursor-scale', desktopHandlers.handleSetCursorScale);
   ipcMain.handle('dialog:showSaveDialog', desktopHandlers.showSaveDialog);
@@ -26,7 +26,6 @@ export function registerIpcHandlers() {
 
   // Recording
   ipcMain.handle('recording:start', recordingHandlers.handleStartRecording);
-  ipcMain.handle('linux:check-tools', recordingHandlers.handleLinuxCheckTools);
 
   // Export
   ipcMain.handle('export:start', exportHandlers.handleStartExport);

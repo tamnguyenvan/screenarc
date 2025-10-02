@@ -17,10 +17,6 @@ export const PRELOAD_SCRIPT = path.join(process.env.APP_ROOT!, 'dist-electron/pr
 
 // --- Recording ---
 export const MOUSE_RECORDING_FPS = 100;
-export const EXCLUDED_WINDOW_NAMES = ['ScreenArc'];
-
-// --- Placeholders ---
-export const GRAY_PLACEHOLDER_URL = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mN88A8AAsUB4/Yo4OQAAAAASUVORK5CYII=';
 
 // --- Export ---
 export type ResolutionKey = '720p' | '1080p' | '2k';
