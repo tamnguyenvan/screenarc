@@ -271,6 +271,9 @@ export function RecorderPage() {
 
     initialize();
 
+    fetchWebcams();
+    fetchMics();
+
     const cleanup = window.electronAPI.onRecordingFinished(() => {
       setRecordingState('idle');
     });
@@ -284,14 +287,10 @@ export function RecorderPage() {
     }
   }, [source, platform]);
 
-  useEffect(() => {
-    fetchWebcams();
-    fetchMics();
-  }, []);
-
   const fetchWebcams = async () => {
     try {
-      await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+      stream.getTracks().forEach(track => track.stop());
     } catch (err) { console.warn("Could not get webcam permission:", err); }
 
     const devices = (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === 'videoinput') as WebcamDevice[];
@@ -307,7 +306,8 @@ export function RecorderPage() {
 
   const fetchMics = async () => {
     try {
-      await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+      stream.getTracks().forEach(track => track.stop());
     } catch (err) { console.warn("Could not get microphone permission:", err); }
 
     const devices = (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === 'audioinput') as MicDevice[];
