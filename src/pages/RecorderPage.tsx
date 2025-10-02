@@ -10,8 +10,8 @@ import { cn } from '../lib/utils';
 import "../index.css";
 
 // --- Constants ---
-const LINUX_SCALES = [ { value: 2, label: '2x' }, { value: 1.5, label: '1.5x' }, { value: 1, label: '1x' } ];
-const WINDOWS_SCALES = [ { value: 3, label: '3x' }, { value: 2, label: '2x' }, { value: 1, label: '1x' } ];
+const LINUX_SCALES = [{ value: 2, label: '2x' }, { value: 1.5, label: '1.5x' }, { value: 1, label: '1x' }];
+const WINDOWS_SCALES = [{ value: 3, label: '3x' }, { value: 2, label: '2x' }, { value: 1, label: '1x' }];
 
 // --- Types ---
 type RecordingState = 'idle' | 'preparing' | 'recording';
@@ -78,7 +78,8 @@ export function RecorderPage() {
   const [selectedWebcamId, setSelectedWebcamId] = useState<string>('none');
   const [selectedMicId, setSelectedMicId] = useState<string>('none');
   const [cursorScale, setCursorScale] = useState<number>(1);
-  
+  const [isWebcamFading, setIsWebcamFading] = useState(false);
+
   const { platform, webcams, mics, isInitializing, reload: reloadDevices } = useDeviceLoader();
   const webcamPreviewRef = useRef<HTMLVideoElement>(null);
   const webcamStreamRef = useRef<MediaStream | null>(null);
@@ -109,7 +110,7 @@ export function RecorderPage() {
     };
     initialize();
   }, []);
-  
+
   // Effect to handle recording state changes from main process
   useEffect(() => {
     const cleanup = window.electronAPI.onRecordingFinished(() => {
@@ -118,11 +119,11 @@ export function RecorderPage() {
     });
     return () => cleanup();
   }, [reloadDevices]);
-  
+
   // Effect to manage webcam preview stream
   useEffect(() => {
     const videoEl = webcamPreviewRef.current;
-    
+
     const stopStream = () => {
       if (webcamStreamRef.current) {
         webcamStreamRef.current.getTracks().forEach(track => track.stop());
@@ -156,6 +157,7 @@ export function RecorderPage() {
 
     // Await the stream stop to prevent race conditions
     if (webcamStreamRef.current) {
+      setIsWebcamFading(true);
       console.log("Stopping webcam preview to release device...");
       webcamStreamRef.current.getTracks().forEach(track => track.stop());
       webcamStreamRef.current = null;
@@ -174,32 +176,34 @@ export function RecorderPage() {
         webcam: webcam ? {
           deviceId: webcam.id,
           // Use friendly name for Windows dshow
-          deviceLabel: platform === 'win32' ? webcam.name : webcam.id,
+          deviceLabel: webcam.id,
           index: webcams.indexOf(webcam),
         } : undefined,
         mic: mic ? {
           deviceId: mic.id,
-          deviceLabel: platform === 'win32' ? mic.name : mic.id,
+          deviceLabel: mic.id,
           index: mics.indexOf(mic),
         } : undefined,
       });
 
       if (result.canceled) {
         setRecordingState('idle');
+        setIsWebcamFading(false);
       } else {
         setRecordingState('recording');
       }
     } catch (error) {
       console.error('Failed to start recording:', error);
       setRecordingState('idle');
+      setIsWebcamFading(false);
     }
   };
-  
+
   const handleSelectionChange = (setter: (id: string) => void, key: string) => (id: string) => {
     setter(id);
     window.electronAPI.setSetting(key, id);
   };
-  
+
   const handleCursorScaleChange = (value: string) => {
     const newScale = Number(value);
     setCursorScale(newScale);
@@ -257,7 +261,11 @@ export function RecorderPage() {
           </div>
         </div>
         {selectedWebcamId !== 'none' && platform !== 'win32' && (
-          <div data-interactive="true" className="mt-4 w-48 aspect-square rounded-[35%] overflow-hidden shadow-2xl bg-black">
+          <div data-interactive="true" className={cn(
+            "mt-4 w-48 aspect-square rounded-[35%] overflow-hidden shadow-2xl bg-black",
+            "transition-opacity duration-150",
+            isWebcamFading ? "opacity-0" : "opacity-100"
+          )}>
             <video ref={webcamPreviewRef} autoPlay playsInline muted className="w-full h-full object-cover" />
           </div>
         )}
