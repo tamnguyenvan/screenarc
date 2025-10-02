@@ -3,8 +3,7 @@ import { useEditorStore } from '../../../store/editorStore';
 import { cn } from '../../../lib/utils';
 import { WALLPAPERS } from '../../../lib/constants';
 import {
-  Image, Check, UploadCloud, X, Zap, ArrowUp, ArrowDown, ArrowLeft, ArrowRight,
-  ArrowDownRight, ArrowUpLeft, ArrowDownLeft, Plus, Paintbrush
+  Image, Check, UploadCloud, X, Plus, Paintbrush
 } from 'lucide-react';
 import { ControlGroup } from './ControlGroup';
 import { Button } from '../../ui/button';
@@ -80,14 +79,16 @@ const ColorSelector = () => {
 };
 
 const GRADIENT_PRESETS = [
-  { name: 'Top to Bottom', direction: 'to bottom', icon: ArrowDown },
-  { name: 'Bottom to Top', direction: 'to top', icon: ArrowUp },
-  { name: 'Left to Right', direction: 'to right', icon: ArrowRight },
-  { name: 'Right to Left', direction: 'to left', icon: ArrowLeft },
-  { name: 'Top-Left to Bottom-Right', direction: 'to bottom right', icon: ArrowDownRight },
-  { name: 'Bottom-Right to Top-Left', direction: 'to top left', icon: ArrowUpLeft },
-  { name: 'Top-Right to Bottom-Left', direction: 'to bottom left', icon: ArrowDownLeft },
-  { name: 'Center Out', direction: 'circle', icon: Zap },
+  { name: 'Top to Bottom', direction: 'to bottom' },
+  { name: 'Bottom to Top', direction: 'to top' },
+  { name: 'Left to Right', direction: 'to right' },
+  { name: 'Right to Left', direction: 'to left' },
+  { name: 'Top-Left to Bottom-Right', direction: 'to bottom right' },
+  { name: 'Bottom-Right to Top-Left', direction: 'to top left' },
+  { name: 'Top-Right to Bottom-Left', direction: 'to bottom left' },
+  { name: 'Bottom-Left to Top-Right', direction: 'to top right' },
+  { name: 'Center Out', direction: 'circle-out' },
+  { name: 'Center In', direction: 'circle-in' },
 ];
 
 const GradientSelector = () => {
@@ -108,28 +109,39 @@ const GradientSelector = () => {
         <div className="col-span-4">
           <h5 className="text-xs font-semibold text-muted-foreground mb-3 uppercase tracking-wider">Colors</h5>
           <div className="flex flex-col items-start gap-4">
-            <ColorPickerRoundedRect label="Start" color={localGradient.start} name="gradientStart" onChange={(e) => setLocalGradient(p => ({ ...p, start: e.target.value }))} size="md" />
-            <ColorPickerRoundedRect label="End" color={localGradient.end} name="gradientEnd" onChange={(e) => setLocalGradient(p => ({ ...p, end: e.target.value }))} size="md" />
+            <ColorPickerRoundedRect label="Start" color={localGradient.start} name="gradientStart" onChange={(e) => setLocalGradient(p => ({ ...p, start: e.target.value }))} size="sm" />
+            <ColorPickerRoundedRect label="End" color={localGradient.end} name="gradientEnd" onChange={(e) => setLocalGradient(p => ({ ...p, end: e.target.value }))} size="sm" />
           </div>
         </div>
         <div className="col-span-8">
           <h5 className="text-xs font-semibold text-muted-foreground mb-3 uppercase tracking-wider">Style</h5>
-          <div className="grid grid-cols-4 gap-3">
-            {GRADIENT_PRESETS.map((preset, index) => (
-              <button
-                key={index}
-                className={cn("relative aspect-square rounded-lg overflow-hidden border-2 transition-all duration-200 flex items-center justify-center group", frameStyles.background.gradientDirection === preset.direction ? "border-primary ring-2 ring-primary/20" : "border-sidebar-border hover:border-primary/60")}
-                style={preset.direction === 'circle' ? { background: `radial-gradient(circle, #808080, #ffffff)` } : { background: `linear-gradient(${preset.direction}, #808080, #ffffff)` }}
-                onClick={() => updateBackground({ type: 'gradient', gradientDirection: preset.direction })}
-                title={preset.name}
-              >
-                {frameStyles.background.gradientDirection === preset.direction && (
-                  <div className="absolute inset-0 bg-black/10 flex items-center justify-center">
-                    <div className="w-5 h-5 bg-white/90 rounded-full flex items-center justify-center shadow-sm"><Check className="w-3 h-3 text-gray-800" /></div>
-                  </div>
-                )}
-              </button>
-            ))}
+          <div className="grid grid-cols-5 gap-1">
+            {GRADIENT_PRESETS.map((preset) => {
+              let bgStyle;
+              if (preset.direction === 'circle-in') {
+                bgStyle = { background: `radial-gradient(circle, #ffffff, #808080)` };
+              } else if (preset.direction.startsWith('circle')) {
+                bgStyle = { background: `radial-gradient(circle, #808080, #ffffff)` };
+              } else {
+                bgStyle = { background: `linear-gradient(${preset.direction}, #808080, #ffffff)` };
+              }
+
+              return (
+                <button
+                  key={preset.direction}
+                  className={cn("relative aspect-square rounded-lg overflow-hidden border-2 transition-all duration-200 flex items-center justify-center group", frameStyles.background.gradientDirection === preset.direction ? "border-primary ring-2 ring-primary/20" : "border-sidebar-border hover:border-primary/60")}
+                  style={bgStyle}
+                  onClick={() => updateBackground({ type: 'gradient', gradientDirection: preset.direction })}
+                  title={preset.name}
+                >
+                  {frameStyles.background.gradientDirection === preset.direction && (
+                    <div className="absolute inset-0 bg-black/10 flex items-center justify-center">
+                      <div className="w-5 h-5 bg-white/90 rounded-full flex items-center justify-center shadow-sm"><Check className="w-3 h-3 text-gray-800" /></div>
+                    </div>
+                  )}
+                </button>
+              );
+            })}
           </div>
         </div>
       </div>

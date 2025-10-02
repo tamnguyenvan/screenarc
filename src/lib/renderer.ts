@@ -37,8 +37,15 @@ const drawBackground = async (
       const direction = backgroundState.gradientDirection || 'to right';
       let gradient;
 
-      if (direction.includes('circle')) {
+      if (direction.startsWith('circle')) {
         gradient = ctx.createRadialGradient(width / 2, height / 2, 0, width / 2, height / 2, Math.max(width, height) / 2);
+        if (direction === 'circle-in') {
+          gradient.addColorStop(0, end);
+          gradient.addColorStop(1, start);
+        } else {
+          gradient.addColorStop(0, start);
+          gradient.addColorStop(1, end);
+        }
       } else {
         const getCoords = (dir: string) => {
           switch (dir) {
@@ -55,10 +62,10 @@ const drawBackground = async (
         };
         const coords = getCoords(direction);
         gradient = ctx.createLinearGradient(coords[0], coords[1], coords[2], coords[3]);
+        gradient.addColorStop(0, start);
+        gradient.addColorStop(1, end);
       }
 
-      gradient.addColorStop(0, start);
-      gradient.addColorStop(1, end);
       ctx.fillStyle = gradient;
       ctx.fillRect(0, 0, width, height);
       break;
