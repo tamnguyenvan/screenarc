@@ -38,7 +38,8 @@ const useDeviceLoader = () => {
 
     // Standard browser API for other platforms
     try {
-      await navigator.mediaDevices.getUserMedia({ [kind === 'videoinput' ? 'video' : 'audio']: true });
+      const stream = await navigator.mediaDevices.getUserMedia({ [kind === 'videoinput' ? 'video' : 'audio']: true });
+      stream.getTracks().forEach(track => track.stop());
     } catch (err) {
       console.warn(`Could not get permission for ${kind}:`, err);
     }
