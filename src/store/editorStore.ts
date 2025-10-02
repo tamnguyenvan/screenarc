@@ -65,7 +65,6 @@ export interface EditorActions {
   initializeSettings: () => Promise<void>;
   initializePresets: () => Promise<void>;
   applyPreset: (id: string) => void;
-  _recalculateZIndices: () => void;
   resetPreset: (id: string) => void;
   updatePresetName: (id: string, name: string) => void;
   saveCurrentStyleAsPreset: (name: string) => void;
@@ -196,22 +195,23 @@ const _persistPresets = async (presets: Record<string, Preset>) => {
   }
 };
 
-const _recalculateZIndices = (set: (fn: (state: EditorState) => void) => void) => {
-  set(state => {
-    const allRegions = [
-      ...Object.values(state.zoomRegions),
-      ...Object.values(state.cutRegions)
-    ];
+const recalculateZIndicesOnDraft = (state: EditorState) => {
+  const allRegions = [
+    ...Object.values(state.zoomRegions),
+    ...Object.values(state.cutRegions)
+  ];
 
-    // Sort by duration ASC (shorter regions get higher z-index)
-    allRegions.sort((a, b) => a.duration - b.duration);
+  allRegions.sort((a, b) => a.duration - b.duration);
 
-    // The shortest region (index 0) gets the highest z-index.
-    const regionCount = allRegions.length;
-    allRegions.forEach((region, index) => {
-      // Start z-index from 10 to leave space for other layers (like trim regions)
-      region.zIndex = 10 + (regionCount - 1 - index);
-    });
+  const regionCount = allRegions.length;
+  allRegions.forEach((region, index) => {
+    const newZIndex = 10 + (regionCount - 1 - index);
+    // Directly mutate the draft. Immer handles the immutability.
+    if (state.zoomRegions[region.id]) {
+      state.zoomRegions[region.id].zIndex = newZIndex;
+    } else if (state.cutRegions[region.id]) {
+      state.cutRegions[region.id].zIndex = newZIndex;
+    }
   });
 };
 
@@ -316,9 +316,8 @@ export const useEditorStore = create(
 
           set(state => {
             state.zoomRegions = newZoomRegions;
+            recalculateZIndicesOnDraft(state);
           });
-          get()._recalculateZIndices();
-
 
         } catch (error) {
           console.error("Failed to process metadata file:", error);
@@ -398,7 +397,7 @@ export const useEditorStore = create(
           targetX: lastMousePos ? (lastMousePos.x / videoWidth) - 0.5 : 0,
           targetY: lastMousePos ? (lastMousePos.y / videoHeight) - 0.5 : 0,
           mode: 'auto',
-          zIndex: 0,  // will be set by _recalculateZIndices
+          zIndex: 0,
         };
 
         newRegion.anchors = _calculateAnchors(newRegion, metadata, videoDimensions);
@@ -410,8 +409,8 @@ export const useEditorStore = create(
         set(state => {
           state.zoomRegions[id] = newRegion;
           state.selectedRegionId = id;
+          recalculateZIndicesOnDraft(state);
         });
-        get()._recalculateZIndices();
       },
 
       addCutRegion: (regionData) => {
@@ -425,7 +424,7 @@ export const useEditorStore = create(
           type: 'cut',
           startTime: currentTime,
           duration: 2,
-          zIndex: 0,  // will be set by _recalculateZIndices
+          zIndex: 0,
           ...regionData,
         };
 
@@ -436,56 +435,43 @@ export const useEditorStore = create(
         set(state => {
           state.cutRegions[id] = newRegion;
           state.selectedRegionId = id;
+          recalculateZIndicesOnDraft(state);
         });
-
-        // Only recalculate for non-trim regions
-        if (!regionData?.trimType) {
-          get()._recalculateZIndices();
-        }
       },
 
       updateRegion: (id, updates) => {
+        // [REFACTORED] Entire logic is now inside a single `set` call.
         set(state => {
           const region = state.zoomRegions[id] || state.cutRegions[id];
 
           if (region) {
             const oldDuration = region.duration;
             Object.assign(region, updates);
-            const videoDuration = state.duration;
-            if (videoDuration > 0) {
-              region.startTime = Math.max(0, Math.min(region.startTime, videoDuration - TIMELINE.MINIMUM_REGION_DURATION));
-              const maxPossibleDuration = videoDuration - region.startTime;
-              region.duration = Math.max(TIMELINE.MINIMUM_REGION_DURATION, Math.min(region.duration, maxPossibleDuration));
+            
+            // Recalculate anchors if needed
+            if (region.type === 'zoom' && (updates.startTime !== undefined || updates.duration !== undefined)) {
+              (region as ZoomRegion).anchors = _calculateAnchors(region as ZoomRegion, state.metadata, state.videoDimensions);
             }
 
-            if (updates.startTime !== undefined || updates.duration !== undefined) {
-              region.anchors = _calculateAnchors(region, state.metadata, state.videoDimensions);
-            }
-
-            // Recalculate if duration changed, as it affects z-index order
+            // Recalculate z-indices if duration changed
             if (oldDuration !== region.duration) {
-              get()._recalculateZIndices();
+              recalculateZIndicesOnDraft(state);
             }
           }
         });
       },
 
-
       deleteRegion: (id) => {
-        const presetToDelete = get().presets[id];
-        if (presetToDelete?.isDefault) {
-          console.warn("Attempted to delete the default preset. Operation blocked.");
-          return;
-        }
-
+        // [REFACTORED] Entire logic is now inside a single `set` call.
         set(state => {
           delete state.zoomRegions[id];
           delete state.cutRegions[id];
           if (state.selectedRegionId === id) {
             state.selectedRegionId = null;
           }
+          // Always recalculate after a deletion.
+          recalculateZIndicesOnDraft(state);
         });
-        get()._recalculateZIndices();
       },
 
       setSelectedRegionId: (id) => set(state => { state.selectedRegionId = id; }),
@@ -585,8 +571,6 @@ export const useEditorStore = create(
           localStorage.setItem(APP.LAST_PRESET_ID_KEY, id);
         }
       },
-
-      _recalculateZIndices: () => _recalculateZIndices(set),
 
       resetPreset: (id) => {
         set(state => {

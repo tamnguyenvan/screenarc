@@ -35,27 +35,25 @@ export const CutRegionBlock = memo(({
     <div
       ref={setRef}
       data-region-id={region.id}
-      className={cn(
-        'w-full h-full pointer-events-none',
-      )}
+      className="w-full h-full relative"
       style={{ willChange: 'transform, width' }}
     >
       <div className="absolute top-0 left-0 w-full h-[230px] bg-destructive/20 translate-y-[-200px]" />
+
       <div
         className={cn(
-          'relative w-full h-14 mt-[72px] flex items-center justify-center rounded-lg border-2',
-          'pointer-events-auto',
+          'absolute w-full h-14 top-1/2 -translate-y-1/2 flex items-center justify-center rounded-lg border-2',
           !isBeingDragged && 'transition-all duration-200',
           canMove ? 'cursor-grab' : 'cursor-default',
           isSelected
-            ? 'bg-card border-destructive transform -translate-y-2 shadow-lg shadow-destructive/20'
+            ? 'bg-card border-destructive transform -translate-y-[calc(50%+8px)] shadow-lg shadow-destructive/20'
             : 'bg-card border-destructive/50 hover:border-destructive/80'
         )}
         onMouseDown={(e) => handleMouseDown(e, 'move')}
       >
         {canResizeLeft && (
           <div
-            className="absolute left-0 top-0 w-4 h-full cursor-ew-resize rounded-l-md flex items-center justify-center z-30 group"
+            className="absolute left-0 top-0 w-4 h-full cursor-ew-resize rounded-l-md flex items-center justify-center z-10 group"
             onMouseDown={(e) => handleMouseDown(e, 'resize-left')}
           >
             <div className="w-0.5 h-1/2 bg-destructive/70 rounded-full group-hover:bg-destructive transition-colors" />
@@ -66,7 +64,7 @@ export const CutRegionBlock = memo(({
         </div>
         {canResizeRight && (
           <div
-            className="absolute right-0 top-0 w-4 h-full cursor-ew-resize rounded-r-md flex items-center justify-center z-30 group"
+            className="absolute right-0 top-0 w-4 h-full cursor-ew-resize rounded-r-md flex items-center justify-center z-10 group"
             onMouseDown={(e) => handleMouseDown(e, 'resize-right')}
           >
             <div className="w-0.5 h-1/2 bg-destructive/70 rounded-full group-hover:bg-destructive transition-colors" />

@@ -53,7 +53,6 @@ export function Timeline({ videoRef }: { videoRef: React.RefObject<HTMLVideoElem
       isPlaying: state.isPlaying
     }))
   );
-  const { zoomRegions: zoomRegionsMap, cutRegions: cutRegionsMap } = useAllRegions();
   const { setCurrentTime, setSelectedRegionId } = useEditorStore();
 
   const containerRef = useRef<HTMLDivElement>(null);
@@ -136,15 +135,18 @@ export function Timeline({ videoRef }: { videoRef: React.RefObject<HTMLVideoElem
     }
   }, [currentTime, isPlaying, timeToPx]);
 
-  const allCutRegionsToRender = useMemo(() => {
-    const existingCuts = Object.values(cutRegionsMap);
-    if (previewCutRegion && !existingCuts.some(c => c.trimType === previewCutRegion.trimType)) {
-      return [...existingCuts, previewCutRegion];
-    }
-    return existingCuts;
-  }, [cutRegionsMap, previewCutRegion]);
+  const { zoomRegions, cutRegions } = useAllRegions();
 
-  const zoomRegions = useMemo(() => Object.values(zoomRegionsMap), [zoomRegionsMap]);
+  const allRegionsToRender = useMemo(() => {
+    const combined = [
+      ...Object.values(zoomRegions),
+      ...Object.values(cutRegions),
+    ];
+    if (previewCutRegion) {
+      combined.push(previewCutRegion);
+    }
+    return combined;
+  }, [zoomRegions, cutRegions, previewCutRegion]);
 
   return (
     <div className="h-full flex flex-col bg-background p-4">
@@ -161,45 +163,43 @@ export function Timeline({ videoRef }: { videoRef: React.RefObject<HTMLVideoElem
         }}>
           <div ref={timelineRef} className="relative h-full min-w-full overflow-hidden" style={{ width: `${timeToPx(duration)}px` }}>
             <Ruler ticks={rulerTicks} timeToPx={timeToPx} formatTime={formatTime} />
-            <div className="absolute top-0 left-0 right-0 bottom-0 pointer-events-none">
-              {allCutRegionsToRender.map(region => (
-                <div
-                  key={region.id}
-                  className="absolute top-0 h-full pointer-events-auto"
-                  style={{
-                    left: `${timeToPx(region.startTime)}px`,
-                    width: `${timeToPx(region.duration)}px`,
-                    zIndex: selectedRegionId === region.id ? 100 : (region.zIndex ?? 10)
-                  }}
-                >
-                  <CutRegionBlock
-                    region={region}
-                    isSelected={selectedRegionId === region.id}
-                    isDraggable={region.id !== previewCutRegion?.id}
-                    isBeingDragged={draggingRegionId === region.id}
-                    onMouseDown={handleRegionMouseDown}
-                    setRef={el => regionRefs.current.set(region.id, el)}
-                  />
-                </div>
-              ))}
-            </div>
-            <div className="relative pt-6 space-y-4">
-              <div className="h-24 relative bg-gradient-to-b from-background/50 to-background/20">
-                {zoomRegions.map(region => (
+            <div className="absolute top-12 left-0 w-full" style={{ height: 'calc(100% - 3rem)' }}>
+              {allRegionsToRender.map(region => {
+                const isSelected = selectedRegionId === region.id;
+                const zIndex = isSelected ? 100 : region.zIndex ?? 1;
+
+                return (
                   <div
                     key={region.id}
-                    className="absolute h-14"
-                    style={{ left: `${timeToPx(region.startTime)}px`, width: `${timeToPx(region.duration)}px`, zIndex: selectedRegionId === region.id ? 100 : (region.zIndex ?? 10) }}>
-                    <ZoomRegionBlock
-                      region={region}
-                      isSelected={selectedRegionId === region.id}
-                      isBeingDragged={draggingRegionId === region.id}
-                      onMouseDown={handleRegionMouseDown}
-                      setRef={el => regionRefs.current.set(region.id, el)}
-                    />
+                    className="absolute top-0 h-full"
+                    style={{
+                      left: `${timeToPx(region.startTime)}px`,
+                      width: `${timeToPx(region.duration)}px`,
+                      zIndex: zIndex,
+                    }}
+                  >
+                    {region.type === 'zoom' && (
+                      <ZoomRegionBlock
+                        region={region}
+                        isSelected={isSelected}
+                        isBeingDragged={draggingRegionId === region.id}
+                        onMouseDown={handleRegionMouseDown}
+                        setRef={el => regionRefs.current.set(region.id, el)}
+                      />
+                    )}
+                    {region.type === 'cut' && (
+                      <CutRegionBlock
+                        region={region}
+                        isSelected={isSelected}
+                        isDraggable={region.id !== previewCutRegion?.id}
+                        isBeingDragged={draggingRegionId === region.id}
+                        onMouseDown={handleRegionMouseDown}
+                        setRef={el => regionRefs.current.set(region.id, el)}
+                      />
+                    )}
                   </div>
-                ))}
-              </div>
+                );
+              })}
             </div>
             {duration > 0 &&
               <div ref={playheadRef} className="absolute top-0 bottom-0 z-[200]" style={{ transform: `translateX(${timeToPx(currentTime)}px)`, pointerEvents: "none" }}>
