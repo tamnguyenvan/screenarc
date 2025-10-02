@@ -195,7 +195,12 @@ export async function startRecording(options: any) { // Type from preload.ts
       ipcMain.once('selection:cancel', () => { appState.selectionWin?.close(); appState.recorderWin?.show(); resolve(undefined); });
     });
     if (!selectedGeometry) return { canceled: true };
-    baseFfmpegArgs.push('-f', 'x11grab', '-video_size', `${selectedGeometry.width}x${selectedGeometry.height}`, '-i', `${display}+${selectedGeometry.x},${selectedGeometry.y}`);
+
+    // Ensure width and height are even numbers for FFmpeg compatibility
+    const safeWidth = Math.floor(selectedGeometry.width / 2) * 2;
+    const safeHeight = Math.floor(selectedGeometry.height / 2) * 2;
+    
+    baseFfmpegArgs.push('-f', 'x11grab', '-video_size', `${safeWidth}x${safeHeight}`, '-i', `${display}+${selectedGeometry.x},${selectedGeometry.y}`);
   } else { /* window source logic here if re-enabled */
     return { canceled: true };
   }

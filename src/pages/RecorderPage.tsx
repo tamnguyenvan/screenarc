@@ -85,19 +85,23 @@ export function RecorderPage() {
   const webcamPreviewRef = useRef<HTMLVideoElement>(null);
   const webcamStreamRef = useRef<MediaStream | null>(null);
 
-  // Effect to initialize displays and settings (runs once)
+  const cursorScales = useMemo(() => platform === 'win32' ? WINDOWS_SCALES : LINUX_SCALES, [platform]);
+
+  // Effect to load saved settings and initialize displays (runs once on mount)
   useEffect(() => {
     const initialize = async () => {
       try {
-        const [initialScale, fetchedDisplays] = await Promise.all([
+        const [savedWebcamId, savedMicId, savedCursorScale, fetchedDisplays] = await Promise.all([
+          window.electronAPI.getSetting<string>('recorder.selectedWebcamId'),
+          window.electronAPI.getSetting<string>('recorder.selectedMicId'),
           window.electronAPI.getSetting<number>('recorder.cursorScale'),
           window.electronAPI.getDisplays(),
-          // Load saved device selections
-          window.electronAPI.getSetting<string>('recorder.selectedWebcamId').then(id => setSelectedWebcamId(id || 'none')),
-          window.electronAPI.getSetting<string>('recorder.selectedMicId').then(id => setSelectedMicId(id || 'none')),
         ]);
 
-        const scaleToUse = initialScale ?? 1;
+        setSelectedWebcamId(savedWebcamId || 'none');
+        setSelectedMicId(savedMicId || 'none');
+        
+        const scaleToUse = savedCursorScale ?? 1;
         setCursorScale(scaleToUse);
         window.electronAPI.setCursorScale(scaleToUse);
 
@@ -111,12 +115,39 @@ export function RecorderPage() {
     };
     initialize();
   }, []);
+
+  // Effect to validate saved settings once devices are loaded
+  useEffect(() => {
+    if (isInitializing) return;
+
+    // Validate selected webcam
+    if (webcams.length > 0 && selectedWebcamId !== 'none' && !webcams.some(w => w.id === selectedWebcamId)) {
+        console.warn(`Saved webcam ID "${selectedWebcamId}" not found. Resetting.`);
+        setSelectedWebcamId('none');
+        window.electronAPI.setSetting('recorder.selectedWebcamId', 'none');
+    }
+
+    // Validate selected mic
+    if (mics.length > 0 && selectedMicId !== 'none' && !mics.some(m => m.id === selectedMicId)) {
+        console.warn(`Saved mic ID "${selectedMicId}" not found. Resetting.`);
+        setSelectedMicId('none');
+        window.electronAPI.setSetting('recorder.selectedMicId', 'none');
+    }
+
+    // Validate cursor scale
+    if (platform && !cursorScales.some(s => s.value === cursorScale)) {
+        console.warn(`Saved cursor scale "${cursorScale}" is invalid for platform "${platform}". Resetting.`);
+        setCursorScale(1);
+        window.electronAPI.setCursorScale(1);
+        window.electronAPI.setSetting('recorder.cursorScale', 1);
+    }
+  }, [isInitializing, webcams, mics, platform, cursorScales, selectedWebcamId, selectedMicId, cursorScale]);
   
   // Effect to handle recording state changes from main process
   useEffect(() => {
     const cleanup = window.electronAPI.onRecordingFinished(() => {
       setRecordingState('idle');
-      reloadDevices(); // Re-check devices, especially webcam
+      reloadDevices(); // Re-check devices, especially webcam which might have been released
     });
     return () => cleanup();
   }, [reloadDevices]);
@@ -133,7 +164,8 @@ export function RecorderPage() {
       if (videoEl) videoEl.srcObject = null;
     };
 
-    if (selectedWebcamId === 'none' || !videoEl || platform === 'win32') { // Preview disabled on Windows for stability
+    // Do not start stream if not idle, no webcam selected, or on Windows
+    if (recordingState !== 'idle' || selectedWebcamId === 'none' || !videoEl || platform === 'win32') {
       stopStream();
       return;
     }
@@ -151,18 +183,18 @@ export function RecorderPage() {
 
     startStream();
     return stopStream;
-  }, [selectedWebcamId, platform]);
+  }, [selectedWebcamId, platform, recordingState]); // <<< FIX: Added recordingState here
 
   const handleStart = async () => {
     setRecordingState('preparing');
 
-    // Await the stream stop to prevent race conditions
+    // Release the webcam from the preview before the main process grabs it
     if (webcamStreamRef.current) {
-      console.log("Stopping webcam preview to release device...");
+      console.log("Stopping webcam preview to release device for recording...");
       webcamStreamRef.current.getTracks().forEach(track => track.stop());
       webcamStreamRef.current = null;
       if (webcamPreviewRef.current) webcamPreviewRef.current.srcObject = null;
-      // Give the system a moment to release the device
+      // Give the system a moment to fully release the device handle
       await new Promise(resolve => setTimeout(resolve, 200));
     }
 
@@ -207,8 +239,6 @@ export function RecorderPage() {
     window.electronAPI.setCursorScale(newScale);
     window.electronAPI.setSetting('recorder.cursorScale', newScale);
   };
-
-  const cursorScales = useMemo(() => platform === 'win32' ? WINDOWS_SCALES : LINUX_SCALES, [platform]);
 
   if (recordingState === 'recording') return null;
 
@@ -257,11 +287,17 @@ export function RecorderPage() {
             </div>
           </div>
         </div>
-        {selectedWebcamId !== 'none' && platform !== 'win32' && (
-          <div data-interactive="true" className="mt-4 w-48 aspect-square rounded-[35%] overflow-hidden shadow-2xl bg-black">
-            <video ref={webcamPreviewRef} autoPlay playsInline muted className="w-full h-full object-cover" />
-          </div>
-        )}
+        <div
+          data-interactive="true"
+          className={cn(
+            "mt-4 w-48 aspect-square rounded-[35%] overflow-hidden shadow-2xl bg-black transition-opacity duration-300",
+            (selectedWebcamId !== 'none' && platform !== 'win32' && recordingState === 'idle')
+              ? 'opacity-100'
+              : 'opacity-0'
+          )}
+        >
+          <video ref={webcamPreviewRef} autoPlay playsInline muted className="w-full h-full object-cover" />
+        </div>
       </div>
     </div>
   );
