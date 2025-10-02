@@ -110,21 +110,6 @@ async function startActualRecording(inputArgs: string[], hasWebcam: boolean, has
     }
   });
 
-  appState.ffmpegProcess.on('exit', (code, signal) => {
-    // This event fires when the process terminates. We only care about unexpected exits.
-    // 'SIGINT' is what we send to stop, so we ignore it.
-    if (code !== 0 && code !== null && code !== 255 && signal !== 'SIGINT' && signal !== 'SIGTERM') {
-      log.error(`[FFMPEG] Process exited unexpectedly with code ${code} and signal ${signal}.`);
-      const lastError = ffmpegErrors.slice(-3).join('');
-      dialog.showErrorBox(
-        'Recording Process Crashed',
-        `The recording stopped unexpectedly. This might be due to a hardware issue or configuration problem.\n\nLast error message:\n${lastError}`
-      );
-      cleanupAndDiscard();
-      appState.recorderWin?.show();
-    }
-  });
-
   createTray();
 
   return { canceled: false, ...appState.currentRecordingSession };
