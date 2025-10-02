@@ -32,6 +32,7 @@ const useDeviceLoader = () => {
 
     if (currentPlatform === 'win32') {
       const { video, audio } = await window.electronAPI.getDshowDevices();
+      // On Windows, we must use alternativeName as ffmpeg input
       const devices = (kind === 'videoinput' ? video : audio).map(d => ({ id: d.alternativeName, name: d.name }));
       return devices;
     }
@@ -174,13 +175,12 @@ export function RecorderPage() {
         displayId: source === 'fullscreen' ? Number(selectedDisplayId) : undefined,
         webcam: webcam ? {
           deviceId: webcam.id,
-          // Use friendly name for Windows dshow
-          deviceLabel: platform === 'win32' ? webcam.name : webcam.id,
+          deviceLabel: webcam.id,
           index: webcams.indexOf(webcam),
         } : undefined,
         mic: mic ? {
           deviceId: mic.id,
-          deviceLabel: platform === 'win32' ? mic.name : mic.id,
+          deviceLabel: mic.id,
           index: mics.indexOf(mic),
         } : undefined,
       });
@@ -241,11 +241,11 @@ export function RecorderPage() {
             <div className="flex items-center gap-3" style={{ WebkitAppRegion: 'no-drag' }}>
               <Select value={selectedWebcamId} onValueChange={handleSelectionChange(setSelectedWebcamId, 'recorder.selectedWebcamId')}>
                 <SelectTrigger className="w-12 h-10 rounded-2xl"><SelectValue asChild>{selectedWebcamId !== 'none' ? <Webcam size={18} className="text-primary" /> : <VideoOff size={18} className="text-muted-foreground" />}</SelectValue></SelectTrigger>
-                <SelectContent><SelectItem value="none">No Camera</SelectItem>{webcams.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
+                <SelectContent><SelectItem value="none">Don't use webcam</SelectItem>{webcams.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
               </Select>
               <Select value={selectedMicId} onValueChange={handleSelectionChange(setSelectedMicId, 'recorder.selectedMicId')}>
                 <SelectTrigger className="w-12 h-10 rounded-2xl"><SelectValue asChild>{selectedMicId !== 'none' ? <Mic size={18} className="text-primary" /> : <MicOff size={18} className="text-muted-foreground" />}</SelectValue></SelectTrigger>
-                <SelectContent><SelectItem value="none">No Microphone</SelectItem>{mics.map(m => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}</SelectContent>
+                <SelectContent><SelectItem value="none">Don't use microphone</SelectItem>{mics.map(m => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}</SelectContent>
               </Select>
               <div className="flex items-center gap-2" style={{ WebkitAppRegion: 'no-drag' }}>
                 <MousePointer size={18} className="text-muted-foreground" />
