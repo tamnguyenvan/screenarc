@@ -35,7 +35,7 @@ export const Preview = memo(({ videoRef }: { videoRef: React.RefObject<HTMLVideo
   const { isPlaying, isCurrentlyCut } = usePlaybackState();
 
   const [previewContainerSize, setPreviewContainerSize] = useState({ width: 0, height: 0 });
-  const [bgImage, setBgImage] = useState<HTMLImageElement | null>(null); // [OPTIMIZATION] State for pre-loaded image
+  const [bgImage, setBgImage] = useState<HTMLImageElement | null>(null); // State for pre-loaded image
   const previewContainerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const webcamVideoRef = useRef<HTMLVideoElement>(null);
@@ -61,7 +61,7 @@ export const Preview = memo(({ videoRef }: { videoRef: React.RefObject<HTMLVideo
     }
   })();
 
-  // [OPTIMIZATION] Effect to pre-load background images
+  // Effect to pre-load background images
   useEffect(() => {
     const background = frameStyles.background;
     if ((background.type === 'image' || background.type === 'wallpaper') && background.imageUrl) {

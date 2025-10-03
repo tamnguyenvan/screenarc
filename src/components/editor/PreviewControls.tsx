@@ -1,6 +1,4 @@
-"use client"
-
-// PreviewControls - Main control bar for video playback and timeline editing
+// Main control bar for video playback and timeline editing
 import React from "react"
 import { Play, Pause, Scissors, ZoomIn, Trash2, Undo, Redo } from "lucide-react"
 import { useEditorStore } from "../../store/editorStore"

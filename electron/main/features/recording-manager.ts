@@ -163,14 +163,14 @@ export async function startRecording(options: any) { // Type from preload.ts
   if (mic) {
     switch (process.platform) {
       case 'linux': baseFfmpegArgs.push('-f', 'alsa', '-i', 'default'); break;
-      case 'win32': baseFfmpegArgs.push('-f', 'dshow', '-i', `audio=${mic.deviceLabel}`); break; // [FIX] Use `audio=` not `audio=`
+      case 'win32': baseFfmpegArgs.push('-f', 'dshow', '-i', `audio=${mic.deviceLabel}`); break; // Use `audio=` not `audio=`
       case 'darwin': baseFfmpegArgs.push('-f', 'avfoundation', '-i', `:${mic.index}`); break;
     }
   }
   if (webcam) {
     switch (process.platform) {
       case 'linux': baseFfmpegArgs.push('-f', 'v4l2', '-i', `/dev/video${webcam.index}`); break;
-      case 'win32': baseFfmpegArgs.push('-f', 'dshow', '-i', `video=${webcam.deviceLabel}`); break; // [FIX] Use `video=` not `video=`
+      case 'win32': baseFfmpegArgs.push('-f', 'dshow', '-i', `video=${webcam.deviceLabel}`); break; // Use `video=` not `video=`
       case 'darwin': baseFfmpegArgs.push('-f', 'avfoundation', '-i', `${webcam.index}:none`); break;
     }
   }

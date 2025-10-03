@@ -1,6 +1,4 @@
-"use client"
-
-// ExportModal.tsx - Modal for configuring export settings and showing export progress
+// Modal for configuring export settings and showing export progress
 import type React from "react"
 import { useEffect, useState } from "react"
 import { Button } from "../ui/button"

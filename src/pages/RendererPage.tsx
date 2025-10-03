@@ -11,7 +11,7 @@ type RenderStartPayload = {
   exportSettings: ExportSettings;
 }
 
-// [OPTIMIZATION] Helper to pre-load an image for the renderer worker
+// Helper to pre-load an image for the renderer worker
 const loadBackgroundImage = (background: EditorState['frameStyles']['background']): Promise<HTMLImageElement | null> => {
   return new Promise((resolve) => {
     if ((background.type !== 'image' && background.type !== 'wallpaper') || !background.imageUrl) {
@@ -64,7 +64,7 @@ export function RendererPage() {
 
         useEditorStore.setState(projectState);
 
-        // [OPTIMIZATION] Pre-load the background image before starting the frame loop
+        // Pre-load the background image before starting the frame loop
         const bgImage = await loadBackgroundImage(projectState.frameStyles.background);
 
         const loadVideo = (videoElement: HTMLVideoElement, source: string, path: string): Promise<void> =>

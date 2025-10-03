@@ -1,6 +1,4 @@
-"use client"
-
-// CameraSettings.tsx - Settings panel for webcam overlay (visibility, position, size, shadow)
+// Settings panel for webcam overlay (visibility, position, size, shadow)
 import { useMemo } from "react"
 import { useEditorStore } from "../../../store/editorStore"
 import { ControlGroup } from "./ControlGroup"
@@ -20,7 +18,7 @@ import { Switch } from "../../ui/switch"
 import { Slider } from "../../ui/slider"
 import { ColorPicker } from "../../ui/color-picker"
 import { rgbaToHexAlpha, hexToRgb } from "../../../lib/utils"
-import { useShallow } from "zustand/react/shallow" // Import useShallow
+import { useShallow } from "zustand/react/shallow"
 
 export function CameraSettings() {
   const { isWebcamVisible, webcamPosition, webcamStyles, setWebcamVisibility, setWebcamPosition, updateWebcamStyle } =

@@ -1,6 +1,4 @@
-"use client"
-
-// ExportButton.tsx - Primary button to trigger video export
+// Primary button to trigger video export
 import { Upload, Loader2 } from "lucide-react"
 import { Button } from "../ui/button"
 

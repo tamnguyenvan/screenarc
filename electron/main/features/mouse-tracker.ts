@@ -62,7 +62,6 @@ class LinuxMouseTracker extends EventEmitter implements IMouseTracker {
             return;
           }
           const timestamp = Date.now();
-          // ... (rest of the logic is identical)
           switch (pointer.keyMask) {
             case 0:
               this.emit('data', { timestamp, x: pointer.rootX, y: pointer.rootY, type: 'move' });

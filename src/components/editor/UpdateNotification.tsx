@@ -1,6 +1,4 @@
-"use client"
-
-// UpdateNotification.tsx - Notification button for available app updates
+// Notification button for available app updates
 import { Download } from "lucide-react"
 import { Button } from "../ui/button"
 

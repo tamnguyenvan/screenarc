@@ -1,5 +1,3 @@
-"use client"
-
 // FrameEffectsSettings.tsx - Settings panel for video frame effects (padding, corner radius, shadow, border)
 import { useMemo } from "react"
 import { useEditorStore } from "../../../store/editorStore"

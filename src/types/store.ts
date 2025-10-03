@@ -17,7 +17,7 @@ export interface FrameStyles {
   background: Background;
   borderRadius: number;
   shadow: number; // Controls blur and offset strength (0-50)
-  shadowColor: string; // New: Hex or RGBA string for shadow color
+  shadowColor: string; // Hex or RGBA string for shadow color
   borderWidth: number;
 }
 
@@ -79,7 +79,7 @@ export interface WebcamPosition {
 export interface WebcamStyles {
   size: number; // percentage of container height
   shadow: number; // 0-50 for shadow strength (blur/offset)
-  shadowColor: string; // New: Hex or RGBA string for webcam shadow color
+  shadowColor: string; // Hex or RGBA string for webcam shadow color
 }
 
 

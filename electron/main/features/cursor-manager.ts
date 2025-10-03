@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 // Contains logic to read and change cursor size on different platforms.
 
 import log from 'electron-log/main';
@@ -14,9 +15,7 @@ const WINDOWS_SCALES = [1, 2, 3];
 const WINDOWS_BASE_SIZE = 32;
 
 // --- Dynamic Imports ---
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 let WinAPI: any | undefined;
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 let Winreg: any;
 
 // A new initialization function to handle async imports
@@ -43,7 +42,6 @@ export async function getCursorScale(): Promise<number> {
       try {
         const regKey = new Winreg({ hive: Winreg.HKCU, key: '\\Control Panel\\Cursors' });
         const item = await new Promise<{ value: string }>((resolve, reject) => {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           regKey.get('CursorBaseSize', (err: any, item: any) => err ? reject(err) : resolve(item));
         });
         const size = parseInt(item.value, 16);

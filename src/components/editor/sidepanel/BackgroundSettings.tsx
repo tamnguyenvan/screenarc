@@ -1,6 +1,4 @@
-"use client"
-
-// BackgroundSettings.tsx - Settings panel for video background (wallpaper, color, gradient, image)
+// Settings panel for video background (wallpaper, color, gradient, image)
 import type React from "react"
 import { useState, useRef, useEffect } from "react"
 import { useEditorStore } from "../../../store/editorStore"

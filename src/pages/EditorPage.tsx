@@ -1,6 +1,4 @@
-"use client"
-
-// EditorPage.tsx - Main editor page layout with preview, timeline, and controls
+// Main editor page layout with preview, timeline, and controls
 import { useEffect, useRef, useState, useCallback } from "react"
 import { useEditorStore } from "../store/editorStore"
 import { Preview } from "../components/editor/Preview"

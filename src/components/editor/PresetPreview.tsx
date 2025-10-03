@@ -1,6 +1,4 @@
-"use client"
-
-// PresetPreview.tsx - Visual preview component for frame style presets
+// Visual preview component for frame style presets
 import { useMemo, useRef } from "react"
 import { WALLPAPERS } from "../../lib/constants"
 import type { FrameStyles, AspectRatio, WebcamStyles, WebcamPosition } from "../../types/store"

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { contextBridge, ipcRenderer, IpcRendererEvent } from 'electron'
 
 // Define the type for the callback value
@@ -13,9 +14,7 @@ type ProjectPayload = {
 }
 
 type ExportPayload = {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   projectState: any;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   exportSettings: any;
   outputPath: string;
 }
@@ -33,9 +32,7 @@ type CompletePayload = {
 
 // Payload for worker render
 type RenderStartPayload = {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   projectState: any;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   exportSettings: any;
 }
 
@@ -52,7 +49,6 @@ type WindowSource = {
 }
 
 // --- Presets ---
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Preset = any;
 
 type DisplayInfo = {
@@ -169,7 +165,6 @@ export const electronAPI = {
   // --- Presets & Settings ---
   loadPresets: (): Promise<Record<string, Preset>> => ipcRenderer.invoke('presets:load'),
   savePresets: (presets: Record<string, Preset>): Promise<{ success: boolean; error?: string }> => ipcRenderer.invoke('presets:save', presets),
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   getSetting: <T = any>(key: string): Promise<T> => ipcRenderer.invoke('settings:get', key),
   setSetting: (key: string, value: unknown): void => ipcRenderer.send('settings:set', key, value),
   getPath: (name: 'home' | 'userData' | 'desktop'): Promise<string> => ipcRenderer.invoke('app:getPath', name),

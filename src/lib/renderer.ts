@@ -1,5 +1,3 @@
-// src/lib/renderer.ts
-
 import { EditorState } from '../types/store';
 import { calculateZoomTransform } from './transform';
 
@@ -15,7 +13,7 @@ type RenderableState = Pick<
 >;
 
 /**
- * [REFACTORED] Draws the background, now accepts an optional pre-loaded image object for performance.
+ * Draws the background, now accepts an optional pre-loaded image object for performance.
  */
 const drawBackground = async (
   ctx: CanvasRenderingContext2D,
@@ -166,11 +164,11 @@ export const drawScene = async (
   videoPath.roundRect(borderWidth, borderWidth, frameContentWidth - 2 * borderWidth, frameContentHeight - 2 * borderWidth, videoRadius);
 
   ctx.save();
-  // Áp dụng shadow
+  // Apply shadow
   ctx.shadowColor = shadowColor;
   ctx.shadowBlur = shadow * 1.5;
 
-  // Vẽ các hiệu ứng của frame (gradient, border), các hiệu ứng này sẽ tự động có shadow
+  // Draw frame effects (gradient, border), these will automatically have shadow
   ctx.clip(framePath);
   const linearGrad = ctx.createLinearGradient(0, 0, frameContentWidth, frameContentHeight);
   linearGrad.addColorStop(0, 'rgba(255, 255, 255, 0.25)');
@@ -187,10 +185,10 @@ export const drawScene = async (
 
   ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
   ctx.lineWidth = 1;
-  ctx.stroke(framePath); // Dùng lại framePath để vẽ viền
-  ctx.restore(); // Restore sau khi đã vẽ xong frame và bóng của nó
+  ctx.stroke(framePath); // Use framePath to draw border
+  ctx.restore(); // Restore after drawing frame and its shadow
 
-  // Code vẽ video bên trong không đổi
+  // Draw video inside
   ctx.save();
   ctx.clip(videoPath);
   ctx.drawImage(videoElement, borderWidth, borderWidth, frameContentWidth - 2 * borderWidth, frameContentHeight - 2 * borderWidth);
@@ -222,12 +220,12 @@ export const drawScene = async (
     ctx.save();
     ctx.shadowColor = webcamStyles.shadowColor;
     ctx.shadowBlur = webcamStyles.shadow * 1.5;
-    // Chúng ta fill một màu bất kỳ để tạo bóng, màu này sẽ bị video che đi
+    // We fill a random color to create shadow, this color will be covered by video
     ctx.fillStyle = '#000';
     ctx.fill(webcamPath);
-    ctx.restore(); // Restore để các lệnh vẽ sau không bị ảnh hưởng bởi shadow
+    ctx.restore(); // Restore to prevent shadow affecting subsequent drawing commands
 
-    // Step 2: Vẽ video webcam, clip theo đúng hình dạng đã vẽ bóng
+    // Step 2: Draw webcam video, clip according to the shadow shape
     ctx.save();
     ctx.clip(webcamPath);
     ctx.drawImage(webcamVideoElement, webcamX, webcamY, webcamWidth, webcamHeight);

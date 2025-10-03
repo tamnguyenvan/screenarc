@@ -440,7 +440,7 @@ export const useEditorStore = create(
       },
 
       updateRegion: (id, updates) => {
-        // [REFACTORED] Entire logic is now inside a single `set` call.
+        // Entire logic is now inside a single `set` call.
         set(state => {
           const region = state.zoomRegions[id] || state.cutRegions[id];
 
@@ -462,7 +462,7 @@ export const useEditorStore = create(
       },
 
       deleteRegion: (id) => {
-        // [REFACTORED] Entire logic is now inside a single `set` call.
+        // Entire logic is now inside a single `set` call.
         set(state => {
           delete state.zoomRegions[id];
           delete state.cutRegions[id];

@@ -1,6 +1,4 @@
-"use client"
-
-// FocusPointPicker.tsx - Interactive component for selecting zoom focus point on video frame
+// Interactive component for selecting zoom focus point on video frame
 import type React from "react"
 import { useRef, useState, useEffect, useCallback } from "react"
 import { useEditorStore } from "../../../store/editorStore"

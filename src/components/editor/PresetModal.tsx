@@ -1,5 +1,3 @@
-"use client"
-
 import { useState, useEffect } from "react"
 import { useShallow } from "zustand/react/shallow"
 import { useEditorStore } from "../../store/editorStore"

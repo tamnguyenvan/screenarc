@@ -88,10 +88,10 @@ jobs:
 
   # Job build cho Windows
   windows:
-    needs: create-release # Chờ job create-release hoàn thành
+    needs: create-release
     runs-on: windows-latest
     permissions:
-      contents: write # Cần quyền để upload asset
+      contents: write
     steps:
       - uses: actions/checkout@v3
 
