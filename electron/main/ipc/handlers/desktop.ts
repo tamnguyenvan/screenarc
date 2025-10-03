@@ -31,7 +31,7 @@ export function showSaveDialog(_event: IpcMainInvokeEvent, options: Electron.Sav
 export async function getVideoFrame(_event: IpcMainInvokeEvent, { videoPath, time }: { videoPath: string, time: number }): Promise<string> {
   const FFMPEG_PATH = getFFmpegPath();
   return new Promise((resolve, reject) => {
-    log.info(`[Desktop] Extracting frame from "${videoPath}" at ${time}s`);
+    log.debug(`[Desktop] Extracting frame from "${videoPath}" at ${time}s`);
     const command = `"${FFMPEG_PATH}" -ss ${time} -i "${videoPath}" -vframes 1 -f image2pipe -c:v png -`;
     exec(command, { encoding: 'binary', maxBuffer: 10 * 1024 * 1024 }, (error, stdout, stderr) => {
       if (error) {
