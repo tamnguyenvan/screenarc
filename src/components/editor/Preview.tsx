@@ -227,7 +227,7 @@ export const Preview = memo(({ videoRef }: { videoRef: React.RefObject<HTMLVideo
       <div
         id="preview-container"
         ref={previewContainerRef}
-        className="transition-all duration-300 ease-out flex items-center justify-center w-full h-full"
+        className="transition-all duration-300 ease-out flex items-center justify-center w-full flex-1 min-h-0"
       >
         {videoUrl ? (
           <canvas

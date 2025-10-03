@@ -204,15 +204,13 @@ export function EditorPage() {
               <SidePanel />
             </div>
             <div className="flex-1 flex flex-col overflow-hidden bg-background">
-              <div className="flex-1 flex flex-col overflow-hidden">
-                <div className="flex-1 flex items-center justify-center p-6 overflow-hidden">
-                  <Preview videoRef={videoRef} />
-                </div>
-                <div className="flex-shrink-0 pb-2">
-                  <PreviewControls videoRef={videoRef} />
-                </div>
+              <div className="flex-1 flex items-center justify-center p-6 overflow-hidden min-h-0">
+                <Preview videoRef={videoRef} />
               </div>
-              <div className="h-48 flex-shrink-0 bg-card/60 border-t border-border/50 backdrop-blur-sm overflow-hidden shadow-inner">
+              <div className="flex-shrink-0">
+                <PreviewControls videoRef={videoRef} />
+              </div>
+              <div className="h-48 flex-shrink-0 bg-card/60 border-t border-border/50 backdrop-blur-sm overflow-hidden">
                 <Timeline videoRef={videoRef} />
               </div>
             </div>
