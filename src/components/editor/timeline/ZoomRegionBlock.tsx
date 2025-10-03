@@ -28,24 +28,24 @@ export const ZoomRegionBlock = memo(({
       ref={setRef}
       data-region-id={region.id}
       className={cn(
-        'absolute w-full h-14 top-1/2 -translate-y-1/2 rounded-xl cursor-grab active:cursor-grabbing border-2 backdrop-blur-sm',
+        'absolute w-full h-14 top-1/2 -translate-y-1/2 rounded-xl cursor-grab border-2 backdrop-blur-sm',
         !isBeingDragged && 'transition-all duration-200 ease-out',
         isSelected
-          ? 'bg-accent/80 border-primary -translate-y-[calc(50%+10px)] shadow-xl shadow-primary/30 scale-105'
-          : 'bg-secondary/70 border-border/60 hover:border-primary/40 hover:bg-accent/60 hover:shadow-lg hover:shadow-primary/10'
+          ? 'bg-card/90 border-primary -translate-y-[calc(50%+10px)] shadow-xl shadow-primary/30'
+          : 'bg-card/70 border-border/60 hover:border-border hover:bg-card/80 hover:shadow-lg hover:shadow-muted/10'
       )}
       style={{ willChange: 'transform, width' }}
       onMouseDown={(e) => onMouseDown(e, region, 'move')}
     >
       <div
         className="absolute left-0 top-0 w-5 h-full cursor-ew-resize rounded-l-xl flex items-center justify-center z-10 group"
-        onMouseDown={(e) => handleResizeMouseDown(e, 'resize-left')} 
+        onMouseDown={(e) => handleResizeMouseDown(e, 'resize-left')}
       >
         <div className={cn(
           "w-1 h-8 rounded-full transition-all duration-150",
           isSelected 
-            ? "bg-primary group-hover:h-10" 
-            : "bg-border/60 group-hover:bg-primary group-hover:h-10"
+            ? "bg-primary" 
+            : "bg-border/50 group-hover:bg-primary group-hover:h-10"
         )} />
       </div>
 
@@ -53,11 +53,11 @@ export const ZoomRegionBlock = memo(({
         <div className="flex items-center gap-2.5 overflow-hidden">
           <Search className={cn(
             "w-5 h-5 shrink-0 transition-colors",
-            isSelected ? "text-primary" : "text-foreground/70"
+            isSelected ? "text-primary" : "text-muted-foreground"
           )} />
           <span className={cn(
             "text-xs font-semibold tracking-wide select-none whitespace-nowrap overflow-hidden text-ellipsis transition-colors",
-            isSelected ? "text-primary" : "text-foreground/70"
+            isSelected ? "text-primary" : "text-muted-foreground"
           )}>
             ZOOM
           </span>
@@ -65,14 +65,14 @@ export const ZoomRegionBlock = memo(({
       </div>
 
       <div
-        className="absolute right-0 top-0 w-5 h-full cursor-ew-resize rounded-r-xl flex items-center justify-center z-10 group"
-        onMouseDown={(e) => handleResizeMouseDown(e, 'resize-right')} 
+        className="absolute right-0 top-0 w-5 h-full cursor-ew-resize rounded-xl flex items-center justify-center z-10 group"
+        onMouseDown={(e) => handleResizeMouseDown(e, 'resize-right')}
       >
         <div className={cn(
           "w-1 h-8 rounded-full transition-all duration-150",
           isSelected 
-            ? "bg-primary group-hover:h-10" 
-            : "bg-border/60 group-hover:bg-primary group-hover:h-10"
+            ? "bg-primary" 
+            : "bg-border/50 group-hover:bg-primary group-hover:h-10"
         )} />
       </div>
     </div>

@@ -61,7 +61,7 @@ export const CutRegionBlock = memo(({
           !isBeingDragged && 'transition-all duration-200 ease-out',
           canMove ? 'cursor-grab active:cursor-grabbing' : 'cursor-default',
           isSelected
-            ? 'bg-card/90 border-destructive transform -translate-y-[calc(50%+10px)] shadow-xl shadow-destructive/30 scale-105'
+            ? 'bg-card/90 border-destructive transform -translate-y-[calc(50%+10px)] shadow-xl shadow-destructive/30'
             : 'bg-card/70 border-destructive/60 hover:border-destructive/80 hover:bg-card/80 hover:shadow-lg hover:shadow-destructive/10'
         )}
         onMouseDown={(e) => handleMouseDown(e, 'move')}

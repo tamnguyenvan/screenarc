@@ -1,17 +1,20 @@
-import { Download } from 'lucide-react';
-import { Button } from '../ui/button';
+"use client"
+
+// UpdateNotification.tsx - Notification button for available app updates
+import { Download } from "lucide-react"
+import { Button } from "../ui/button"
 
 interface UpdateNotificationProps {
   info: {
-    version: string;
-    url: string;
-  };
+    version: string
+    url: string
+  }
 }
 
 export function UpdateNotification({ info }: UpdateNotificationProps) {
   const handleDownload = () => {
-    window.electronAPI.openExternal(info.url);
-  };
+    window.electronAPI.openExternal(info.url)
+  }
 
   return (
     <div className="animate-in fade-in-50 slide-in-from-top-2 duration-500">
@@ -21,11 +24,11 @@ export function UpdateNotification({ info }: UpdateNotificationProps) {
         size="sm"
         onClick={handleDownload}
         aria-label="Update Available"
-        className="bg-sky-500/10 hover:bg-sky-500/20 text-sky-600 dark:text-sky-400 border border-sky-500/20 h-8"
+        className="bg-sky-500/10 hover:bg-sky-500/20 text-sky-600 dark:text-sky-400 border border-sky-500/20 h-8 shadow-sm hover:shadow-md transition-all duration-200 backdrop-blur-sm font-medium"
       >
         <Download className="w-4 h-4 mr-2" />
         Update Available
       </Button>
     </div>
-  );
+  )
 }

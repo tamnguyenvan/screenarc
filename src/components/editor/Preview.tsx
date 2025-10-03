@@ -235,15 +235,16 @@ export const Preview = memo(({ videoRef }: { videoRef: React.RefObject<HTMLVideo
             width={canvasDimensions.width}
             height={canvasDimensions.height}
             style={{ maxWidth: '100%', maxHeight: '100%' }}
+            className="rounded-lg shadow-2xl"
           />
         ) : (
-          <div className="w-full h-full bg-gradient-to-br from-slate-50/10 to-slate-100/5 border-2 border-dashed border-white/20 rounded-xl flex flex-col items-center justify-center text-white/70 gap-4 backdrop-blur-sm">
-            <div className="w-16 h-16 rounded-full bg-gradient-to-br from-white/20 to-white/5 flex items-center justify-center backdrop-blur-md border border-white/20">
-              <Film className="w-8 h-8 text-white/70" />
+          <div className="w-full h-full bg-gradient-to-br from-muted/30 to-muted/10 border-2 border-dashed border-border/40 rounded-xl flex flex-col items-center justify-center text-muted-foreground gap-4 backdrop-blur-sm">
+            <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-primary/10 to-primary/5 flex items-center justify-center backdrop-blur-md border border-border/30 shadow-lg">
+              <Film className="w-10 h-10 text-primary/60" />
             </div>
-            <div className="text-center">
-              <p className="text-lg font-medium mb-1 text-white/80">No project loaded</p>
-              <p className="text-sm text-white/50">Load a project to begin editing</p>
+            <div className="text-center space-y-1">
+              <p className="text-lg font-semibold text-foreground/80">No project loaded</p>
+              <p className="text-sm text-muted-foreground/70">Load a project to begin editing</p>
             </div>
           </div>
         )}
@@ -272,23 +273,38 @@ export const Preview = memo(({ videoRef }: { videoRef: React.RefObject<HTMLVideo
 
       {videoUrl && (
         <div
-          className="w-full"
-          style={{ width: canvasDimensions.width > 0 ? canvasDimensions.width : 'auto', maxWidth: '100%' }}
+          className="w-full mt-2"
+          style={{ width: canvasDimensions.width > 0 ? canvasDimensions.width : "auto", maxWidth: "100%" }}
         >
-          <div className="bg-card/80 backdrop-blur-xl border border-border/30 rounded-bl-xl rounded-br-xl px-3 py-1.5 flex items-center gap-3 shadow-xs">
-            <Button variant="ghost" size="icon" onClick={togglePlay} className="flex-shrink-0 text-foreground/70 hover:text-foreground h-8 w-8">
+          <div className="bg-card/90 backdrop-blur-xl border border-border/40 rounded-xl px-4 py-2.5 flex items-center gap-4 shadow-lg">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={togglePlay}
+              className="flex-shrink-0 text-foreground/70 hover:text-foreground hover:bg-accent/50 h-9 w-9 rounded-lg transition-all duration-200"
+            >
               {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
             </Button>
-            <div className="flex items-baseline gap-1.5 text-xs font-mono tabular-nums text-muted-foreground">
-              <span>{formatTime(currentTime, true)}</span>
-              <span>/</span>
-              <span>{formatTime(duration, true)}</span>
+            <div className="flex items-baseline gap-2 text-xs font-mono tabular-nums text-muted-foreground min-w-[120px]">
+              <span className="text-foreground/80 font-medium">{formatTime(currentTime, true)}</span>
+              <span className="text-muted-foreground/50">/</span>
+              <span className="text-muted-foreground">{formatTime(duration, true)}</span>
             </div>
             <Slider
-              min={0} max={duration} step={0.01} value={currentTime}
-              onChange={handleScrub} disabled={duration === 0} className="flex-1"
+              min={0}
+              max={duration}
+              step={0.01}
+              value={currentTime}
+              onChange={handleScrub}
+              disabled={duration === 0}
+              className="flex-1"
             />
-            <Button variant="ghost" size="icon" onClick={togglePreviewFullScreen} className="flex-shrink-0 text-foreground/70 hover:text-foreground h-8 w-8">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={togglePreviewFullScreen}
+              className="flex-shrink-0 text-foreground/70 hover:text-foreground hover:bg-accent/50 h-9 w-9 rounded-lg transition-all duration-200"
+            >
               {isPreviewFullScreen ? <Shrink className="w-4 h-4" /> : <Fullscreen className="w-4 h-4" />}
             </Button>
           </div>
