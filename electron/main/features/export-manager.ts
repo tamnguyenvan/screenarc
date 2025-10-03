@@ -4,6 +4,7 @@ import log from 'electron-log/main';
 import { BrowserWindow, IpcMainInvokeEvent, ipcMain } from 'electron';
 import { spawn } from 'node:child_process';
 import path from 'node:path';
+import { format as formatUrl } from 'node:url';
 import fs from 'node:fs';
 import fsPromises from 'node:fs/promises';
 import { appState } from '../state';
@@ -28,9 +29,17 @@ export async function startExport(event: IpcMainInvokeEvent, { projectState, exp
     webPreferences: {
       preload: PRELOAD_SCRIPT,
       offscreen: true,
+      webSecurity: false,
     },
   });
-  const renderUrl = VITE_DEV_SERVER_URL ? `${VITE_DEV_SERVER_URL}#renderer` : path.join(RENDERER_DIST, 'index.html#renderer');
+  const renderUrl = VITE_DEV_SERVER_URL 
+    ? `${VITE_DEV_SERVER_URL}#renderer` 
+    : formatUrl({
+        pathname: path.join(RENDERER_DIST, 'index.html'),
+        protocol: 'file:',
+        slashes: true,
+        hash: 'renderer'
+      });
   appState.renderWorker.loadURL(renderUrl);
   log.info(`[ExportManager] Loading render worker URL: ${renderUrl}`);
 
