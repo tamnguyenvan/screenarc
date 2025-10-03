@@ -16,7 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - A bug fix.
 
-## [1.1.0] - 2024-10-03
+## [1.1.1] - 2024-10-03
 
 ### Added
 - Implement "load from video" feature.
@@ -27,7 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - 
 
-## [1.1.0] - 2024-05-21
+## [1.1.1] - 2024-05-21
 
 ### Added
 - Initial public release of ScreenArc.
