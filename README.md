@@ -1,6 +1,6 @@
 # ScreenArc - Cinematic Screen Recording & Editing Studio
 
-![ScreenArc Banner](https://raw.githubusercontent.com/tamnguyenvan/screenarc/main/docs/assets/banner-screencapture.png?raw=true)
+![ScreenArc Banner](https://raw.githubusercontent.com/tamnguyenvan/screenarc/main/docs/assets/banner.png?raw=true)
 
 <div align="center">
   <img src="https://img.shields.io/github/v/release/tamnguyenvan/screenarc?style=for-the-badge" alt="Latest Release" />
@@ -46,25 +46,46 @@ The core philosophy of ScreenArc is to **automate the tedious parts of video edi
 
 Download the latest version for your operating system from the [**Releases Page**](https://github.com/tamnguyenvan/screenarc/releases/latest).
 
-### Linux
+### 🐧 Linux (Ubuntu/Debian-based, Fedora/RHEL-based)
+
+> **⚠️ Note:** ScreenArc currently only supports X11 display server and does not work on Wayland. 
+> 
+> 🔍 To check your display server, run:
+> ```bash
+> echo $XDG_SESSION_TYPE
+> ```
+> 
+> ⚠️ If it shows `wayland`, you'll need to switch to X11 in your login screen or display manager settings. (Look for a gear/cog icon ⚙️ during login to change the session type)
 
 1.  Download the `.AppImage` file (e.g., `ScreenArc-x.x.x.AppImage`).
 2.  Make the file executable:
     ```bash
     chmod +x ScreenArc-*.AppImage
     ```
-3.  Run the application:
+3.  Double-click the file to start the application or run it from the terminal:
     ```bash
     ./ScreenArc-*.AppImage
     ```
-    *Note: For window recording on Linux, you may need to install `wmctrl`, `x11-utils` (`xwininfo`), and `imagemagick`. The app will warn you if these are missing.*
+### Other Linux distributions
+Please check the [Development Setup](#development-setup) section for building from source.
 
-### Windows
+### 🪟 Windows
 
-1.  Download the `...-Setup.exe` installer.
+> **⚠️ Windows Security Notice**
+> 
+> We're sorry for the extra steps! Since we're a small project, we can't afford code signing certificates yet. Here's what to expect:
+> 
+> 1. After downloading the installer, your browser might show a warning. Click "Keep" or "Keep anyway" to save the file.
+> 2. When running the installer, Windows may show a "Windows protected your PC" warning. To proceed:
+>    1. Click "More info" 
+>    2. Click "Run anyway" 
+
+> 🔒 Your security is important to us. You can verify the source code in our GitHub repository before installing.
+
+1.  Download the `ScreenArc-x.x.x-Setup.exe` installer.
 2.  Run the installer and follow the on-screen instructions.
 
-### macOS
+### 🍏 macOS
 
 *   Coming soon! Builds for macOS are planned for a future release.
 
@@ -101,33 +122,82 @@ Download the latest version for your operating system from the [**Releases Page*
 
 Contributions are welcome! If you have ideas for new features, bug fixes, or improvements, please feel free to open an issue or submit a pull request.
 
-### Development Setup
+### 🛠️ Development Setup
 
-1.  Clone the repository:
+### Prerequisites
+
+#### 🐧 Linux
+- Make sure you're using X11 (not Wayland) as your display server. Check with:
+  ```bash
+  echo $XDG_SESSION_TYPE
+  ```
+  If it shows `wayland`, switch to X11 in your login screen settings.
+
+#### 🪟 Windows
+1. **Install Build Tools**:
+   - Download [Build Tools for Visual Studio 2022](https://visualstudio.microsoft.com/visual-cpp-build-tools/)
+   - Run the installer and select "Desktop development with C++" workload
+   - In the Installation details (right panel), ensure these are checked:
+     - MSVC v143 - VS 2022 C++ x64/x86 build tools
+     - Windows 10/11 SDK
+     - C++ CMake tools for Windows
+   - Click Install and wait for completion
+
+2. **Install Python 3.8 (other versions may work but are not tested)**:
+   - Download from [Python 3.8.x](https://www.python.org/downloads/release/python-3810/)
+   - During installation, check "Add Python 3.8 to PATH"
+   - Verify installation by running `python --version` in a new terminal
+
+#### Setup Instructions
+
+1. **Clone the repository**:
     ```bash
     git clone https://github.com/tamnguyenvan/screenarc.git
     cd screenarc
     ```
-2.  Install dependencies:
+
+2. **Install dependencies**:
     ```bash
     npm install
     ```
-3.  Download and set up FFmpeg:
+
+3. **Set up FFmpeg**:
+    
+    **For Linux**:
     ```bash
     # Create binaries directory if it doesn't exist
     mkdir -p binaries/linux
     
-    # Download FFmpeg static binary (replace with the latest version URL)
+    # Download FFmpeg static binary
     wget https://github.com/tamnguyenvan/screenarc-assets/releases/download/v0.0.1/ffmpeg -O binaries/linux/ffmpeg
     
     # Make FFmpeg executable
     chmod +x binaries/linux/ffmpeg
     ```
-4.  Run the development server:
+
+    **For Windows (PowerShell)**:
+    ```powershell
+    # Create binaries directory if it doesn't exist
+    New-Item -ItemType Directory -Force -Path "binaries\windows"
+    
+    # Download FFmpeg static binary
+    Invoke-WebRequest -Uri "https://github.com/tamnguyenvan/screenarc-assets/releases/download/v0.0.1/ffmpeg.exe" -OutFile "binaries\windows\ffmpeg.exe"
+    ```
+
+4. **Run the development server**:
     ```bash
     npm run dev
     ```
 
+5. **Build the application (Optional)**:
+    ```bash
+    # For Linux
+    npm run dist:appimage
+
+    # For Windows
+    npm run dist:win
+    ```
+
 ## 📜 License
 
-This project is licensed under the [MIT License](LICENSE).
+This project is licensed under the [AGPL-3.0 License](LICENSE).
