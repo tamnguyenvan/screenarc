@@ -1,4 +1,3 @@
-// START OF FILE src_components_settings_AboutTab.tsx
 import { useState, useEffect } from 'react';
 import { Button } from '../ui/button';
 import { Github } from 'lucide-react';
@@ -48,4 +47,3 @@ export function AboutTab() {
     </div>
   );
 }
-// END OF FILE src_components_settings_AboutTab.tsx

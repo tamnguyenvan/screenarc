@@ -4,8 +4,9 @@
 import log from 'electron-log/main';
 import { EventEmitter } from 'node:events';
 import { dialog } from 'electron';
-import { MOUSE_RECORDING_FPS } from '../lib/constants';
 import { createRequire } from 'node:module';
+import { MOUSE_RECORDING_FPS } from '../lib/constants';
+import { MOUSE_BUTTONS } from '../lib/system-constants';
 
 const require = createRequire(import.meta.url);
 
@@ -62,7 +63,6 @@ class LinuxMouseTracker extends EventEmitter implements IMouseTracker {
             return;
           }
           const timestamp = Date.now();
-          // ... (rest of the logic is identical)
           switch (pointer.keyMask) {
             case 0:
               this.emit('data', { timestamp, x: pointer.rootX, y: pointer.rootY, type: 'move' });
@@ -97,7 +97,14 @@ class LinuxMouseTracker extends EventEmitter implements IMouseTracker {
     });
   }
 
-  private mapButton = (code: number) => ({ 256: 'left', 512: 'middle', 1024: 'right' })[code] || 'unknown';
+  private mapButton = (code: number) => {
+    switch (code) {
+      case MOUSE_BUTTONS.LINUX_X11_MASK.LEFT: return 'left';
+      case MOUSE_BUTTONS.LINUX_X11_MASK.MIDDLE: return 'middle';
+      case MOUSE_BUTTONS.LINUX_X11_MASK.RIGHT: return 'right';
+      default: return 'unknown';
+    }
+  };
 }
 
 class WindowsMouseTracker extends EventEmitter implements IMouseTracker {
@@ -114,7 +121,14 @@ class WindowsMouseTracker extends EventEmitter implements IMouseTracker {
     this.mouseEvents = null;
     log.info('[MouseTracker-Windows] Stopped.');
   }
-  private mapButton = (code: number) => ({ 1: 'left', 2: 'right', 3: 'middle' })[code] || 'unknown';
+  private mapButton = (code: number) => {
+    switch (code) {
+      case MOUSE_BUTTONS.WINDOWS.LEFT: return 'left';
+      case MOUSE_BUTTONS.WINDOWS.RIGHT: return 'right';
+      case MOUSE_BUTTONS.WINDOWS.MIDDLE: return 'middle';
+      default: return 'unknown';
+    }
+  };
 }
 
 // --- Factory Function ---

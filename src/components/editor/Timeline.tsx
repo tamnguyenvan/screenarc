@@ -18,17 +18,23 @@ const Ruler = memo(({ ticks, timeToPx, formatTime: formatTimeFunc }: {
   timeToPx: (time: number) => number;
   formatTime: (seconds: number) => string;
 }) => (
-  <div className="h-12 sticky overflow-hidden top-0 left-0 right-0 z-10 border-b-2 border-border/60 bg-gradient-to-b from-muted/80 to-muted/40 pt-2">
-    {ticks.map(({ time, type }) => (
-      <div key={`${type}-${time}`} className="absolute top-2 h-full" style={{ left: `${timeToPx(time)}px` }}>
-        <div className={cn("timeline-tick absolute top-0 left-1/2 -translate-x-1/2 w-px", type === 'major' ? 'h-5' : 'h-2.5')} />
-        {type === 'major' && (
-          <span className="absolute top-5 left-0.5 text-xs text-foreground/70 font-mono font-medium">
-            {formatTimeFunc(time)}
-          </span>
-        )}
-      </div>
-    ))}
+  <div className="h-14 sticky overflow-hidden top-0 left-0 right-0 z-10 border-b border-border/50 bg-gradient-to-b from-card via-card/95 to-card/80 backdrop-blur-xl">
+    <div className="absolute inset-0 bg-gradient-to-b from-muted/20 to-transparent pointer-events-none" />
+    <div className="relative h-full pt-3">
+      {ticks.map(({ time, type }) => (
+        <div key={`${type}-${time}`} className="absolute top-3 h-full" style={{ left: `${timeToPx(time)}px` }}>
+          <div className={cn(
+            "timeline-tick absolute top-0 left-1/2 -translate-x-1/2 w-px transition-opacity",
+            type === 'major' ? 'h-6 opacity-40' : 'h-3 opacity-20'
+          )} />
+          {type === 'major' && (
+            <span className="absolute top-7 left-0.5 text-[11px] text-muted-foreground font-mono font-medium tracking-tight">
+              {formatTimeFunc(time)}
+            </span>
+          )}
+        </div>
+      ))}
+    </div>
   </div>
 ));
 Ruler.displayName = 'Ruler';
@@ -53,7 +59,6 @@ export function Timeline({ videoRef }: { videoRef: React.RefObject<HTMLVideoElem
       isPlaying: state.isPlaying
     }))
   );
-  const { zoomRegions: zoomRegionsMap, cutRegions: cutRegionsMap } = useAllRegions();
   const { setCurrentTime, setSelectedRegionId } = useEditorStore();
 
   const containerRef = useRef<HTMLDivElement>(null);
@@ -136,56 +141,107 @@ export function Timeline({ videoRef }: { videoRef: React.RefObject<HTMLVideoElem
     }
   }, [currentTime, isPlaying, timeToPx]);
 
-  const allCutRegionsToRender = useMemo(() => {
-    const existingCuts = Object.values(cutRegionsMap);
-    if (previewCutRegion && !existingCuts.some(c => c.trimType === previewCutRegion.trimType)) {
-      return [...existingCuts, previewCutRegion];
-    }
-    return existingCuts;
-  }, [cutRegionsMap, previewCutRegion]);
+  const { zoomRegions, cutRegions } = useAllRegions();
 
-  const zoomRegions = useMemo(() => Object.values(zoomRegionsMap), [zoomRegionsMap]);
+  const allRegionsToRender = useMemo(() => {
+    const combined = [
+      ...Object.values(zoomRegions),
+      ...Object.values(cutRegions),
+    ];
+    if (previewCutRegion) {
+      combined.push(previewCutRegion);
+    }
+    return combined;
+  }, [zoomRegions, cutRegions, previewCutRegion]);
 
   return (
-    <div className="h-full flex flex-col bg-background p-4">
-      <div className="h-full flex flex-row rounded-xl overflow-hidden shadow-sm bg-card border border-border/80">
-        <div className="w-8 shrink-0 h-full bg-card flex items-center justify-center transition-colors cursor-ew-resize select-none border-r border-border/80 hover:bg-accent/50" onMouseDown={handleLeftStripMouseDown}>
-          <Scissors size={16} className="text-muted-foreground" />
+    <div className="h-full flex flex-col bg-background/50 p-3">
+      <div className="h-full flex flex-row rounded-xl overflow-hidden shadow-xl bg-card/95 backdrop-blur-xl border border-border/60">
+        <div 
+          className="w-10 shrink-0 h-full bg-gradient-to-b from-card to-card/80 flex items-center justify-center transition-all duration-200 cursor-ew-resize select-none border-r border-border/50 hover:bg-accent/30 active:bg-accent/50 group" 
+          onMouseDown={handleLeftStripMouseDown}
+        >
+          <Scissors size={18} className="text-muted-foreground/60 group-hover:text-muted-foreground transition-colors" />
         </div>
-        <div ref={containerRef} className="flex-1 overflow-x-auto overflow-y-hidden bg-card/50" onMouseDown={e => {
-          if (duration === 0 || (e.target as HTMLElement).closest('[data-region-id]')) return;
-          const rect = (e.currentTarget as HTMLDivElement).getBoundingClientRect();
-          const clickX = e.clientX - rect.left + (e.currentTarget as HTMLDivElement).scrollLeft;
-          updateVideoTime(pxToTime(clickX));
-          setSelectedRegionId(null);
-        }}>
-          <div ref={timelineRef} className="relative h-full min-w-full overflow-hidden" style={{ width: `${timeToPx(duration)}px` }}>
+        
+        <div 
+          ref={containerRef} 
+          className="flex-1 overflow-x-auto overflow-y-hidden bg-gradient-to-b from-muted/5 to-background/5" 
+          onMouseDown={e => {
+            if (duration === 0 || (e.target as HTMLElement).closest('[data-region-id]')) return;
+            const rect = (e.currentTarget as HTMLDivElement).getBoundingClientRect();
+            const clickX = e.clientX - rect.left + (e.currentTarget as HTMLDivElement).scrollLeft;
+            updateVideoTime(pxToTime(clickX));
+            setSelectedRegionId(null);
+          }}
+        >
+          <div 
+            ref={timelineRef} 
+            className="relative h-full min-w-full overflow-hidden" 
+            style={{ width: `${timeToPx(duration)}px` }}
+          >
             <Ruler ticks={rulerTicks} timeToPx={timeToPx} formatTime={formatTime} />
-            <div className="absolute top-0 left-0 right-0 bottom-0 pointer-events-none">
-              {allCutRegionsToRender.map(region => (
-                <div key={region.id} className="absolute top-0 h-full pointer-events-auto" style={{ left: `${timeToPx(region.startTime)}px`, width: `${timeToPx(region.duration)}px`, zIndex: selectedRegionId === region.id ? 100 : (region.trimType ? 5 : region.zIndex ?? 10) }}>
-                  <CutRegionBlock region={region} isSelected={selectedRegionId === region.id} isDraggable={region.id !== previewCutRegion?.id} isBeingDragged={draggingRegionId === region.id} onMouseDown={handleRegionMouseDown} setRef={el => regionRefs.current.set(region.id, el)} />
-                </div>
-              ))}
-            </div>
-            <div className="relative pt-6 space-y-4">
-              <div className="h-24 relative bg-gradient-to-b from-background/50 to-background/20">
-                {zoomRegions.map(region => (
-                  <div key={region.id} className="absolute h-14" style={{ left: `${timeToPx(region.startTime)}px`, width: `${timeToPx(region.duration)}px`, zIndex: selectedRegionId === region.id ? 100 : (region.zIndex ?? 10) }}>
-                    <ZoomRegionBlock region={region} isSelected={selectedRegionId === region.id} isBeingDragged={draggingRegionId === region.id} onMouseDown={handleRegionMouseDown} setRef={el => regionRefs.current.set(region.id, el)} />
+            
+            <div className="absolute top-14 left-0 w-full" style={{ height: 'calc(100% - 3.5rem)' }}>
+              {allRegionsToRender.map(region => {
+                const isSelected = selectedRegionId === region.id;
+                const zIndex = isSelected ? 100 : region.zIndex ?? 1;
+
+                return (
+                  <div
+                    key={region.id}
+                    className="absolute top-0 h-full"
+                    style={{
+                      left: `${timeToPx(region.startTime)}px`,
+                      width: `${timeToPx(region.duration)}px`,
+                      zIndex: zIndex,
+                    }}
+                  >
+                    {region.type === 'zoom' && (
+                      <ZoomRegionBlock
+                        region={region}
+                        isSelected={isSelected}
+                        isBeingDragged={draggingRegionId === region.id}
+                        onMouseDown={handleRegionMouseDown}
+                        setRef={el => regionRefs.current.set(region.id, el)}
+                      />
+                    )}
+                    {region.type === 'cut' && (
+                      <CutRegionBlock
+                        region={region}
+                        isSelected={isSelected}
+                        isDraggable={region.id !== previewCutRegion?.id}
+                        isBeingDragged={draggingRegionId === region.id}
+                        onMouseDown={handleRegionMouseDown}
+                        setRef={el => regionRefs.current.set(region.id, el)}
+                      />
+                    )}
                   </div>
-                ))}
-              </div>
+                );
+              })}
             </div>
-            {duration > 0 &&
-              <div ref={playheadRef} className="absolute top-0 bottom-0 z-[200]" style={{ transform: `translateX(${timeToPx(currentTime)}px)`, pointerEvents: "none" }}>
-                <Playhead height={Math.floor((timelineRef.current?.clientHeight ?? 200) * 0.9)} isDragging={false} onMouseDown={handlePlayheadMouseDown} />
+            
+            {duration > 0 && (
+              <div 
+                ref={playheadRef} 
+                className="absolute top-0 bottom-0 z-[200]" 
+                style={{ transform: `translateX(${timeToPx(currentTime)}px)`, pointerEvents: "none" }}
+              >
+                <Playhead 
+                  height={Math.floor((timelineRef.current?.clientHeight ?? 200) * 0.9)} 
+                  isDragging={false} 
+                  onMouseDown={handlePlayheadMouseDown} 
+                />
               </div>
-            }
+            )}
           </div>
         </div>
-        <div className="w-8 shrink-0 h-full bg-card flex items-center justify-center transition-colors cursor-ew-resize select-none border-l border-border/80 hover:bg-accent/50" onMouseDown={handleRightStripMouseDown}>
-          <FlipScissorsIcon className="text-muted-foreground size-4" />
+        
+        <div 
+          className="w-10 shrink-0 h-full bg-gradient-to-b from-card to-card/80 flex items-center justify-center transition-all duration-200 cursor-ew-resize select-none border-l border-border/50 hover:bg-accent/30 active:bg-accent/50 group" 
+          onMouseDown={handleRightStripMouseDown}
+        >
+          <FlipScissorsIcon className="text-muted-foreground/60 group-hover:text-muted-foreground transition-colors size-[18px]" />
         </div>
       </div>
     </div>

@@ -35,41 +35,65 @@ export const CutRegionBlock = memo(({
     <div
       ref={setRef}
       data-region-id={region.id}
-      className={cn(
-        'w-full h-full pointer-events-none',
-      )}
+      className="w-full h-full relative"
       style={{ willChange: 'transform, width' }}
     >
-      <div className="absolute top-0 left-0 w-full h-[230px] bg-destructive/20 translate-y-[-200px]" />
+      {/* Striped overlay above the region */}
+      <div className="absolute top-0 left-0 w-full h-[230px] translate-y-[-200px] overflow-hidden rounded-t-lg">
+        <div className="absolute inset-0 bg-destructive/15" />
+        <div 
+          className="absolute inset-0 opacity-30"
+          style={{
+            backgroundImage: `repeating-linear-gradient(
+              -45deg,
+              transparent,
+              transparent 8px,
+              rgb(var(--destructive) / 0.15) 8px,
+              rgb(var(--destructive) / 0.15) 16px
+            )`
+          }}
+        />
+      </div>
+
       <div
         className={cn(
-          'relative w-full h-14 mt-[72px] flex items-center justify-center rounded-lg border-2',
-          'pointer-events-auto',
-          !isBeingDragged && 'transition-all duration-200',
-          canMove ? 'cursor-grab' : 'cursor-default',
+          'absolute w-full h-14 top-1/2 -translate-y-1/2 flex items-center justify-center rounded-xl border-2 backdrop-blur-sm',
+          !isBeingDragged && 'transition-all duration-200 ease-out',
+          canMove ? 'cursor-grab active:cursor-grabbing' : 'cursor-default',
           isSelected
-            ? 'bg-card border-destructive transform -translate-y-2 shadow-lg shadow-destructive/20'
-            : 'bg-card border-destructive/50 hover:border-destructive/80'
+            ? 'bg-card/90 border-destructive transform -translate-y-[calc(50%+10px)] shadow-xl shadow-destructive/30'
+            : 'bg-card/70 border-destructive/60 hover:border-destructive/80 hover:bg-card/80 hover:shadow-lg hover:shadow-destructive/10'
         )}
         onMouseDown={(e) => handleMouseDown(e, 'move')}
       >
         {canResizeLeft && (
           <div
-            className="absolute left-0 top-0 w-4 h-full cursor-ew-resize rounded-l-md flex items-center justify-center z-30 group"
+            className="absolute left-0 top-0 w-5 h-full cursor-ew-resize rounded-l-xl flex items-center justify-center z-10 group"
             onMouseDown={(e) => handleMouseDown(e, 'resize-left')}
           >
-            <div className="w-0.5 h-1/2 bg-destructive/70 rounded-full group-hover:bg-destructive transition-colors" />
+            <div className="w-1 h-8 bg-destructive/50 rounded-full group-hover:bg-destructive group-hover:h-10 transition-all duration-150" />
           </div>
         )}
-        <div className="pointer-events-none flex items-center gap-2 px-2">
-          <Scissors className="w-4 h-4 text-destructive" />
+        
+        <div className="pointer-events-none flex items-center gap-2.5 px-3">
+          <Scissors className={cn(
+            "w-5 h-5 transition-colors",
+            isSelected ? "text-destructive" : "text-destructive/70"
+          )} />
+          <span className={cn(
+            "text-xs font-semibold tracking-wide transition-colors",
+            isSelected ? "text-destructive" : "text-destructive/70"
+          )}>
+            CUT
+          </span>
         </div>
+        
         {canResizeRight && (
           <div
-            className="absolute right-0 top-0 w-4 h-full cursor-ew-resize rounded-r-md flex items-center justify-center z-30 group"
+            className="absolute right-0 top-0 w-5 h-full cursor-ew-resize rounded-r-xl flex items-center justify-center z-10 group"
             onMouseDown={(e) => handleMouseDown(e, 'resize-right')}
           >
-            <div className="w-0.5 h-1/2 bg-destructive/70 rounded-full group-hover:bg-destructive transition-colors" />
+            <div className="w-1 h-8 bg-destructive/50 rounded-full group-hover:bg-destructive group-hover:h-10 transition-all duration-150" />
           </div>
         )}
       </div>

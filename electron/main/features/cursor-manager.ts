@@ -1,10 +1,12 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 // Contains logic to read and change cursor size on different platforms.
 
 import log from 'electron-log/main';
 import { exec } from 'node:child_process';
+import { createRequire } from 'node:module';
 import { appState } from '../state';
 import { getLinuxDE } from '../lib/utils';
-import { createRequire } from 'node:module';
+import { WIN_API } from '../lib/system-constants';
 
 const require = createRequire(import.meta.url);
 
@@ -14,9 +16,7 @@ const WINDOWS_SCALES = [1, 2, 3];
 const WINDOWS_BASE_SIZE = 32;
 
 // --- Dynamic Imports ---
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 let WinAPI: any | undefined;
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 let Winreg: any;
 
 // A new initialization function to handle async imports
@@ -43,7 +43,6 @@ export async function getCursorScale(): Promise<number> {
       try {
         const regKey = new Winreg({ hive: Winreg.HKCU, key: '\\Control Panel\\Cursors' });
         const item = await new Promise<{ value: string }>((resolve, reject) => {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           regKey.get('CursorBaseSize', (err: any, item: any) => err ? reject(err) : resolve(item));
         });
         const size = parseInt(item.value, 16);
@@ -90,10 +89,6 @@ export function setCursorScale(scale: number) {
       // Open user32.dll
       WinAPI.open({ library: 'user32', path: 'user32.dll' });
 
-      const SPI_SETCURSORS = 0x57;
-      const SPIF_UPDATEINIFILE = 0x01;
-      const SPIF_SENDCHANGE = 0x02;
-
       // Set cursor size
       const nullPointer = WinAPI.createPointer({ paramsType: [WinAPI.DataType.I32], paramsValue: [0] });
       WinAPI.load({
@@ -101,7 +96,7 @@ export function setCursorScale(scale: number) {
         funcName: 'SystemParametersInfoW',
         retType: WinAPI.DataType.Boolean,
         paramsType: [WinAPI.DataType.U64, WinAPI.DataType.U64, WinAPI.DataType.External, WinAPI.DataType.U64],
-        paramsValue: [SPI_SETCURSORS, 0, WinAPI.unwrapPointer(nullPointer)[0], SPIF_UPDATEINIFILE | SPIF_SENDCHANGE]
+        paramsValue: [WIN_API.SPI_SETCURSORS, 0, WinAPI.unwrapPointer(nullPointer)[0], WIN_API.SPIF_UPDATEINIFILE | WIN_API.SPIF_SENDCHANGE]
       });
 
       // Reload cursor theme
@@ -111,7 +106,7 @@ export function setCursorScale(scale: number) {
         funcName: 'SystemParametersInfoW',
         retType: WinAPI.DataType.Boolean,
         paramsType: [WinAPI.DataType.U64, WinAPI.DataType.U64, WinAPI.DataType.External, WinAPI.DataType.U64],
-        paramsValue: [0x2029, 0, WinAPI.unwrapPointer(sizePointer)[0], SPIF_UPDATEINIFILE]
+        paramsValue: [WIN_API.SPI_SETCURSORSIZE_UNDOCUMENTED, 0, WinAPI.unwrapPointer(sizePointer)[0], WIN_API.SPIF_UPDATEINIFILE]
       });
       break;
     }

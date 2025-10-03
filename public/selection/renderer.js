@@ -1,4 +1,3 @@
-// public/selection/renderer.js
 const { ipcRenderer } = require('electron');
 
 const selectionBox = document.getElementById('selection-box');

@@ -1,8 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   Mic, Webcam, Monitor, SquareDashed, Loader2,
-  Video, X, GripVertical, MousePointer,
-  VideoOff, MicOff
+  Video, X, MousePointer, VideoOff, MicOff, FileVideoCamera
 } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
@@ -10,11 +9,12 @@ import { cn } from '../lib/utils';
 import "../index.css";
 
 // --- Constants ---
-const LINUX_SCALES = [ { value: 2, label: '2x' }, { value: 1.5, label: '1.5x' }, { value: 1, label: '1x' } ];
-const WINDOWS_SCALES = [ { value: 3, label: '3x' }, { value: 2, label: '2x' }, { value: 1, label: '1x' } ];
+const LINUX_SCALES = [{ value: 2, label: '2x' }, { value: 1.5, label: '1.5x' }, { value: 1, label: '1x' }];
+const WINDOWS_SCALES = [{ value: 3, label: '3x' }, { value: 2, label: '2x' }, { value: 1, label: '1x' }];
 
 // --- Types ---
 type RecordingState = 'idle' | 'preparing' | 'recording';
+type ActionInProgress = 'none' | 'recording' | 'loading';
 type RecordingSource = 'area' | 'fullscreen';
 type Device = { id: string; name: string; };
 type DisplayInfo = { id: number; name: string; isPrimary: boolean; };
@@ -32,12 +32,10 @@ const useDeviceLoader = () => {
 
     if (currentPlatform === 'win32') {
       const { video, audio } = await window.electronAPI.getDshowDevices();
-      // On Windows, we must use alternativeName as ffmpeg input
       const devices = (kind === 'videoinput' ? video : audio).map(d => ({ id: d.alternativeName, name: d.name }));
       return devices;
     }
 
-    // Standard browser API for other platforms
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ [kind === 'videoinput' ? 'video' : 'audio']: true });
       stream.getTracks().forEach(track => track.stop());
@@ -74,20 +72,20 @@ const useDeviceLoader = () => {
 
 export function RecorderPage() {
   const [recordingState, setRecordingState] = useState<RecordingState>('idle');
+  const [actionInProgress, setActionInProgress] = useState<ActionInProgress>('none');
   const [source, setSource] = useState<RecordingSource>('fullscreen');
   const [displays, setDisplays] = useState<DisplayInfo[]>([]);
   const [selectedDisplayId, setSelectedDisplayId] = useState<string>('');
   const [selectedWebcamId, setSelectedWebcamId] = useState<string>('none');
   const [selectedMicId, setSelectedMicId] = useState<string>('none');
   const [cursorScale, setCursorScale] = useState<number>(1);
-  
+
   const { platform, webcams, mics, isInitializing, reload: reloadDevices } = useDeviceLoader();
   const webcamPreviewRef = useRef<HTMLVideoElement>(null);
   const webcamStreamRef = useRef<MediaStream | null>(null);
 
   const cursorScales = useMemo(() => platform === 'win32' ? WINDOWS_SCALES : LINUX_SCALES, [platform]);
 
-  // Effect to load saved settings and initialize displays (runs once on mount)
   useEffect(() => {
     const initialize = async () => {
       try {
@@ -100,7 +98,7 @@ export function RecorderPage() {
 
         setSelectedWebcamId(savedWebcamId || 'none');
         setSelectedMicId(savedMicId || 'none');
-        
+
         const scaleToUse = savedCursorScale ?? 1;
         setCursorScale(scaleToUse);
         window.electronAPI.setCursorScale(scaleToUse);
@@ -116,46 +114,41 @@ export function RecorderPage() {
     initialize();
   }, []);
 
-  // Effect to validate saved settings once devices are loaded
   useEffect(() => {
     if (isInitializing) return;
 
-    // Validate selected webcam
     if (webcams.length > 0 && selectedWebcamId !== 'none' && !webcams.some(w => w.id === selectedWebcamId)) {
-        console.warn(`Saved webcam ID "${selectedWebcamId}" not found. Resetting.`);
-        setSelectedWebcamId('none');
-        window.electronAPI.setSetting('recorder.selectedWebcamId', 'none');
+      console.warn(`Saved webcam ID "${selectedWebcamId}" not found. Resetting.`);
+      setSelectedWebcamId('none');
+      window.electronAPI.setSetting('recorder.selectedWebcamId', 'none');
     }
 
-    // Validate selected mic
     if (mics.length > 0 && selectedMicId !== 'none' && !mics.some(m => m.id === selectedMicId)) {
-        console.warn(`Saved mic ID "${selectedMicId}" not found. Resetting.`);
-        setSelectedMicId('none');
-        window.electronAPI.setSetting('recorder.selectedMicId', 'none');
+      console.warn(`Saved mic ID "${selectedMicId}" not found. Resetting.`);
+      setSelectedMicId('none');
+      window.electronAPI.setSetting('recorder.selectedMicId', 'none');
     }
 
-    // Validate cursor scale
     if (platform && !cursorScales.some(s => s.value === cursorScale)) {
-        console.warn(`Saved cursor scale "${cursorScale}" is invalid for platform "${platform}". Resetting.`);
-        setCursorScale(1);
-        window.electronAPI.setCursorScale(1);
-        window.electronAPI.setSetting('recorder.cursorScale', 1);
+      console.warn(`Saved cursor scale "${cursorScale}" is invalid for platform "${platform}". Resetting.`);
+      setCursorScale(1);
+      window.electronAPI.setCursorScale(1);
+      window.electronAPI.setSetting('recorder.cursorScale', 1);
     }
   }, [isInitializing, webcams, mics, platform, cursorScales, selectedWebcamId, selectedMicId, cursorScale]);
-  
-  // Effect to handle recording state changes from main process
+
   useEffect(() => {
     const cleanup = window.electronAPI.onRecordingFinished(() => {
+      setActionInProgress('none');
       setRecordingState('idle');
-      reloadDevices(); // Re-check devices, especially webcam which might have been released
+      reloadDevices();
     });
     return () => cleanup();
   }, [reloadDevices]);
-  
-  // Effect to manage webcam preview stream
+
   useEffect(() => {
     const videoEl = webcamPreviewRef.current;
-    
+
     const stopStream = () => {
       if (webcamStreamRef.current) {
         webcamStreamRef.current.getTracks().forEach(track => track.stop());
@@ -164,16 +157,19 @@ export function RecorderPage() {
       if (videoEl) videoEl.srcObject = null;
     };
 
-    // Do not start stream if not idle, no webcam selected, or on Windows
-    if (recordingState !== 'idle' || selectedWebcamId === 'none' || !videoEl || platform === 'win32') {
+    if (recordingState !== 'idle' || selectedWebcamId === 'none' || !videoEl) {
       stopStream();
       return;
     }
 
     const startStream = async () => {
-      stopStream(); // Stop previous stream first
+      stopStream();
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: { deviceId: { exact: selectedWebcamId } } });
+        const constraints = platform === 'win32'
+          ? { video: true }
+          : { video: { deviceId: { exact: selectedWebcamId } } };
+
+        const stream = await navigator.mediaDevices.getUserMedia(constraints);
         webcamStreamRef.current = stream;
         if (videoEl) videoEl.srcObject = stream;
       } catch (error) {
@@ -183,18 +179,16 @@ export function RecorderPage() {
 
     startStream();
     return stopStream;
-  }, [selectedWebcamId, platform, recordingState]); // <<< FIX: Added recordingState here
+  }, [selectedWebcamId, platform, recordingState]);
 
   const handleStart = async () => {
-    setRecordingState('preparing');
+    setActionInProgress('recording');
 
-    // Release the webcam from the preview before the main process grabs it
     if (webcamStreamRef.current) {
       console.log("Stopping webcam preview to release device for recording...");
       webcamStreamRef.current.getTracks().forEach(track => track.stop());
       webcamStreamRef.current = null;
       if (webcamPreviewRef.current) webcamPreviewRef.current.srcObject = null;
-      // Give the system a moment to fully release the device handle
       await new Promise(resolve => setTimeout(resolve, 200));
     }
 
@@ -218,21 +212,36 @@ export function RecorderPage() {
       });
 
       if (result.canceled) {
+        setActionInProgress('none');
         setRecordingState('idle');
       } else {
         setRecordingState('recording');
       }
     } catch (error) {
       console.error('Failed to start recording:', error);
+      setActionInProgress('none');
       setRecordingState('idle');
     }
   };
-  
+
+  const handleLoadVideo = async () => {
+    setActionInProgress('loading');
+    try {
+      const result = await window.electronAPI.loadVideoFromFile();
+      if (result.canceled) {
+        setActionInProgress('none'); // Reset if cancelled
+      }
+    } catch (error) {
+      console.error('Failed to load video from file:', error);
+      setActionInProgress('none');
+    }
+  };
+
   const handleSelectionChange = (setter: (id: string) => void, key: string) => (id: string) => {
     setter(id);
     window.electronAPI.setSetting(key, id);
   };
-  
+
   const handleCursorScaleChange = (value: string) => {
     const newScale = Number(value);
     setCursorScale(newScale);
@@ -244,68 +253,202 @@ export function RecorderPage() {
 
   return (
     <div className="relative h-screen w-screen bg-transparent select-none">
-      <div className="absolute top-0 left-0 right-0 flex flex-col items-center pt-8">
-        <div data-interactive="true" className="relative flex items-stretch gap-4 p-2 rounded-2xl bg-transparent text-card-foreground">
-          <div className="flex items-stretch gap-4 p-2 rounded-2xl bg-card border border-border text-card-foreground shadow-lg backdrop-blur-xl" style={{ WebkitAppRegion: 'drag' }}>
-            <button onClick={() => window.electronAPI.closeWindow()} style={{ WebkitAppRegion: 'no-drag' }} className="absolute -top-3 -left-3 z-20 flex items-center justify-center w-6 h-6 rounded-full bg-card border border-border hover:bg-destructive text-muted-foreground hover:text-white shadow-lg" aria-label="Close Recorder">
-              <X className="w-4 h-4" />
+      <div className="absolute top-0 left-0 right-0 flex flex-col items-center pt-6">
+        <div data-interactive="true" className="relative">
+
+          {/* Main Control Bar */}
+          <div
+            className="relative flex items-center gap-3 px-4 py-3 rounded-2xl bg-card/95 border border-border shadow-2xl"
+            style={{ WebkitAppRegion: 'drag' }}
+          >
+            {/* Close Button */}
+            <button
+              onClick={() => window.electronAPI.closeWindow()}
+              style={{ WebkitAppRegion: 'no-drag' }}
+              className="absolute -top-2.5 -left-2.5 z-20 flex items-center justify-center w-6 h-6 rounded-full bg-destructive/90 hover:bg-destructive text-white shadow-lg transition-all hover:scale-110"
+              aria-label="Close Recorder"
+            >
+              <X className="w-3.5 h-3.5" />
             </button>
-            <div className="flex items-center justify-center pl-2 pr-1 cursor-grab" style={{ WebkitAppRegion: 'drag' }}><GripVertical className="w-5 h-5 text-muted-foreground/50" /></div>
-            <div className="flex items-center p-1 bg-muted rounded-2xl border border-border" style={{ WebkitAppRegion: 'no-drag' }}>
-              <SourceButton label="Full Screen" icon={<Monitor size={16} />} isActive={source === 'fullscreen'} onClick={() => setSource('fullscreen')} />
-              <SourceButton label="Area" icon={<SquareDashed size={16} />} isActive={source === 'area'} onClick={() => setSource('area')} />
+
+            {/* Source Toggle */}
+            <div className="flex items-center p-1 bg-muted/60 rounded-xl border border-border/50" style={{ WebkitAppRegion: 'no-drag' }}>
+              <SourceButton
+                icon={<Monitor size={16} />}
+                isActive={source === 'fullscreen'}
+                onClick={() => setSource('fullscreen')}
+                tooltip="Full Screen"
+              />
+              <SourceButton
+                icon={<SquareDashed size={16} />}
+                isActive={source === 'area'}
+                onClick={() => setSource('area')}
+                tooltip="Area"
+              />
             </div>
-            <div className="w-px bg-border/50"></div>
+
+            <div className="w-px h-8 bg-border/50"></div>
+
+            {/* Display Select */}
             <div style={{ WebkitAppRegion: 'no-drag' }}>
-              <Button onClick={handleStart} disabled={isInitializing || recordingState === 'preparing'} variant="default" size="icon" className="h-12 w-12 rounded-full">
-                {recordingState === 'preparing' || isInitializing ? <Loader2 size={20} className="animate-spin" /> : <Video size={20} />}
+              <Select value={selectedDisplayId} onValueChange={setSelectedDisplayId}>
+                <SelectTrigger className="w-14 h-10 rounded-xl border-0 bg-background/60 hover:bg-background transition-colors">
+                  <SelectValue asChild>
+                    <Monitor size={13} className="text-primary" />
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {displays.map(d => (
+                    <SelectItem key={d.id} value={String(d.id)}>{d.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Webcam Select */}
+            <div style={{ WebkitAppRegion: 'no-drag' }}>
+              <Select
+                value={selectedWebcamId}
+                onValueChange={handleSelectionChange(setSelectedWebcamId, 'recorder.selectedWebcamId')}
+              >
+                <SelectTrigger className="w-14 h-10 rounded-xl border-0 bg-background/60 hover:bg-background transition-colors">
+                  <SelectValue asChild>
+                    {selectedWebcamId !== 'none' ? (
+                      <Webcam size={13} className="text-primary" />
+                    ) : (
+                      <VideoOff size={13} className="text-muted-foreground" />
+                    )}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Don't use webcam</SelectItem>
+                  {webcams.map(c => (
+                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Microphone Select */}
+            <div style={{ WebkitAppRegion: 'no-drag' }}>
+              <Select
+                value={selectedMicId}
+                onValueChange={handleSelectionChange(setSelectedMicId, 'recorder.selectedMicId')}
+              >
+                <SelectTrigger className="w-14 h-10 rounded-xl border-0 bg-background/60 hover:bg-background transition-colors">
+                  <SelectValue asChild>
+                    {selectedMicId !== 'none' ? (
+                      <Mic size={13} className="text-primary" />
+                    ) : (
+                      <MicOff size={13} className="text-muted-foreground" />
+                    )}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Don't use microphone</SelectItem>
+                  {mics.map(m => (
+                    <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Cursor Scale */}
+            <div className="flex items-center gap-1.5" style={{ WebkitAppRegion: 'no-drag' }}>
+              <MousePointer size={16} className="text-muted-foreground" />
+              <Select value={String(cursorScale)} onValueChange={handleCursorScaleChange}>
+                <SelectTrigger className="w-16 h-9 rounded-lg border-0 bg-background/60 hover:bg-background transition-colors text-sm">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {cursorScales.map(s => (
+                    <SelectItem key={s.value} value={String(s.value)}>{s.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="w-px h-8 bg-border/50"></div>
+
+            {/* Action Buttons */}
+            <div className="flex items-center gap-2" style={{ WebkitAppRegion: 'no-drag' }}>
+              {/* Record Button */}
+              <Button
+                onClick={handleStart}
+                title="Record"
+                disabled={isInitializing || actionInProgress !== 'none'}
+                className="h-10 w-10 rounded-full shadow-lg hover:shadow-xl transition-all p-0"
+                size="icon"
+              >
+                {actionInProgress === 'recording' || isInitializing ? (
+                  <Loader2 size={18} className="animate-spin" />
+                ) : (
+                  <Video size={18} />
+                )}
+              </Button>
+              {/* Load Video Button */}
+              <Button
+                onClick={handleLoadVideo}
+                title="Load from video"
+                disabled={isInitializing || actionInProgress !== 'none'}
+                className="h-10 w-10 rounded-full shadow-lg hover:shadow-xl transition-all p-0"
+                variant="secondary"
+              >
+                {actionInProgress === 'loading' ? (
+                  <Loader2 size={18} className="animate-spin" />
+                ) : (
+                  <>
+                    <FileVideoCamera size={18} />
+                  </>
+                )}
               </Button>
             </div>
-            <div className="w-px bg-border/50"></div>
-            <div className="flex items-center" style={{ WebkitAppRegion: 'no-drag' }}>
-              <Select value={selectedDisplayId} onValueChange={setSelectedDisplayId} disabled={source !== 'fullscreen'}>
-                <SelectTrigger className="w-12 h-10 rounded-2xl"><SelectValue asChild><Monitor size={18} className="text-primary" /></SelectValue></SelectTrigger>
-                <SelectContent>{displays.map(d => <SelectItem key={d.id} value={String(d.id)}>{d.name}</SelectItem>)}</SelectContent>
-              </Select>
-            </div>
-            <div className="flex items-center gap-3" style={{ WebkitAppRegion: 'no-drag' }}>
-              <Select value={selectedWebcamId} onValueChange={handleSelectionChange(setSelectedWebcamId, 'recorder.selectedWebcamId')}>
-                <SelectTrigger className="w-12 h-10 rounded-2xl"><SelectValue asChild>{selectedWebcamId !== 'none' ? <Webcam size={18} className="text-primary" /> : <VideoOff size={18} className="text-muted-foreground" />}</SelectValue></SelectTrigger>
-                <SelectContent><SelectItem value="none">Don't use webcam</SelectItem>{webcams.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
-              </Select>
-              <Select value={selectedMicId} onValueChange={handleSelectionChange(setSelectedMicId, 'recorder.selectedMicId')}>
-                <SelectTrigger className="w-12 h-10 rounded-2xl"><SelectValue asChild>{selectedMicId !== 'none' ? <Mic size={18} className="text-primary" /> : <MicOff size={18} className="text-muted-foreground" />}</SelectValue></SelectTrigger>
-                <SelectContent><SelectItem value="none">Don't use microphone</SelectItem>{mics.map(m => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}</SelectContent>
-              </Select>
-              <div className="flex items-center gap-2" style={{ WebkitAppRegion: 'no-drag' }}>
-                <MousePointer size={18} className="text-muted-foreground" />
-                <Select value={String(cursorScale)} onValueChange={handleCursorScaleChange}>
-                  <SelectTrigger className="w-16 h-10 border-border/50 bg-background/60"><SelectValue /></SelectTrigger>
-                  <SelectContent>{cursorScales.map(s => <SelectItem key={s.value} value={String(s.value)}>{s.label}</SelectItem>)}</SelectContent>
-                </Select>
-              </div>
-            </div>
           </div>
-        </div>
-        <div
-          data-interactive="true"
-          className={cn(
-            "mt-4 w-48 aspect-square rounded-[35%] overflow-hidden shadow-2xl bg-black transition-opacity duration-300",
-            (selectedWebcamId !== 'none' && platform !== 'win32' && recordingState === 'idle')
-              ? 'opacity-100'
-              : 'opacity-0'
-          )}
-        >
-          <video ref={webcamPreviewRef} autoPlay playsInline muted className="w-full h-full object-cover" />
+
+          {/* Webcam Preview */}
+          <div
+            data-interactive="true"
+            className={cn(
+              "mt-4 mx-auto w-40 aspect-square rounded-[32%] overflow-hidden shadow-2xl bg-black ring-2 ring-border/20 transition-all duration-300",
+              (selectedWebcamId !== 'none' && actionInProgress === 'none')
+                ? 'opacity-100 scale-100'
+                : 'opacity-0 scale-95 pointer-events-none'
+            )}
+          >
+            <video
+              ref={webcamPreviewRef}
+              autoPlay
+              playsInline
+              muted
+              className="w-full h-full object-cover"
+            />
+          </div>
         </div>
       </div>
     </div>
   );
 }
 
-const SourceButton = ({ label, icon, isActive, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement> & { label: string; icon: React.ReactNode; isActive: boolean; }) => (
-  <button className={cn("flex items-center gap-2 px-4 py-2 rounded-2xl text-sm font-medium transition-all duration-200 outline-none focus-visible:ring-2 focus-visible:ring-ring", isActive ? "bg-card shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground")} {...props}>
+const SourceButton = ({
+  icon,
+  isActive,
+  tooltip,
+  ...props
+}: React.ButtonHTMLAttributes<HTMLButtonElement> & {
+  icon: React.ReactNode;
+  isActive: boolean;
+  tooltip?: string;
+}) => (
+  <button
+    className={cn(
+      "flex items-center justify-center w-10 h-9 rounded-lg transition-all duration-200 outline-none focus-visible:ring-2 focus-visible:ring-ring",
+      isActive
+        ? "bg-background shadow-sm text-foreground"
+        : "text-muted-foreground hover:text-foreground hover:bg-background/50"
+    )}
+    title={tooltip}
+    {...props}
+  >
     {icon}
-    <span>{label}</span>
   </button>
 );

@@ -52,7 +52,7 @@ async function validateRecordingFiles(session: RecordingSession): Promise<boolea
 }
 
 async function startActualRecording(inputArgs: string[], hasWebcam: boolean, hasMic: boolean) {
-  const recordingDir = path.join(process.env.HOME || process.env.USERPROFILE || '.', '.screenarc');
+  const recordingDir = path.join(app.getPath('home'), '.screenarc');
   await ensureDirectoryExists(recordingDir);
   const baseName = `ScreenArc-recording-${Date.now()}`;
 
@@ -163,14 +163,14 @@ export async function startRecording(options: any) { // Type from preload.ts
   if (mic) {
     switch (process.platform) {
       case 'linux': baseFfmpegArgs.push('-f', 'alsa', '-i', 'default'); break;
-      case 'win32': baseFfmpegArgs.push('-f', 'dshow', '-i', `audio=${mic.deviceLabel}`); break; // [FIX] Use `audio=` not `audio=`
+      case 'win32': baseFfmpegArgs.push('-f', 'dshow', '-i', `audio=${mic.deviceLabel}`); break; // Use `audio=` not `audio=`
       case 'darwin': baseFfmpegArgs.push('-f', 'avfoundation', '-i', `:${mic.index}`); break;
     }
   }
   if (webcam) {
     switch (process.platform) {
       case 'linux': baseFfmpegArgs.push('-f', 'v4l2', '-i', `/dev/video${webcam.index}`); break;
-      case 'win32': baseFfmpegArgs.push('-f', 'dshow', '-i', `video=${webcam.deviceLabel}`); break; // [FIX] Use `video=` not `video=`
+      case 'win32': baseFfmpegArgs.push('-f', 'dshow', '-i', `video=${webcam.deviceLabel}`); break; // Use `video=` not `video=`
       case 'darwin': baseFfmpegArgs.push('-f', 'avfoundation', '-i', `${webcam.index}:none`); break;
     }
   }
@@ -324,7 +324,7 @@ export async function cleanupAndDiscard() {
 
 export async function cleanupOrphanedRecordings() {
   log.info('[Cleanup] Starting orphaned recording cleanup...');
-  const recordingDir = path.join(process.env.HOME || process.env.USERPROFILE || '.', '.screenarc');
+  const recordingDir = path.join(app.getPath('home'), '.screenarc');
 
   // 1. Collect all file paths that are currently in use and should NOT be deleted.
   const protectedFiles = new Set<string>();
@@ -392,5 +392,78 @@ export async function onAppQuit(event: Electron.Event) {
     } finally {
       app.quit();
     }
+  }
+}
+
+export async function loadVideoFromFile() {
+  log.info('[RecordingManager] Received load video from file request.');
+
+  // The recorder window should be the parent for the dialog
+  const recorderWindow = appState.recorderWin;
+  if (!recorderWindow) {
+    log.error('[RecordingManager] Cannot show open dialog, recorder window is not available.');
+    return { canceled: true };
+  }
+
+  const { canceled, filePaths } = await dialog.showOpenDialog(recorderWindow, {
+    title: 'Select a video file to edit',
+    properties: ['openFile'],
+    filters: [{ name: 'Videos', extensions: ['mp4', 'mov', 'webm', 'mkv'] }],
+  });
+
+  if (canceled || filePaths.length === 0) {
+    log.info('[RecordingManager] File selection was cancelled.');
+    return { canceled: true };
+  }
+
+  const sourceVideoPath = filePaths[0];
+  log.info(`[RecordingManager] User selected video file: ${sourceVideoPath}`);
+
+  recorderWindow.hide();
+  createSavingWindow(); // Reuse this for a "Loading..." feel
+
+  try {
+    const recordingDir = path.join(app.getPath('home'), '.screenarc');
+    await ensureDirectoryExists(recordingDir);
+    const baseName = `ScreenArc-recording-${Date.now()}`;
+
+    const screenVideoPath = path.join(recordingDir, `${baseName}-screen.mp4`);
+    const metadataPath = path.join(recordingDir, `${baseName}.json`);
+
+    // 1. Copy the selected video file to our app's directory
+    await fsPromises.copyFile(sourceVideoPath, screenVideoPath);
+    log.info(`[RecordingManager] Copied video to: ${screenVideoPath}`);
+
+    // 2. Create an empty metadata file
+    await fsPromises.writeFile(metadataPath, '[]', 'utf-8');
+    log.info(`[RecordingManager] Created empty metadata file at: ${metadataPath}`);
+
+    const session: RecordingSession = { screenVideoPath, metadataPath, webcamVideoPath: undefined };
+
+    // 3. Validate the new file
+    const isValid = await validateRecordingFiles(session);
+    if (!isValid) {
+      log.error('[RecordingManager] Loaded video file is invalid. Cleaning up.');
+      await cleanupEditorFiles(session);
+      appState.savingWin?.close();
+      recorderWindow.show();
+      return { canceled: true };
+    }
+
+    // 4. Proceed to open the editor
+    await new Promise(resolve => setTimeout(resolve, 500)); // Short delay for UX
+    appState.savingWin?.close();
+    createEditorWindow(screenVideoPath, metadataPath, undefined);
+    recorderWindow.close();
+
+    return { canceled: false, filePath: screenVideoPath };
+  } catch (error) {
+    log.error('[RecordingManager] Error loading video from file:', error);
+    dialog.showErrorBox('Error Loading Video', `An error occurred while loading the video: ${(error as Error).message}`);
+    appState.savingWin?.close();
+    if (recorderWindow && !recorderWindow.isDestroyed()) {
+      recorderWindow.show();
+    }
+    return { canceled: true };
   }
 }
