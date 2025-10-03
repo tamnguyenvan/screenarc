@@ -394,3 +394,76 @@ export async function onAppQuit(event: Electron.Event) {
     }
   }
 }
+
+export async function loadVideoFromFile() {
+  log.info('[RecordingManager] Received load video from file request.');
+
+  // The recorder window should be the parent for the dialog
+  const recorderWindow = appState.recorderWin;
+  if (!recorderWindow) {
+    log.error('[RecordingManager] Cannot show open dialog, recorder window is not available.');
+    return { canceled: true };
+  }
+
+  const { canceled, filePaths } = await dialog.showOpenDialog(recorderWindow, {
+    title: 'Select a video file to edit',
+    properties: ['openFile'],
+    filters: [{ name: 'Videos', extensions: ['mp4', 'mov', 'webm', 'mkv'] }],
+  });
+
+  if (canceled || filePaths.length === 0) {
+    log.info('[RecordingManager] File selection was cancelled.');
+    return { canceled: true };
+  }
+
+  const sourceVideoPath = filePaths[0];
+  log.info(`[RecordingManager] User selected video file: ${sourceVideoPath}`);
+
+  recorderWindow.hide();
+  createSavingWindow(); // Reuse this for a "Loading..." feel
+
+  try {
+    const recordingDir = path.join(process.env.HOME || process.env.USERPROFILE || '.', '.screenarc');
+    await ensureDirectoryExists(recordingDir);
+    const baseName = `ScreenArc-recording-${Date.now()}`;
+
+    const screenVideoPath = path.join(recordingDir, `${baseName}-screen.mp4`);
+    const metadataPath = path.join(recordingDir, `${baseName}.json`);
+
+    // 1. Copy the selected video file to our app's directory
+    await fsPromises.copyFile(sourceVideoPath, screenVideoPath);
+    log.info(`[RecordingManager] Copied video to: ${screenVideoPath}`);
+
+    // 2. Create an empty metadata file
+    await fsPromises.writeFile(metadataPath, '[]', 'utf-8');
+    log.info(`[RecordingManager] Created empty metadata file at: ${metadataPath}`);
+
+    const session: RecordingSession = { screenVideoPath, metadataPath, webcamVideoPath: undefined };
+
+    // 3. Validate the new file
+    const isValid = await validateRecordingFiles(session);
+    if (!isValid) {
+      log.error('[RecordingManager] Loaded video file is invalid. Cleaning up.');
+      await cleanupEditorFiles(session);
+      appState.savingWin?.close();
+      recorderWindow.show();
+      return { canceled: true };
+    }
+
+    // 4. Proceed to open the editor
+    await new Promise(resolve => setTimeout(resolve, 500)); // Short delay for UX
+    appState.savingWin?.close();
+    createEditorWindow(screenVideoPath, metadataPath, undefined);
+    recorderWindow.close();
+
+    return { canceled: false, filePath: screenVideoPath };
+  } catch (error) {
+    log.error('[RecordingManager] Error loading video from file:', error);
+    dialog.showErrorBox('Error Loading Video', `An error occurred while loading the video: ${(error as Error).message}`);
+    appState.savingWin?.close();
+    if (recorderWindow && !recorderWindow.isDestroyed()) {
+      recorderWindow.show();
+    }
+    return { canceled: true };
+  }
+}

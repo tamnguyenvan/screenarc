@@ -85,6 +85,7 @@ export const electronAPI = {
     webcam?: { deviceId: string; deviceLabel: string; index: number };
     mic?: { deviceId: string; deviceLabel: string; index: number };
   }): Promise<RecordingResult> => ipcRenderer.invoke('recording:start', options),
+  loadVideoFromFile: (): Promise<RecordingResult> => ipcRenderer.invoke('recording:load-from-file'),
   getCursorScale: (): Promise<number> => ipcRenderer.invoke('desktop:get-cursor-scale'),
   setCursorScale: (scale: number): void => ipcRenderer.send('desktop:set-cursor-scale', scale),
 

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   Mic, Webcam, Monitor, SquareDashed, Loader2,
-  Video, X, MousePointer, VideoOff, MicOff,
+  Video, X, MousePointer, VideoOff, MicOff, FileVideoCamera
 } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
@@ -14,6 +14,7 @@ const WINDOWS_SCALES = [{ value: 3, label: '3x' }, { value: 2, label: '2x' }, { 
 
 // --- Types ---
 type RecordingState = 'idle' | 'preparing' | 'recording';
+type ActionInProgress = 'none' | 'recording' | 'loading';
 type RecordingSource = 'area' | 'fullscreen';
 type Device = { id: string; name: string; };
 type DisplayInfo = { id: number; name: string; isPrimary: boolean; };
@@ -71,6 +72,7 @@ const useDeviceLoader = () => {
 
 export function RecorderPage() {
   const [recordingState, setRecordingState] = useState<RecordingState>('idle');
+  const [actionInProgress, setActionInProgress] = useState<ActionInProgress>('none');
   const [source, setSource] = useState<RecordingSource>('fullscreen');
   const [displays, setDisplays] = useState<DisplayInfo[]>([]);
   const [selectedDisplayId, setSelectedDisplayId] = useState<string>('');
@@ -137,6 +139,7 @@ export function RecorderPage() {
 
   useEffect(() => {
     const cleanup = window.electronAPI.onRecordingFinished(() => {
+      setActionInProgress('none');
       setRecordingState('idle');
       reloadDevices();
     });
@@ -179,7 +182,7 @@ export function RecorderPage() {
   }, [selectedWebcamId, platform, recordingState]);
 
   const handleStart = async () => {
-    setRecordingState('preparing');
+    setActionInProgress('recording');
 
     if (webcamStreamRef.current) {
       console.log("Stopping webcam preview to release device for recording...");
@@ -209,13 +212,28 @@ export function RecorderPage() {
       });
 
       if (result.canceled) {
+        setActionInProgress('none');
         setRecordingState('idle');
       } else {
         setRecordingState('recording');
       }
     } catch (error) {
       console.error('Failed to start recording:', error);
+      setActionInProgress('none');
       setRecordingState('idle');
+    }
+  };
+
+  const handleLoadVideo = async () => {
+    setActionInProgress('loading');
+    try {
+      const result = await window.electronAPI.loadVideoFromFile();
+      if (result.canceled) {
+        setActionInProgress('none'); // Reset if cancelled
+      }
+    } catch (error) {
+      console.error('Failed to load video from file:', error);
+      setActionInProgress('none');
     }
   };
 
@@ -352,18 +370,36 @@ export function RecorderPage() {
 
             <div className="w-px h-8 bg-border/50"></div>
 
-            {/* Record Button */}
-            <div style={{ WebkitAppRegion: 'no-drag' }}>
+            {/* Action Buttons */}
+            <div className="flex items-center gap-2" style={{ WebkitAppRegion: 'no-drag' }}>
+              {/* Record Button */}
               <Button
                 onClick={handleStart}
-                disabled={isInitializing || recordingState === 'preparing'}
+                title="Record"
+                disabled={isInitializing || actionInProgress !== 'none'}
                 className="h-10 w-10 rounded-full shadow-lg hover:shadow-xl transition-all p-0"
                 size="icon"
               >
-                {recordingState === 'preparing' || isInitializing ? (
+                {actionInProgress === 'recording' || isInitializing ? (
                   <Loader2 size={18} className="animate-spin" />
                 ) : (
                   <Video size={18} />
+                )}
+              </Button>
+              {/* Load Video Button */}
+              <Button
+                onClick={handleLoadVideo}
+                title="Load from video"
+                disabled={isInitializing || actionInProgress !== 'none'}
+                className="h-10 w-10 rounded-full shadow-lg hover:shadow-xl transition-all p-0"
+                variant="secondary"
+              >
+                {actionInProgress === 'loading' ? (
+                  <Loader2 size={18} className="animate-spin" />
+                ) : (
+                  <>
+                    <FileVideoCamera size={18} />
+                  </>
                 )}
               </Button>
             </div>
@@ -374,7 +410,7 @@ export function RecorderPage() {
             data-interactive="true"
             className={cn(
               "mt-4 mx-auto w-40 aspect-square rounded-[32%] overflow-hidden shadow-2xl bg-black ring-2 ring-border/20 transition-all duration-300",
-              (selectedWebcamId !== 'none' && recordingState === 'idle')
+              (selectedWebcamId !== 'none' && actionInProgress === 'none')
                 ? 'opacity-100 scale-100'
                 : 'opacity-0 scale-95 pointer-events-none'
             )}

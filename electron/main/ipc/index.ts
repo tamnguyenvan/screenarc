@@ -26,6 +26,7 @@ export function registerIpcHandlers() {
 
   // Recording
   ipcMain.handle('recording:start', recordingHandlers.handleStartRecording);
+  ipcMain.handle('recording:load-from-file', recordingHandlers.handleLoadVideoFromFile);
 
   // Export
   ipcMain.handle('export:start', exportHandlers.handleStartExport);
