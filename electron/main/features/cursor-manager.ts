@@ -3,9 +3,10 @@
 
 import log from 'electron-log/main';
 import { exec } from 'node:child_process';
+import { createRequire } from 'node:module';
 import { appState } from '../state';
 import { getLinuxDE } from '../lib/utils';
-import { createRequire } from 'node:module';
+import { WIN_API } from '../lib/system-constants';
 
 const require = createRequire(import.meta.url);
 
@@ -88,10 +89,6 @@ export function setCursorScale(scale: number) {
       // Open user32.dll
       WinAPI.open({ library: 'user32', path: 'user32.dll' });
 
-      const SPI_SETCURSORS = 0x57;
-      const SPIF_UPDATEINIFILE = 0x01;
-      const SPIF_SENDCHANGE = 0x02;
-
       // Set cursor size
       const nullPointer = WinAPI.createPointer({ paramsType: [WinAPI.DataType.I32], paramsValue: [0] });
       WinAPI.load({
@@ -99,7 +96,7 @@ export function setCursorScale(scale: number) {
         funcName: 'SystemParametersInfoW',
         retType: WinAPI.DataType.Boolean,
         paramsType: [WinAPI.DataType.U64, WinAPI.DataType.U64, WinAPI.DataType.External, WinAPI.DataType.U64],
-        paramsValue: [SPI_SETCURSORS, 0, WinAPI.unwrapPointer(nullPointer)[0], SPIF_UPDATEINIFILE | SPIF_SENDCHANGE]
+        paramsValue: [WIN_API.SPI_SETCURSORS, 0, WinAPI.unwrapPointer(nullPointer)[0], WIN_API.SPIF_UPDATEINIFILE | WIN_API.SPIF_SENDCHANGE]
       });
 
       // Reload cursor theme
@@ -109,7 +106,7 @@ export function setCursorScale(scale: number) {
         funcName: 'SystemParametersInfoW',
         retType: WinAPI.DataType.Boolean,
         paramsType: [WinAPI.DataType.U64, WinAPI.DataType.U64, WinAPI.DataType.External, WinAPI.DataType.U64],
-        paramsValue: [0x2029, 0, WinAPI.unwrapPointer(sizePointer)[0], SPIF_UPDATEINIFILE]
+        paramsValue: [WIN_API.SPI_SETCURSORSIZE_UNDOCUMENTED, 0, WinAPI.unwrapPointer(sizePointer)[0], WIN_API.SPIF_UPDATEINIFILE]
       });
       break;
     }

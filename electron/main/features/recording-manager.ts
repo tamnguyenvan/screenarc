@@ -52,7 +52,7 @@ async function validateRecordingFiles(session: RecordingSession): Promise<boolea
 }
 
 async function startActualRecording(inputArgs: string[], hasWebcam: boolean, hasMic: boolean) {
-  const recordingDir = path.join(process.env.HOME || process.env.USERPROFILE || '.', '.screenarc');
+  const recordingDir = path.join(app.getPath('home'), '.screenarc');
   await ensureDirectoryExists(recordingDir);
   const baseName = `ScreenArc-recording-${Date.now()}`;
 
@@ -324,7 +324,7 @@ export async function cleanupAndDiscard() {
 
 export async function cleanupOrphanedRecordings() {
   log.info('[Cleanup] Starting orphaned recording cleanup...');
-  const recordingDir = path.join(process.env.HOME || process.env.USERPROFILE || '.', '.screenarc');
+  const recordingDir = path.join(app.getPath('home'), '.screenarc');
 
   // 1. Collect all file paths that are currently in use and should NOT be deleted.
   const protectedFiles = new Set<string>();
@@ -423,7 +423,7 @@ export async function loadVideoFromFile() {
   createSavingWindow(); // Reuse this for a "Loading..." feel
 
   try {
-    const recordingDir = path.join(process.env.HOME || process.env.USERPROFILE || '.', '.screenarc');
+    const recordingDir = path.join(app.getPath('home'), '.screenarc');
     await ensureDirectoryExists(recordingDir);
     const baseName = `ScreenArc-recording-${Date.now()}`;
 
