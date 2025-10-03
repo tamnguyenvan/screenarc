@@ -21,7 +21,7 @@ const DEFAULT_PRESET_STYLES: FrameStyles = {
   },
   borderRadius: 8,
   shadow: 30,
-  shadowColor: 'rgba(0, 0, 0, 0.5)',
+  shadowColor: 'rgba(0, 0, 0, 0.75)',
   borderWidth: 4,
 };
 
