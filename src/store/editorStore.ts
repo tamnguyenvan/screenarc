@@ -48,6 +48,10 @@ export interface EditorActions {
   setCurrentTime: (time: number) => void;
   togglePlay: () => void;
   setPlaying: (isPlaying: boolean) => void;
+  seekToPreviousFrame: () => void;
+  seekToNextFrame: () => void;
+  seekBackward: (seconds: number) => void;
+  seekForward: (seconds: number) => void;
   updateFrameStyle: (style: Partial<Omit<FrameStyles, 'background'>>) => void;
   updateBackground: (bg: Partial<Background>) => void;
   setAspectRatio: (ratio: AspectRatio) => void;
@@ -306,6 +310,43 @@ export const useEditorStore = create(
 
       togglePlay: () => set(state => { state.isPlaying = !state.isPlaying; }),
       setPlaying: (isPlaying) => set(state => { state.isPlaying = isPlaying; }),
+
+      seekToPreviousFrame: () => {
+        const { isPlaying, currentTime } = get();
+        if (isPlaying) {
+          set({ isPlaying: false });
+        }
+        const frameDuration = 1 / 30; // Assuming 30 FPS
+        const newTime = Math.max(0, currentTime - frameDuration);
+        get().setCurrentTime(newTime);
+      },
+      seekToNextFrame: () => {
+        const { isPlaying, currentTime, duration } = get();
+        if (isPlaying) {
+          set({ isPlaying: false });
+        }
+        const frameDuration = 1 / 30; // Assuming 30 FPS
+        const newTime = Math.min(duration, currentTime + frameDuration);
+        get().setCurrentTime(newTime);
+      },
+
+      seekBackward: (seconds: number) => {
+        const { isPlaying, currentTime } = get();
+        if (isPlaying) {
+          set({ isPlaying: false });
+        }
+        const newTime = Math.max(0, currentTime - seconds);
+        get().setCurrentTime(newTime);
+      },
+      
+      seekForward: (seconds: number) => {
+        const { isPlaying, currentTime, duration } = get();
+        if (isPlaying) {
+          set({ isPlaying: false });
+        }
+        const newTime = Math.min(duration, currentTime + seconds);
+        get().setCurrentTime(newTime);
+      },
 
       updateFrameStyle: (style) => {
         set(state => {

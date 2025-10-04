@@ -1,6 +1,6 @@
 // Main control bar for video playback and timeline editing
 import React from "react"
-import { Play, Pause, Scissors, ZoomIn, Trash2, Undo, Redo } from "lucide-react"
+import { Play, Pause, Scissors, ZoomIn, Trash2, Undo2, Redo2, StepBack, StepForward } from "lucide-react"
 import { useEditorStore } from "../../store/editorStore"
 import type { AspectRatio } from "../../types/store"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select"
@@ -61,7 +61,13 @@ const PlayButton = React.forwardRef<HTMLButtonElement, PlayButtonProps>(
 )
 PlayButton.displayName = "PlayButton"
 
-export function PreviewControls({ videoRef }: { videoRef: React.RefObject<HTMLVideoElement> }) {
+export function PreviewControls({
+  videoRef,
+  onSeekFrame,
+}: {
+  videoRef: React.RefObject<HTMLVideoElement>
+  onSeekFrame: (direction: "next" | "prev") => void
+}) {
   const {
     isPlaying,
     togglePlay,
@@ -119,6 +125,22 @@ export function PreviewControls({ videoRef }: { videoRef: React.RefObject<HTMLVi
 
         <div className="h-6 w-px bg-border/60" />
 
+        <div className="flex items-center gap-2">
+          <ToolbarButton variant="icon" title="Undo (Ctrl+Z)" onClick={() => undo()} disabled={pastStates.length === 0}>
+            <Undo2 className="w-4 h-4" />
+          </ToolbarButton>
+          <ToolbarButton
+            variant="icon"
+            title="Redo (Ctrl+Y)"
+            onClick={() => redo()}
+            disabled={futureStates.length === 0}
+          >
+            <Redo2 className="w-4 h-4" />
+          </ToolbarButton>
+        </div>
+
+        <div className="h-6 w-px bg-border/60" />
+
         <div className="flex items-center gap-2.5">
           <ZoomIn className="w-4 h-4 text-muted-foreground" />
           <div className="w-24">
@@ -128,30 +150,21 @@ export function PreviewControls({ videoRef }: { videoRef: React.RefObject<HTMLVi
       </div>
 
       {/* Center Playback Controls */}
-      <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center gap-4">
-        <div className="flex items-center gap-2">
-          <ToolbarButton variant="icon" title="Undo (Ctrl+Z)" onClick={() => undo()} disabled={pastStates.length === 0}>
-            <Undo className="w-4 h-4" />
-          </ToolbarButton>
-          <ToolbarButton
-            variant="icon"
-            title="Redo (Ctrl+Y)"
-            onClick={() => redo()}
-            disabled={futureStates.length === 0}
-          >
-            <Redo className="w-4 h-4" />
-          </ToolbarButton>
-        </div>
+      <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center gap-3">
+        <ToolbarButton variant="icon" title="Rewind to Start" onClick={handleRewind}>
+          <Rewind className="w-4 h-4" />
+        </ToolbarButton>
+        <ToolbarButton variant="icon" title="Previous Frame (J)" onClick={() => onSeekFrame("prev")}>
+          <StepBack className="w-4 h-4" />
+        </ToolbarButton>
 
-        <div className="flex items-center gap-3">
-          <ToolbarButton variant="icon" title="Rewind to Start" onClick={handleRewind}>
-            <Rewind className="w-4 h-4" />
-          </ToolbarButton>
+        <PlayButton title="Play/Pause (Space)" onClick={togglePlay}>
+          {isPlaying ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5 ml-0.5" />}
+        </PlayButton>
 
-          <PlayButton title="Play/Pause (Space)" onClick={togglePlay}>
-            {isPlaying ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5 ml-0.5" />}
-          </PlayButton>
-        </div>
+        <ToolbarButton variant="icon" title="Next Frame (K)" onClick={() => onSeekFrame("next")}>
+          <StepForward className="w-4 h-4" />
+        </ToolbarButton>
       </div>
 
       {/* Right Controls - Aspect Ratio */}

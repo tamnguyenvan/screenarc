@@ -27,6 +27,10 @@ export function EditorPage() {
     initializeSettings,
     togglePlay,
     togglePreviewFullScreen,
+    seekToNextFrame,
+    seekToPreviousFrame,
+    seekBackward,
+    seekForward,
   } = useEditorStore.getState()
   const { presetSaveStatus, duration, isPreviewFullScreen, currentTheme } = useEditorStore(
     useShallow((state) => ({
@@ -61,6 +65,34 @@ export function EditorPage() {
     }
   }, [deleteRegion])
 
+  const handleSeekFrame = useCallback(
+    (direction: "next" | "prev") => {
+      if (direction === "next") {
+        seekToNextFrame()
+      } else {
+        seekToPreviousFrame()
+      }
+      if (videoRef.current) {
+        videoRef.current.currentTime = useEditorStore.getState().currentTime
+      }
+    },
+    [seekToNextFrame, seekToPreviousFrame],
+  )
+
+  const handleSeekByTime = useCallback(
+    (seconds: number) => {
+      if (seconds > 0) {
+        seekForward(seconds);
+      } else {
+        seekBackward(Math.abs(seconds));
+      }
+      if (videoRef.current) {
+        videoRef.current.currentTime = useEditorStore.getState().currentTime;
+      }
+    },
+    [seekForward, seekBackward],
+  );
+
   useKeyboardShortcuts(
     {
       delete: handleDeleteSelectedRegion,
@@ -69,6 +101,10 @@ export function EditorPage() {
         e.preventDefault()
         togglePlay()
       },
+      j: () => handleSeekFrame("prev"),
+      k: () => handleSeekFrame("next"),
+      arrowleft: () => handleSeekByTime(-1),
+      arrowright: () => handleSeekByTime(1),
       "ctrl+z": (e) => {
         e.preventDefault()
         undo()
@@ -82,7 +118,7 @@ export function EditorPage() {
         redo()
       },
     },
-    [handleDeleteSelectedRegion, undo, redo, togglePlay],
+    [handleDeleteSelectedRegion, undo, redo, togglePlay, handleSeekFrame],
   )
 
   useEffect(() => {
@@ -206,7 +242,7 @@ export function EditorPage() {
                 <Preview videoRef={videoRef} />
               </div>
               <div className="flex-shrink-0">
-                <PreviewControls videoRef={videoRef} />
+                <PreviewControls videoRef={videoRef} onSeekFrame={handleSeekFrame} />
               </div>
               <div className="h-48 flex-shrink-0 bg-card/60 border-t border-border/50 backdrop-blur-sm overflow-hidden">
                 <Timeline videoRef={videoRef} />
