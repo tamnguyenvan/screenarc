@@ -97,7 +97,7 @@ export function FrameEffectsSettings() {
                 </div>
                 <Slider
                   min={0}
-                  max={50}
+                  max={100}
                   step={1}
                   value={frameStyles.shadow}
                   onChange={(value) => handleStyleChange("shadow", value)}

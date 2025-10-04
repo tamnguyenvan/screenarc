@@ -39,7 +39,7 @@ export const CutRegionBlock = memo(({
       style={{ willChange: 'transform, width' }}
     >
       {/* Striped overlay above the region */}
-      <div className="absolute top-0 left-0 w-full h-[230px] translate-y-[-200px] overflow-hidden rounded-t-lg">
+      <div className="absolute top-0 left-0 w-full h-[230px] translate-y-[-200px] overflow-hidden rounded-t-lg pointer-events-none">
         <div className="absolute inset-0 bg-destructive/15" />
         <div 
           className="absolute inset-0 opacity-30"
