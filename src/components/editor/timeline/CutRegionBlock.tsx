@@ -41,7 +41,7 @@ export const CutRegionBlock = memo(({
       {/* Striped overlay above the region */}
       <div className="absolute top-0 left-0 w-full h-[230px] translate-y-[-200px] overflow-hidden rounded-t-lg pointer-events-none">
         <div className="absolute inset-0 bg-destructive/15" />
-        <div 
+        <div
           className="absolute inset-0 opacity-30"
           style={{
             backgroundImage: `repeating-linear-gradient(
@@ -74,20 +74,20 @@ export const CutRegionBlock = memo(({
             <div className="w-1 h-8 bg-destructive/50 rounded-full group-hover:bg-destructive group-hover:h-10 transition-all duration-150" />
           </div>
         )}
-        
-        <div className="pointer-events-none flex items-center gap-2.5 px-3">
+
+        <div className="pointer-events-none flex items-center gap-2.5 px-3 overflow-hidden">
           <Scissors className={cn(
             "w-5 h-5 transition-colors",
             isSelected ? "text-destructive" : "text-destructive/70"
           )} />
           <span className={cn(
-            "text-xs font-semibold tracking-wide transition-colors",
+            "text-xs font-semibold tracking-wide transition-colors overflow-hidden text-ellipsis",
             isSelected ? "text-destructive" : "text-destructive/70"
           )}>
             CUT
           </span>
         </div>
-        
+
         {canResizeRight && (
           <div
             className="absolute right-0 top-0 w-5 h-full cursor-ew-resize rounded-r-xl flex items-center justify-center z-10 group"
