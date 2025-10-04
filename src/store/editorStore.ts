@@ -8,7 +8,6 @@ import {
   AspectRatio, Background, FrameStyles, Preset, ZoomRegion, CutRegion, TimelineRegion,
   EditorState, MetaDataItem, WebcamStyles,
   WebcamPosition,
-  AnchorPoint
 } from '../types/store';
 
 // --- Constants ---
@@ -124,58 +123,6 @@ const initialFrameStyles: FrameStyles = {
   borderWidth: 6,
 }
 
-const _calculateAnchors = (
-  region: ZoomRegion,
-  metadata: MetaDataItem[],
-  videoDimensions: { width: number; height: number }
-): AnchorPoint[] => {
-  if (region.mode !== 'auto' || metadata.length === 0 || videoDimensions.width === 0) {
-    return [];
-  }
-
-  const { width: videoWidth, height: videoHeight } = videoDimensions;
-  
-  const panStartTime = region.startTime + ZOOM.TRANSITION_DURATION;
-  const panEndTime = region.startTime + region.duration - ZOOM.TRANSITION_DURATION;
-
-  // Filter metadata within the pan time range
-  const relevantMetadata = metadata.filter(m => m.timestamp >= panStartTime && m.timestamp <= panEndTime);
-  if (relevantMetadata.length === 0) {
-    // If no mouse movement, only return start and end anchors
-    return [
-      { time: panStartTime, x: region.targetX, y: region.targetY },
-      { time: panEndTime, x: region.targetX, y: region.targetY },
-    ];
-  }
-
-  const anchors: AnchorPoint[] = [];
-
-  // Yêu cầu quyền truy cập audio
-  let lastAnchor: AnchorPoint = {
-    time: relevantMetadata[0].timestamp,
-    x: (relevantMetadata[0].x / videoWidth) - 0.5,
-    y: (relevantMetadata[0].y / videoHeight) - 0.5,
-  };
-  anchors.push(lastAnchor);
-
-  for (const dataPoint of relevantMetadata) {
-    const currentPos = {
-      x: (dataPoint.x / videoWidth) - 0.5,
-      y: (dataPoint.y / videoHeight) - 0.5,
-    };
-
-    const dist_x = Math.abs(currentPos.x - lastAnchor.x);
-    const dist_y = Math.abs(currentPos.y - lastAnchor.y);
-
-    if (dist_x > ZOOM.ANCHOR_GENERATION_THRESHOLD || dist_y > ZOOM.ANCHOR_GENERATION_THRESHOLD) {
-      const newAnchor = { time: dataPoint.timestamp, ...currentPos };
-      anchors.push(newAnchor);
-      lastAnchor = newAnchor;
-    }
-  }
-
-  return anchors;
-};
 
 // Helper function to persist presets to the main process
 const _persistPresets = async (presets: Record<string, Preset>) => {
@@ -308,8 +255,6 @@ export const useEditorStore = create(
               zIndex: 0,
             };
 
-            newRegion.anchors = _calculateAnchors(newRegion, processedMetadata, get().videoDimensions);
-
             acc[id] = newRegion;
             return acc;
           }, {} as Record<string, ZoomRegion>);
@@ -400,8 +345,6 @@ export const useEditorStore = create(
           zIndex: 0,
         };
 
-        newRegion.anchors = _calculateAnchors(newRegion, metadata, videoDimensions);
-
         if (newRegion.startTime + newRegion.duration > duration) {
           newRegion.duration = Math.max(TIMELINE.MINIMUM_REGION_DURATION, duration - newRegion.startTime);
         }
@@ -448,11 +391,6 @@ export const useEditorStore = create(
             const oldDuration = region.duration;
             Object.assign(region, updates);
             
-            // Recalculate anchors if needed
-            if (region.type === 'zoom' && (updates.startTime !== undefined || updates.duration !== undefined)) {
-              (region as ZoomRegion).anchors = _calculateAnchors(region as ZoomRegion, state.metadata, state.videoDimensions);
-            }
-
             // Recalculate z-indices if duration changed
             if (oldDuration !== region.duration) {
               recalculateZIndicesOnDraft(state);
