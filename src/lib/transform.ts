@@ -9,32 +9,32 @@ function lerp(start: number, end: number, t: number): number {
 }
 
 /**
- * Calculates the transform-origin based on a normalized anchor point [-0.5, 0.5].
+ * Calculates the transform-origin based on a normalized target point [-0.5, 0.5].
  * Implements edge snapping to prevent zooming outside the video frame.
  * The output is a value from 0 to 1 for CSS transform-origin.
  */
-function getTransformOrigin(anchorX: number, anchorY: number, zoomLevel: number): { x: number; y: number } {
-  // The boundary for the anchor point before edge snapping is needed.
+function getTransformOrigin(targetX: number, targetY: number, zoomLevel: number): { x: number; y: number } {
+  // The boundary for the target point before edge snapping is needed.
   // This is half the width of the non-zoomed area.
   const boundary = 0.5 * (1 - 1 / zoomLevel);
 
   let originX: number;
-  if (anchorX > boundary) {
+  if (targetX > boundary) {
     originX = 1; // Snap to the right edge
-  } else if (anchorX < -boundary) {
+  } else if (targetX < -boundary) {
     originX = 0; // Snap to the left edge
   } else {
-    // The origin is the anchor's position, converted from [-0.5, 0.5] to [0, 1].
-    originX = anchorX + 0.5;
+    // The origin is the target's position, converted from [-0.5, 0.5] to [0, 1].
+    originX = targetX + 0.5;
   }
 
   let originY: number;
-  if (anchorY > boundary) {
+  if (targetY > boundary) {
     originY = 1; // Snap to the bottom edge
-  } else if (anchorY < -boundary) {
+  } else if (targetY < -boundary) {
     originY = 0; // Snap to the top edge
   } else {
-    originY = anchorY + 0.5;
+    originY = targetY + 0.5;
   }
 
   return { x: originX, y: originY };
@@ -77,7 +77,7 @@ export const calculateZoomTransform = (
     };
   }
 
-  // --- Phase 2: STATIC ZOOM (previously PAN) ---
+  // --- Phase 2: PAN ---
   if (currentTime >= zoomInEndTime && currentTime < zoomOutStartTime) {
     // Hold the zoom at the target level without any panning
     return {

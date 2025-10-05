@@ -51,7 +51,4 @@ export const ZOOM = {
   AUTO_ZOOM_MIN_DURATION: 3.0, // Minimum duration for an auto-generated zoom region
   PAN_EASING: 'easeInOutCubic', // Easing function for pan transitions
   
-  // --- Transform Calculation ---
-  ANCHOR_GENERATION_THRESHOLD: 0.4, // Normalized distance to create a new pan anchor
-  TRANSFORM_ORIGIN_DEAD_ZONE: 0.4, // Normalized area for edge snapping of transform-origin
 };
