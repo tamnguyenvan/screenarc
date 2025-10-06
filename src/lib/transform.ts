@@ -122,12 +122,12 @@ export const calculateZoomTransform = (
       if (lastMousePos) {
         if (!panHelper) {
           panHelper = new PanHelper(
-            canvasInfo.width * canvasInfo.scale,
-            canvasInfo.height * canvasInfo.scale,
+            canvasInfo.width,
+            canvasInfo.height,
             padding,
             zoomLevel,
             0.08,
-            0 * canvasInfo.scale
+            0
           );
           panHelper.setImageInitialState(videoInfo.width, videoInfo.height, fixedOrigin.x, fixedOrigin.y);
           console.log('fixedOrigin', fixedOrigin)

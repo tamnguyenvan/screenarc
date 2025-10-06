@@ -86,7 +86,10 @@ const initialProjectState = {
   videoPath: null,
   metadataPath: null,
   videoUrl: null,
-  videoDimensions: { width: 1920, height: 1080 },
+  videoDimensions: { width: 0, height: 0 },
+  recordingGeometry: null,
+  screenSize: null,
+  canvasDimensions: { width: 0, height: 0 },
   metadata: [],
   duration: 0,
   currentTime: 0,
@@ -166,6 +169,35 @@ const recalculateZIndicesOnDraft = (state: EditorState) => {
   });
 };
 
+const _recalculateCanvasDimensions = (state: EditorState) => {
+  if (!state.screenSize || !state.aspectRatio) {
+    state.canvasDimensions = { width: 1920, height: 1080 }; // Fallback
+    return;
+  }
+  const { width: screenWidth, height: screenHeight } = state.screenSize;
+  const [ratioW, ratioH] = state.aspectRatio.split(':').map(Number);
+  const screenAspectRatio = screenWidth / screenHeight;
+  const targetAspectRatio = ratioW / ratioH;
+
+  let canvasWidth, canvasHeight;
+
+  if (targetAspectRatio > screenAspectRatio) {
+    // Constrained by width
+    canvasWidth = screenWidth;
+    canvasHeight = Math.round(screenWidth / targetAspectRatio);
+  } else {
+    // Constrained by height
+    canvasHeight = screenHeight;
+    canvasWidth = Math.round(screenHeight * targetAspectRatio);
+  }
+
+  // Ensure dimensions are even numbers for video encoders
+  state.canvasDimensions = {
+    width: canvasWidth % 2 === 0 ? canvasWidth : canvasWidth + 1,
+    height: canvasHeight % 2 === 0 ? canvasHeight : canvasHeight + 1,
+  };
+};
+
 // --- Store Implementation ---
 export const useEditorStore = create(
   temporal(
@@ -204,17 +236,31 @@ export const useEditorStore = create(
 
         try {
           const metadataContent = await window.electronAPI.readFile(metadataPath);
-          const metadata: MetaDataItem[] = JSON.parse(metadataContent);
-          const processedMetadata = metadata.map(item => ({ ...item, timestamp: item.timestamp / 1000 }));
-          set(state => { state.metadata = processedMetadata });
+          const parsedData = JSON.parse(metadataContent);
+          
+          const geometry = parsedData.geometry;
+          const screenSize = parsedData.screenSize;
 
-          const clicks = processedMetadata.filter(item => item.type === 'click' && item.pressed);
+          const processedMetadata = parsedData.events.map((item: MetaDataItem) => ({
+            ...item,
+            timestamp: item.timestamp / 1000,
+            x: item.x - (geometry?.x ?? 0), // Calculate local coordinates
+            y: item.y - (geometry?.y ?? 0),
+          }));
+
+          set(state => { 
+            state.metadata = processedMetadata;
+            state.recordingGeometry = geometry || null;
+            state.screenSize = screenSize || null;
+          });
+
+          const clicks = processedMetadata.filter((item: MetaDataItem) => item.type === 'click' && item.pressed);
           if (clicks.length === 0) return;
 
           const { width: videoWidth, height: videoHeight } = get().videoDimensions;
           if (videoWidth === 0 || videoHeight === 0) {
             console.warn("Video dimensions are not set, cannot generate auto zoom regions accurately.");
-            return;
+            // We still proceed, setVideoDimensions will trigger the logic later
           }
 
           const mergedClickGroups: MetaDataItem[][] = [];
@@ -253,8 +299,8 @@ export const useEditorStore = create(
               duration,
               zoomLevel: ZOOM.DEFAULT_LEVEL,
               easing: 'ease-in-out',
-              targetX: (firstClick.x / videoWidth) - 0.5,
-              targetY: (firstClick.y / videoHeight) - 0.5,
+              targetX: (firstClick.x / (geometry?.width || videoWidth)) - 0.5,
+              targetY: (firstClick.y / (geometry?.height || videoHeight)) - 0.5,
               mode: 'auto',
               zIndex: 0,
             };
@@ -273,7 +319,18 @@ export const useEditorStore = create(
         }
       },
 
-      setVideoDimensions: (dims) => set(state => { state.videoDimensions = dims }),
+      setVideoDimensions: (dims) => set(state => {
+        state.videoDimensions = dims;
+        // If this is an imported video, geometry and screenSize won't exist.
+        // We'll create them based on the video's own dimensions.
+        if (!state.recordingGeometry) {
+          state.recordingGeometry = { x: 0, y: 0, width: dims.width, height: dims.height };
+        }
+        if (!state.screenSize) {
+          state.screenSize = { width: dims.width, height: dims.height };
+        }
+        _recalculateCanvasDimensions(state);
+      }),
 
       setDuration: (duration) => set(state => {
         state.duration = duration;
@@ -361,13 +418,16 @@ export const useEditorStore = create(
       }),
 
       setAspectRatio: (ratio) => {
-        set(state => { state.aspectRatio = ratio; });
+        set(state => { 
+          state.aspectRatio = ratio; 
+          _recalculateCanvasDimensions(state);
+        });
         get()._ensureActivePresetIsWritable();
       },
 
       addZoomRegion: () => {
-        const { metadata, currentTime, videoDimensions, duration } = get();
-        const { width: videoWidth, height: videoHeight } = videoDimensions;
+        const { metadata, currentTime, recordingGeometry, duration } = get();
+        const { width: videoWidth, height: videoHeight } = recordingGeometry || { width: 0, height: 0 };
         if (duration === 0 || videoWidth === 0) return;
 
         const lastMousePos = metadata.find(m => m.timestamp <= currentTime);
@@ -546,6 +606,8 @@ export const useEditorStore = create(
             if (preset.isWebcamVisible !== undefined) {
               state.isWebcamVisible = preset.isWebcamVisible;
             }
+            
+            _recalculateCanvasDimensions(state);
           });
           localStorage.setItem(APP.LAST_PRESET_ID_KEY, id);
         }

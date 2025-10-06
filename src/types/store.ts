@@ -75,6 +75,9 @@ export interface WebcamStyles {
   shadowColor: string; // Hex or RGBA string for webcam shadow color
 }
 
+export type RecordingGeometry = { x: number, y: number, width: number, height: number };
+export type ScreenSize = { width: number, height: number };
+
 
 // --- State ---
 export interface EditorState {
@@ -82,6 +85,9 @@ export interface EditorState {
   metadataPath: string | null;
   videoUrl: string | null;
   videoDimensions: { width: number; height: number };
+  recordingGeometry: RecordingGeometry | null;
+  screenSize: ScreenSize | null;
+  canvasDimensions: { width: number, height: number };
   metadata: MetaDataItem[];
   duration: number;
   currentTime: number;

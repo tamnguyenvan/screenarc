@@ -51,7 +51,8 @@ async function validateRecordingFiles(session: RecordingSession): Promise<boolea
   return true;
 }
 
-async function startActualRecording(inputArgs: string[], hasWebcam: boolean, hasMic: boolean) {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function startActualRecording(inputArgs: string[], hasWebcam: boolean, hasMic: boolean, recordingGeometry: any) {
   const recordingDir = path.join(process.env.HOME || process.env.USERPROFILE || '.', '.screenarc');
   await ensureDirectoryExists(recordingDir);
   const baseName = `ScreenArc-recording-${Date.now()}`;
@@ -68,7 +69,18 @@ async function startActualRecording(inputArgs: string[], hasWebcam: boolean, has
   appState.recordingStartTime = Date.now();
   appState.mouseTracker = createMouseTracker();
   appState.metadataStream = fs.createWriteStream(metadataPath);
-  appState.metadataStream.write('[\n');
+
+  // Write metadata header
+  const primaryDisplay = screen.getPrimaryDisplay();
+  const metadataHeader = {
+    screenSize: primaryDisplay.size,
+    geometry: recordingGeometry,
+    events: [] // Events will be streamed
+  };
+  
+  // Start writing the JSON object, open the events array
+  appState.metadataStream.write(`{\n"screenSize": ${JSON.stringify(metadataHeader.screenSize)},\n"geometry": ${JSON.stringify(metadataHeader.geometry)},\n"events": [\n`);
+
 
   if (appState.mouseTracker) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -159,6 +171,9 @@ export async function startRecording(options: any) { // Type from preload.ts
   log.info('[RecordingManager] Received start recording request with options:', options);
   const display = process.env.DISPLAY || ':0.0';
   const baseFfmpegArgs: string[] = [];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let recordingGeometry: any;
+
 
   if (mic) {
     switch (process.platform) {
@@ -181,6 +196,7 @@ export async function startRecording(options: any) { // Type from preload.ts
     const { x, y, width, height } = targetDisplay.bounds;
     const safeWidth = Math.floor(width / 2) * 2;
     const safeHeight = Math.floor(height / 2) * 2;
+    recordingGeometry = { x, y, width: safeWidth, height: safeHeight };
     switch (process.platform) {
       case 'linux': baseFfmpegArgs.push('-f', 'x11grab', '-video_size', `${safeWidth}x${safeHeight}`, '-i', `${display}+${x},${y}`); break;
       case 'win32': baseFfmpegArgs.push('-f', 'gdigrab', '-offset_x', x.toString(), '-offset_y', y.toString(), '-video_size', `${safeWidth}x${safeHeight}`, '-i', 'desktop'); break;
@@ -199,6 +215,7 @@ export async function startRecording(options: any) { // Type from preload.ts
     // Ensure width and height are even numbers for FFmpeg compatibility
     const safeWidth = Math.floor(selectedGeometry.width / 2) * 2;
     const safeHeight = Math.floor(selectedGeometry.height / 2) * 2;
+    recordingGeometry = { x: selectedGeometry.x, y: selectedGeometry.y, width: safeWidth, height: safeHeight };
     
     baseFfmpegArgs.push('-f', 'x11grab', '-video_size', `${safeWidth}x${safeHeight}`, '-i', `${display}+${selectedGeometry.x},${selectedGeometry.y}`);
   } else { /* window source logic here if re-enabled */
@@ -206,7 +223,7 @@ export async function startRecording(options: any) { // Type from preload.ts
   }
 
   appState.originalCursorScale = await getCursorScale();
-  return startActualRecording(baseFfmpegArgs, !!webcam, !!mic);
+  return startActualRecording(baseFfmpegArgs, !!webcam, !!mic, recordingGeometry);
 }
 
 export async function stopRecording() {
@@ -264,7 +281,8 @@ async function cleanupAndSave(): Promise<void> {
     }
     if (appState.metadataStream?.writable) {
       if (!appState.metadataStream.writableEnded) {
-        appState.metadataStream.write('\n]');
+        // Close the events array and the main JSON object
+        appState.metadataStream.write('\n]\n}');
         appState.metadataStream.end();
       }
       appState.metadataStream = null;
@@ -434,8 +452,9 @@ export async function loadVideoFromFile() {
     await fsPromises.copyFile(sourceVideoPath, screenVideoPath);
     log.info(`[RecordingManager] Copied video to: ${screenVideoPath}`);
 
-    // 2. Create an empty metadata file
-    await fsPromises.writeFile(metadataPath, '[]', 'utf-8');
+    // 2. Create an empty metadata file with the new structure
+    // The editor will populate geometry and screenSize from the video itself.
+    await fsPromises.writeFile(metadataPath, '{"events":[]}', 'utf-8');
     log.info(`[RecordingManager] Created empty metadata file at: ${metadataPath}`);
 
     const session: RecordingSession = { screenVideoPath, metadataPath, webcamVideoPath: undefined };

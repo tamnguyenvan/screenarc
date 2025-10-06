@@ -9,14 +9,14 @@ import { drawScene } from '../../lib/renderer';
 
 export const Preview = memo(({ videoRef }: { videoRef: React.RefObject<HTMLVideoElement> }) => {
   const {
-    videoUrl, aspectRatio, cutRegions,
+    videoUrl, cutRegions,
     webcamVideoUrl, duration, currentTime, togglePlay,
     isPreviewFullScreen, togglePreviewFullScreen, frameStyles,
-    isWebcamVisible, webcamPosition, webcamStyles, videoDimensions
+    isWebcamVisible, webcamPosition, webcamStyles, videoDimensions,
+    canvasDimensions
   } = useEditorStore(
     useShallow(state => ({
       videoUrl: state.videoUrl,
-      aspectRatio: state.aspectRatio,
       cutRegions: state.cutRegions,
       webcamVideoUrl: state.webcamVideoUrl,
       duration: state.duration,
@@ -29,37 +29,16 @@ export const Preview = memo(({ videoRef }: { videoRef: React.RefObject<HTMLVideo
       webcamPosition: state.webcamPosition,
       webcamStyles: state.webcamStyles,
       videoDimensions: state.videoDimensions,
+      canvasDimensions: state.canvasDimensions,
     })));
 
   const { setPlaying, setCurrentTime, setDuration, setVideoDimensions } = useEditorStore.getState();
   const { isPlaying, isCurrentlyCut } = usePlaybackState();
 
-  const [previewContainerSize, setPreviewContainerSize] = useState({ width: 0, height: 0 });
   const [bgImage, setBgImage] = useState<HTMLImageElement | null>(null); // State for pre-loaded image
-  const previewContainerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const webcamVideoRef = useRef<HTMLVideoElement>(null);
   const animationFrameId = useRef<number>();
-
-  // Calculate canvas dimensions to fit container while maintaining aspect ratio
-  const canvasDimensions = (() => {
-    if (previewContainerSize.width === 0 || previewContainerSize.height === 0) {
-      return { width: 0, height: 0 };
-    }
-    const [ratioW, ratioH] = aspectRatio.split(':').map(Number);
-    const containerRatio = previewContainerSize.width / previewContainerSize.height;
-    const targetRatio = ratioW / ratioH;
-
-    if (containerRatio > targetRatio) {
-      const height = previewContainerSize.height;
-      const width = height * targetRatio;
-      return { width, height };
-    } else {
-      const width = previewContainerSize.width;
-      const height = width / targetRatio;
-      return { width, height };
-    }
-  })();
 
   // Effect to pre-load background images
   useEffect(() => {
@@ -77,19 +56,6 @@ export const Preview = memo(({ videoRef }: { videoRef: React.RefObject<HTMLVideo
       setBgImage(null); // Clear image for color/gradient backgrounds
     }
   }, [frameStyles.background]);
-
-  // Observe container size to resize canvas correctly
-  useEffect(() => {
-    const observer = new ResizeObserver(entries => {
-      if (entries[0]) {
-        const { width, height } = entries[0].contentRect;
-        setPreviewContainerSize({ width, height });
-      }
-    });
-    const container = previewContainerRef.current;
-    if (container) observer.observe(container);
-    return () => { if (container) observer.disconnect() };
-  }, []);
 
   // Main render loop
   const renderCanvas = useCallback(async () => {
@@ -226,7 +192,6 @@ export const Preview = memo(({ videoRef }: { videoRef: React.RefObject<HTMLVideo
     <div className="w-full h-full flex flex-col items-center justify-center">
       <div
         id="preview-container"
-        ref={previewContainerRef}
         className="transition-all duration-300 ease-out flex items-center justify-center w-full flex-1 min-h-0"
       >
         {videoUrl ? (
@@ -234,7 +199,7 @@ export const Preview = memo(({ videoRef }: { videoRef: React.RefObject<HTMLVideo
             ref={canvasRef}
             width={canvasDimensions.width}
             height={canvasDimensions.height}
-            style={{ maxWidth: '100%', maxHeight: '100%' }}
+            style={{ maxWidth: '100%', maxHeight: '100%', width: 'auto', height: 'auto' }}
             className="rounded-lg shadow-2xl"
           />
         ) : (
@@ -274,9 +239,11 @@ export const Preview = memo(({ videoRef }: { videoRef: React.RefObject<HTMLVideo
       {videoUrl && (
         <div
           className="w-full mt-2"
-          style={{ width: canvasDimensions.width > 0 ? canvasDimensions.width : "auto", maxWidth: "100%" }}
+          style={{ maxWidth: "100%" }}
         >
-          <div className="bg-card/90 backdrop-blur-xl border border-border/40 rounded-xl px-4 py-2.5 flex items-center gap-4 shadow-lg">
+          <div className="bg-card/90 backdrop-blur-xl border border-border/40 rounded-xl px-4 py-2.5 flex items-center gap-4 shadow-lg max-w-full mx-auto"
+               style={{ width: canvasRef.current?.clientWidth }}
+          >
             <Button
               variant="ghost"
               size="icon"
