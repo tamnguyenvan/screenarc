@@ -10,6 +10,7 @@ type RenderableState = Pick<
   | 'webcamStyles'
   | 'isWebcamVisible'
   | 'zoomRegions'
+  | 'metadata'
 >;
 
 /**
@@ -78,7 +79,7 @@ const drawBackground = async (
         const imgRatio = img.width / img.height;
         const canvasRatio = width / height;
         let sx, sy, sWidth, sHeight;
-        
+
         if (imgRatio > canvasRatio) {
           sHeight = img.height;
           sWidth = sHeight * canvasRatio;
@@ -147,7 +148,26 @@ export const drawScene = async (
   // --- 3. Main video frame transform and drawing ---
   ctx.save();
 
-  const { scale, translateX, translateY, transformOrigin } = calculateZoomTransform(currentTime, state.zoomRegions);
+  const canvasScale = Math.min(
+    outputWidth / videoDimensions.width,
+    outputHeight / videoDimensions.height
+  );
+  const videoScale = Math.min(
+    frameContentWidth / videoDimensions.width,
+    frameContentHeight / videoDimensions.height
+  );
+  const { scale, translateX, translateY, transformOrigin } = calculateZoomTransform(
+    currentTime,
+    state.zoomRegions,
+    state.metadata,
+    { width: outputWidth, height: outputHeight, scale: canvasScale },
+    paddingPercent,
+    {
+      width: frameContentWidth * videoScale,
+      height: frameContentHeight * videoScale,
+      scale: videoScale
+    }
+  );
   const [originXStr, originYStr] = transformOrigin.split(' ');
   const originXMul = parseFloat(originXStr) / 100;
   const originYMul = parseFloat(originYStr) / 100;
@@ -165,7 +185,7 @@ export const drawScene = async (
   // Create paths - outer path for border, inner path for video
   const outerPath = new Path2D();
   outerPath.roundRect(0, 0, frameContentWidth, frameContentHeight, borderRadius);
-  
+
   const innerRadius = Math.max(0, borderRadius - borderWidth);
   const innerPath = new Path2D();
   innerPath.roundRect(
@@ -183,7 +203,7 @@ export const drawScene = async (
     ctx.shadowBlur = shadow * 2;
     ctx.shadowOffsetX = 0;
     ctx.shadowOffsetY = shadow * 0.4;
-    
+
     // Fill một hình trong suốt để tạo shadow, shadow sẽ nằm bên ngoài
     ctx.fillStyle = 'rgba(0, 0, 0, 0.01)';
     ctx.fill(outerPath);
@@ -206,17 +226,17 @@ export const drawScene = async (
   // Border được vẽ cuối cùng, không bị ảnh hưởng bởi shadow
   if (borderWidth > 0) {
     ctx.save();
-    
+
     // Clip vùng border (giữa outerPath và innerPath)
     ctx.clip(outerPath);
     ctx.clip(innerPath, 'evenodd'); // Inverse clip để chỉ lấy vùng border
-    
+
     // Backdrop blur simulation: semi-transparent white with slight blur effect
     ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
     ctx.fillRect(0, 0, frameContentWidth, frameContentHeight);
-    
+
     ctx.restore();
-    
+
     // Draw border ring stroke
     ctx.save();
     ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
@@ -260,7 +280,7 @@ export const drawScene = async (
     // Create webcam paths
     const webcamOuterPath = new Path2D();
     webcamOuterPath.roundRect(webcamX, webcamY, webcamWidth, webcamHeight, webcamRadius);
-    
+
     const webcamInnerRadius = Math.max(0, webcamRadius - webcamBorderWidth);
     const webcamInnerPath = new Path2D();
     webcamInnerPath.roundRect(
