@@ -3,10 +3,48 @@
 import { ZOOM } from './constants';
 import { EASING_MAP } from './easing';
 import { ZoomRegion, MetaDataItem } from '../types/store';
-import { PanHelper } from './pan-helper'; // Import the new PanHelper
+
+// --- Constants for Panning ---
+const PAN_EASING_FACTOR = 0.08; // How quickly the pan follows the mouse. Lower is smoother.
+const MOUSE_UPDATE_THRESHOLD = 5; // Min distance (in video pixels) the mouse must move to update the pan target.
+
+/**
+ * Manages the state of the pan between animation frames.
+ * This is necessary because calculateZoomTransform is a pure function called on every frame,
+ * but the panning effect needs to remember its previous position to create a smooth transition.
+ */
+const panState = {
+  currentX: 0,
+  currentY: 0,
+  targetX: 0,
+  targetY: 0,
+  lastRegionId: null as string | null,
+  lastMousePos: { x: 0, y: 0 },
+};
+
+/**
+ * Resets the pan state to its default (centered) position.
+ * @param {boolean} immediate - If true, snaps instantly. If false, allows easing back to center.
+ */
+function resetPanState(immediate = false) {
+  panState.targetX = 0;
+  panState.targetY = 0;
+  panState.lastRegionId = null;
+  if (immediate) {
+    panState.currentX = 0;
+    panState.currentY = 0;
+  }
+}
 
 function lerp(start: number, end: number, t: number): number {
   return start * (1 - t) + end * t;
+}
+
+/**
+ * Calculates the Euclidean distance between two points.
+ */
+function calculateDistance(x1: number, y1: number, x2: number, y2: number): number {
+    return Math.sqrt(Math.pow(x2 - x1, 2) + Math.pow(y2 - y1, 2));
 }
 
 /**
@@ -15,41 +53,31 @@ function lerp(start: number, end: number, t: number): number {
  * The output is a value from 0 to 1 for CSS transform-origin.
  */
 function getTransformOrigin(targetX: number, targetY: number, zoomLevel: number): { x: number; y: number } {
-  // The boundary for the target point before edge snapping is needed.
-  // This is half the width of the non-zoomed area.
   const boundary = 0.5 * (1 - 1 / zoomLevel);
-
   let originX: number;
   if (targetX > boundary) {
-    originX = 1; // Snap to the right edge
+    originX = 1;
   } else if (targetX < -boundary) {
-    originX = 0; // Snap to the left edge
+    originX = 0;
   } else {
-    // The origin is the target's position, converted from [-0.5, 0.5] to [0, 1].
     originX = targetX + 0.5;
   }
-
   let originY: number;
   if (targetY > boundary) {
-    originY = 1; // Snap to the bottom edge
+    originY = 1;
   } else if (targetY < -boundary) {
-    originY = 0; // Snap to the top edge
+    originY = 0;
   } else {
     originY = targetY + 0.5;
   }
-
   return { x: originX, y: originY };
 }
 
-// Helper function to find the last mouse position at or before a given time.
-// Uses binary search for O(log n) lookup time since metadata is sorted by timestamp.
 const findLastMousePosition = (metadata: MetaDataItem[], currentTime: number): MetaDataItem | null => {
   if (metadata.length === 0) return null;
-  
   let left = 0;
   let right = metadata.length - 1;
   let result = -1;
-
   while (left <= right) {
     const mid = Math.floor((left + right) / 2);
     if (metadata[mid].timestamp <= currentTime) {
@@ -59,14 +87,9 @@ const findLastMousePosition = (metadata: MetaDataItem[], currentTime: number): M
       right = mid - 1;
     }
   }
-
-  // If no timestamp <= currentTime, return the first item
-  // Otherwise return the found item or the first item if result is still -1 (shouldn't happen with the check above)
   return result === -1 ? metadata[0] : metadata[result];
 };
 
-// Instantiate PanHelper for the *current* active region's fixed origin.
-let panHelper: PanHelper | null = null;
 
 export const calculateZoomTransform = (
   currentTime: number,
@@ -85,102 +108,105 @@ export const calculateZoomTransform = (
     transformOrigin: '50% 50%',
   };
 
+  // If no active zoom region, ease the pan back to center.
   if (!activeRegion) {
+    resetPanState(); // Set target to 0, but let current ease back.
+    panState.currentX = lerp(panState.currentX, panState.targetX, PAN_EASING_FACTOR);
+    panState.currentY = lerp(panState.currentY, panState.targetY, PAN_EASING_FACTOR);
+
+    // If it's very close to center, snap it to avoid lingering micro-values.
+    if (Math.abs(panState.currentX) < 0.01) panState.currentX = 0;
+    if (Math.abs(panState.currentY) < 0.01) panState.currentY = 0;
+
+    // Only return pan if it's still easing out.
+    if (panState.currentX !== 0 || panState.currentY !== 0) {
+      return {
+        ...defaultTransform,
+        translateX: (panState.currentX / videoInfo.width) * 100,
+        translateY: (panState.currentY / videoInfo.height) * 100,
+      }
+    }
     return defaultTransform;
+  }
+
+  // If we entered a new region, reset the pan state to avoid jumps.
+  if (panState.lastRegionId !== activeRegion.id) {
+    resetPanState(true); // Reset immediately.
+    panState.lastRegionId = activeRegion.id;
   }
 
   const { startTime, duration, zoomLevel, targetX, targetY, mode } = activeRegion;
   const zoomOutStartTime = startTime + duration - ZOOM.TRANSITION_DURATION;
   const zoomInEndTime = startTime + ZOOM.TRANSITION_DURATION;
 
-  // Calculate a single, fixed transform-origin for the entire duration of the zoom
-  // This `fixedOrigin` is the conceptual "center" of our zoomed viewport on the unscaled video.
   const fixedOrigin = getTransformOrigin(targetX, targetY, zoomLevel);
   const transformOrigin = `${fixedOrigin.x * 100}% ${fixedOrigin.y * 100}%`;
 
   let currentScale = 1;
-  let currentTranslateX = 0;
-  let currentTranslateY = 0;
 
   // --- Phase 1: ZOOM-IN ---
   if (currentTime >= startTime && currentTime < zoomInEndTime) {
     const t = EASING_MAP[ZOOM.ZOOM_EASING as keyof typeof EASING_MAP]((currentTime - startTime) / ZOOM.TRANSITION_DURATION);
     currentScale = lerp(1, zoomLevel, t);
-    // No pan during zoom-in
+    resetPanState(); // Keep it centered during zoom-in.
   }
   // --- Phase 2: PAN (Hold Zoom & Follow Mouse) ---
   else if (currentTime >= zoomInEndTime && currentTime < zoomOutStartTime) {
-    currentScale = zoomLevel; // Hold maximum zoom level
+    currentScale = zoomLevel;
 
-    if (mode === 'fixed' || !videoInfo.width || metadata.length === 0) {
-      // If mode is fixed OR video dimensions are unknown, no dynamic pan.
-      // Or if there's no metadata to follow.
-      currentTranslateX = 0;
-      currentTranslateY = 0;
-    } else {
+    if (mode === 'auto' && videoInfo.width && metadata.length > 0) {
       const lastMousePos = findLastMousePosition(metadata, currentTime);
+
       if (lastMousePos) {
-        if (!panHelper) {
-          panHelper = new PanHelper(
-            canvasInfo.width,
-            canvasInfo.height,
-            padding,
-            zoomLevel,
-            0.08,
-            0
-          );
-          panHelper.setImageInitialState(videoInfo.width, videoInfo.height, fixedOrigin.x, fixedOrigin.y);
-          console.log('fixedOrigin', fixedOrigin)
-          console.log('init', panHelper.getImageRect());
+        // Update target only if mouse moved enough to prevent jitter.
+        if (calculateDistance(lastMousePos.x, lastMousePos.y, panState.lastMousePos.x, panState.lastMousePos.y) > MOUSE_UPDATE_THRESHOLD) {
+            
+            // 1. Calculate the size of the zoomed video on the canvas.
+            const zoomedWidth = videoInfo.width * zoomLevel;
+            const zoomedHeight = videoInfo.height * zoomLevel;
+
+            // 2. Convert mouse position (video coords) to a target offset.
+            // The goal is to shift the video so the mouse cursor is at the center of the viewport.
+            // `(0.5 - mouseX / videoW)` gives a normalized offset.
+            // Multiply by zoomed size to get pixel offset.
+            const targetOffsetX = (0.5 - (lastMousePos.x / videoInfo.width)) * zoomedWidth;
+            const targetOffsetY = (0.5 - (lastMousePos.y / videoInfo.height)) * zoomedHeight;
+            
+            // 3. Calculate max pannable distance to stay within frame boundaries.
+            const maxPanX = (zoomedWidth - videoInfo.width) / 2;
+            const maxPanY = (zoomedHeight - videoInfo.height) / 2;
+            
+            // 4. Clamp the target offset to the boundaries.
+            panState.targetX = Math.max(-maxPanX, Math.min(maxPanX, targetOffsetX));
+            panState.targetY = Math.max(-maxPanY, Math.min(maxPanY, targetOffsetY));
+
+            panState.lastMousePos = { x: lastMousePos.x, y: lastMousePos.y };
         }
-
-        // Convert mouse position to canvas coordinates
-        const imageScale = panHelper.getImageScale();
-        const canvasPadding = panHelper.getPadding();
-        const canvasX = lastMousePos.x + canvasPadding.pxStart;
-        const canvasY = lastMousePos.y + canvasPadding.pyStart;
-
-        console.log(`lastMousePos: ${JSON.stringify(lastMousePos)} | videoInfo: ${JSON.stringify(videoInfo)} | imageScale: ${imageScale} | canvasPadding: ${JSON.stringify(canvasPadding)} | canvasX: ${canvasX} | canvasY: ${canvasY}`);
-
-        panHelper.updateMouse(canvasX, canvasY);
-
-        const imageRect = panHelper.getImageRect();
-        const { position } = panHelper.getDestination();
-
-        console.log('imageRect', imageRect)
-        console.log('position', position)
-
-        currentTranslateX = position.x / imageRect.width;
-        currentTranslateY = position.y / imageRect.height;
-
-        console.log('currentTranslateX', currentTranslateX)
-        console.log('currentTranslateY', currentTranslateY)
-
-        console.log('----------------\n')
-
-        const { position: positionBefore } = panHelper.getDestination();
-        console.log('before', positionBefore)
-        panHelper.tick();
-        const { position: positionAfter } = panHelper.getDestination();
-        console.log('after', positionAfter)
       }
+    } else {
+      // Fixed mode or no data, stay centered.
+      resetPanState();
     }
   }
   // --- Phase 3: ZOOM-OUT ---
   else if (currentTime >= zoomOutStartTime && currentTime <= startTime + duration) {
     const t = EASING_MAP[ZOOM.ZOOM_EASING as keyof typeof EASING_MAP]((currentTime - zoomOutStartTime) / ZOOM.TRANSITION_DURATION);
     currentScale = lerp(zoomLevel, 1, t);
-    // No pan during zoom-out
-
-    if (panHelper) {
-      panHelper = null;
-    }
+    resetPanState(); // Ease back to center during zoom-out.
   }
+
+  // --- Apply Easing to Pan ---
+  panState.currentX = lerp(panState.currentX, panState.targetX, PAN_EASING_FACTOR);
+  panState.currentY = lerp(panState.currentY, panState.targetY, PAN_EASING_FACTOR);
+
+  // Return values as percentages for the renderer
+  const translateXPercent = (panState.currentX / videoInfo.width) * 100;
+  const translateYPercent = (panState.currentY / videoInfo.height) * 100;
 
   return {
     scale: currentScale,
-    translateX: currentTranslateX,
-    translateY: currentTranslateY,
+    translateX: translateXPercent,
+    translateY: translateYPercent,
     transformOrigin,
   };
 };
