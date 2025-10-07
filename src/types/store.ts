@@ -69,7 +69,7 @@ export interface MetaDataItem {
 }
 
 export interface WebcamPosition {
-  pos: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
+  pos: 'top-left' | 'top-center' | 'top-right' | 'bottom-left' | 'bottom-center' | 'bottom-right' | 'left-center' | 'right-center';
 }
 
 export interface WebcamStyles {

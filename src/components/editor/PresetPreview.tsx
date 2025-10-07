@@ -95,8 +95,12 @@ export function PresetPreview({
     if (!webcamPosition) return ""
     return cn("absolute z-20 overflow-hidden", "transition-all duration-300 ease-in-out", {
       "top-4 left-4": webcamPosition.pos === "top-left",
+      "top-4 left-1/2 -translate-x-1/2": webcamPosition.pos === "top-center",
       "top-4 right-4": webcamPosition.pos === "top-right",
+      "left-4 top-1/2 -translate-y-1/2": webcamPosition.pos === "left-center",
+      "right-4 top-1/2 -translate-y-1/2": webcamPosition.pos === "right-center",
       "bottom-4 left-4": webcamPosition.pos === "bottom-left",
+      "bottom-4 left-1/2 -translate-x-1/2": webcamPosition.pos === "bottom-center",
       "bottom-4 right-4": webcamPosition.pos === "bottom-right",
     })
   }, [webcamPosition])

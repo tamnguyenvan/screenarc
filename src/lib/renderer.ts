@@ -231,15 +231,31 @@ export const drawScene = async (
         webcamX = webcamEdgePadding;
         webcamY = webcamEdgePadding;
         break;
+      case 'top-center':
+        webcamX = (outputWidth - webcamWidth) / 2;
+        webcamY = webcamEdgePadding;
+        break;
       case 'top-right':
         webcamX = outputWidth - webcamWidth - webcamEdgePadding;
         webcamY = webcamEdgePadding;
+        break;
+      case 'left-center':
+        webcamX = webcamEdgePadding;
+        webcamY = (outputHeight - webcamHeight) / 2;
+        break;
+      case 'right-center':
+        webcamX = outputWidth - webcamWidth - webcamEdgePadding;
+        webcamY = (outputHeight - webcamHeight) / 2;
         break;
       case 'bottom-left':
         webcamX = webcamEdgePadding;
         webcamY = outputHeight - webcamHeight - webcamEdgePadding;
         break;
-      default:
+      case 'bottom-center':
+        webcamX = (outputWidth - webcamWidth) / 2;
+        webcamY = outputHeight - webcamHeight - webcamEdgePadding;
+        break;
+      default: // bottom-right
         webcamX = outputWidth - webcamWidth - webcamEdgePadding;
         webcamY = outputHeight - webcamHeight - webcamEdgePadding;
         break;

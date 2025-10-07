@@ -3,10 +3,6 @@ import { useMemo } from "react"
 import { useEditorStore } from "../../../store/editorStore"
 import { ControlGroup } from "./ControlGroup"
 import {
-  CornerUpLeft,
-  CornerUpRight,
-  CornerDownLeft,
-  CornerDownRight,
   Video,
   Eye,
   ImageIcon,
@@ -24,6 +20,8 @@ import { rgbaToHexAlpha, hexToRgb } from "../../../lib/utils"
 import { useShallow } from "zustand/react/shallow"
 import { CornerRadiusIcon } from "../../ui/icons"
 import { Collapse } from "../../ui/collapse"
+import { cn } from "../../../lib/utils"
+import type { WebcamPosition } from "../../../types/store"
 
 export function CameraSettings() {
   const { isWebcamVisible, webcamPosition, webcamStyles, setWebcamVisibility, setWebcamPosition, updateWebcamStyle } =
@@ -37,13 +35,6 @@ export function CameraSettings() {
         updateWebcamStyle: state.updateWebcamStyle,
       })),
     )
-
-  const positions = [
-    { pos: "top-left" as const, icon: <CornerUpLeft className="w-5 h-5" />, label: "Top Left" },
-    { pos: "top-right" as const, icon: <CornerUpRight className="w-5 h-5" />, label: "Top Right" },
-    { pos: "bottom-left" as const, icon: <CornerDownLeft className="w-5 h-5" />, label: "Bottom Left" },
-    { pos: "bottom-right" as const, icon: <CornerDownRight className="w-5 h-5" />, label: "Bottom Right" },
-  ]
 
   const { hex: shadowHex, alpha: shadowAlpha } = useMemo(
     () => rgbaToHexAlpha(webcamStyles.shadowColor),
@@ -73,6 +64,17 @@ export function CameraSettings() {
   }
 
   const isCircle = webcamStyles.shape === 'circle';
+  const positions: { pos: WebcamPosition['pos']; classes: string }[] = [
+    { pos: 'top-left', classes: 'top-2 left-2' },
+    { pos: 'top-center', classes: 'top-2 left-1/2 -translate-x-1/2' },
+    { pos: 'top-right', classes: 'top-2 right-2' },
+    { pos: 'left-center', classes: 'top-1/2 -translate-y-1/2 left-2' },
+    { pos: 'right-center', classes: 'top-1/2 -translate-y-1/2 right-2' },
+    { pos: 'bottom-left', classes: 'bottom-2 left-2' },
+    { pos: 'bottom-center', classes: 'bottom-2 left-1/2 -translate-x-1/2' },
+    { pos: 'bottom-right', classes: 'bottom-2 right-2' },
+  ];
+
 
   return (
     <div className="h-full flex flex-col">
@@ -160,18 +162,30 @@ export function CameraSettings() {
             </div>
             <div className="space-y-3">
               <label className="text-sm font-medium text-sidebar-foreground">Position</label>
-              <div className="grid grid-cols-2 gap-2">
-                {positions.map((p) => (
-                  <Button
-                    key={p.pos}
-                    variant={webcamPosition.pos === p.pos ? "secondary" : "ghost"}
-                    onClick={() => setWebcamPosition({ pos: p.pos })}
-                    className="h-auto py-3 flex flex-col items-center justify-center gap-2 transition-all duration-200"
-                  >
-                    {p.icon}
-                    <span className="text-xs font-medium">{p.label}</span>
-                  </Button>
-                ))}
+              <div className="relative aspect-video w-full bg-muted/50 rounded-lg p-2 border border-border">
+                 {positions.map(({ pos, classes }) => {
+                  const isActive = webcamPosition.pos === pos;
+                  return (
+                    <button
+                      key={pos}
+                      onClick={() => setWebcamPosition({ pos })}
+                      className={cn(
+                        'absolute w-8 h-8 rounded-lg flex items-center justify-center transition-all duration-200 hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring ring-offset-background group',
+                        classes
+                      )}
+                      aria-label={`Position ${pos.replace('-', ' ')}`}
+                    >
+                      <div
+                        className={cn(
+                          'w-4 h-4 rounded-md transition-all duration-200 border-2',
+                          isActive
+                            ? 'bg-primary border-primary'
+                            : 'bg-transparent border-muted-foreground/50 group-hover:border-primary'
+                        )}
+                      />
+                    </button>
+                  );
+                })}
               </div>
             </div>
           </div>
