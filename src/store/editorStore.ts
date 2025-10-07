@@ -32,8 +32,8 @@ const DEFAULT_PRESET: Omit<Preset, 'id' | 'name'> = {
   aspectRatio: '16:9',
   isDefault: true,
   webcamStyles: {
-    shape: 'circle',
-    borderRadius: 50,
+    shape: 'square',
+    borderRadius: 35,
     size: 30,  // percent
     shadowBlur: 20,
     shadowOffsetX: 0,
@@ -115,8 +115,8 @@ const initialProjectState = {
   isWebcamVisible: false,
   webcamPosition: { pos: 'bottom-right' } as WebcamPosition,
   webcamStyles: { 
-    shape: 'circle' as const,
-    borderRadius: 50,
+    shape: 'square' as const,
+    borderRadius: 35,
     size: 30, 
     shadowBlur: 20, 
     shadowOffsetX: 0,
