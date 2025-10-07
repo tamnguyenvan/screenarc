@@ -1,5 +1,3 @@
-// Path: src/lib/transform.ts
-
 import { ZOOM } from './constants';
 import { EASING_MAP } from './easing';
 import { ZoomRegion, MetaDataItem } from '../types/store';
@@ -12,8 +10,8 @@ function lerp(start: number, end: number, t: number): number {
  * Calculates the Euclidean distance between two points.
  */
 const calculateDistance = (x1: number, y1: number, x2: number, y2: number): number => {
-    return Math.sqrt(Math.pow(x2 - x1, 2) + Math.pow(y2 - y1, 2));
-}
+  return Math.sqrt(Math.pow(x2 - x1, 2) + Math.pow(y2 - y1, 2));
+};
 
 /**
  * Calculates the transform-origin based on a normalized target point [-0.5, 0.5].
@@ -21,37 +19,23 @@ const calculateDistance = (x1: number, y1: number, x2: number, y2: number): numb
  * The output is a value from 0 to 1 for CSS transform-origin.
  */
 function getTransformOrigin(targetX: number, targetY: number, zoomLevel: number): { x: number; y: number } {
-  // The boundary for the target point before edge snapping is needed.
-  // This is half the width of the non-zoomed area.
   const boundary = 0.5 * (1 - 1 / zoomLevel);
-
   let originX: number;
-  if (targetX > boundary) {
-    originX = 1; // Snap to the right edge
-  } else if (targetX < -boundary) {
-    originX = 0; // Snap to the left edge
-  } else {
-    // The origin is the target's position, converted from [-0.5, 0.5] to [0, 1].
-    originX = targetX + 0.5;
-  }
+  if (targetX > boundary) originX = 1;
+  else if (targetX < -boundary) originX = 0;
+  else originX = targetX + 0.5;
 
   let originY: number;
-  if (targetY > boundary) {
-    originY = 1; // Snap to the bottom edge
-  } else if (targetY < -boundary) {
-    originY = 0; // Snap to the top edge
-  } else {
-    originY = targetY + 0.5;
-  }
+  if (targetY > boundary) originY = 1;
+  else if (targetY < -boundary) originY = 0;
+  else originY = targetY + 0.5;
 
   return { x: originX, y: originY };
 }
 
-// Helper function to find the last mouse position at or before a given time.
-// Uses binary search for O(log n) lookup time since metadata is sorted by timestamp.
+// Helper: binary search to find last metadata <= current time
 const findLastMousePosition = (metadata: MetaDataItem[], currentTime: number): MetaDataItem | null => {
   if (metadata.length === 0) return null;
-
   let left = 0;
   let right = metadata.length - 1;
   let result = -1;
@@ -66,12 +50,8 @@ const findLastMousePosition = (metadata: MetaDataItem[], currentTime: number): M
     }
   }
 
-  // If no timestamp <= currentTime, return the first item
-  // Otherwise return the found item or the first item if result is still -1 (shouldn't happen with the check above)
   return result === -1 ? metadata[0] : metadata[result];
 };
-
-
 
 export const calculateZoomTransform = (
   currentTime: number,
@@ -80,7 +60,9 @@ export const calculateZoomTransform = (
   originalVideoDimensions: { width: number; height: number },
   frameContentDimensions: { width: number; height: number }
 ): { scale: number; translateX: number; translateY: number; transformOrigin: string } => {
-  const activeRegion = Object.values(zoomRegions).find(r => currentTime >= r.startTime && currentTime < r.startTime + r.duration);
+  const activeRegion = Object.values(zoomRegions).find(
+    r => currentTime >= r.startTime && currentTime < r.startTime + r.duration
+  );
 
   const defaultTransform = {
     scale: 1,
@@ -89,16 +71,12 @@ export const calculateZoomTransform = (
     transformOrigin: '50% 50%',
   };
 
-  if (!activeRegion) {
-    return defaultTransform;
-  }
+  if (!activeRegion) return defaultTransform;
 
   const { startTime, duration, zoomLevel, targetX, targetY, mode } = activeRegion;
   const zoomOutStartTime = startTime + duration - ZOOM.TRANSITION_DURATION;
   const zoomInEndTime = startTime + ZOOM.TRANSITION_DURATION;
 
-  // Calculate a single, fixed transform-origin for the entire duration of the zoom
-  // This `fixedOrigin` is the conceptual "center" of our zoomed viewport on the unscaled video.
   const fixedOrigin = getTransformOrigin(targetX, targetY, zoomLevel);
   const transformOrigin = `${fixedOrigin.x * 100}% ${fixedOrigin.y * 100}%`;
 
@@ -106,29 +84,68 @@ export const calculateZoomTransform = (
   let currentTranslateX = 0;
   let currentTranslateY = 0;
 
-  // --- Phase 1: ZOOM-IN ---
+  // --- ZOOM-IN ---
   if (currentTime >= startTime && currentTime < zoomInEndTime) {
-    const t = EASING_MAP[ZOOM.ZOOM_EASING as keyof typeof EASING_MAP]((currentTime - startTime) / ZOOM.TRANSITION_DURATION);
+    const t = EASING_MAP[ZOOM.ZOOM_EASING as keyof typeof EASING_MAP](
+      (currentTime - startTime) / ZOOM.TRANSITION_DURATION
+    );
     currentScale = lerp(1, zoomLevel, t);
-    // No pan during zoom-in
-  }
-  // --- Phase 2: PAN (Hold Zoom & Follow Mouse) ---
-  else if (currentTime >= zoomInEndTime && currentTime < zoomOutStartTime) {
-    currentScale = zoomLevel; // Hold maximum zoom level
-    currentTranslateX = 0;
-    currentTranslateY = 0;
-  }
-  // --- Phase 3: ZOOM-OUT ---
-  else if (currentTime >= zoomOutStartTime && currentTime <= startTime + duration) {
-    const t = EASING_MAP[ZOOM.ZOOM_EASING as keyof typeof EASING_MAP]((currentTime - zoomOutStartTime) / ZOOM.TRANSITION_DURATION);
-    currentScale = lerp(zoomLevel, 1, t);
-    // No pan during zoom-out
   }
 
-  return {
-    scale: currentScale,
-    translateX: currentTranslateX,
-    translateY: currentTranslateY,
-    transformOrigin,
-  };
+  // --- PAN ---
+  else if (currentTime >= zoomInEndTime && currentTime < zoomOutStartTime) {
+    currentScale = zoomLevel;
+
+    if (mode === 'auto' && metadata.length > 0 && originalVideoDimensions.width > 0) {
+      const PAN_TRANSITION_DURATION = 0.5;
+      const PAN_THRESHOLD_PERCENT = 0.1;
+
+      const panStartMousePos = findLastMousePosition(metadata, zoomInEndTime);
+      const currentMousePos = findLastMousePosition(metadata, currentTime);
+
+      if (panStartMousePos && currentMousePos) {
+        const panDistance = calculateDistance(
+          panStartMousePos.x, panStartMousePos.y, currentMousePos.x, currentMousePos.y
+        );
+
+        const panThreshold = PAN_THRESHOLD_PERCENT * originalVideoDimensions.width;
+        if (panDistance > panThreshold) {
+          const deltaX = currentMousePos.x - panStartMousePos.x;
+          const deltaY = currentMousePos.y - panStartMousePos.y;
+
+          const scaleFactorX = frameContentDimensions.width / originalVideoDimensions.width;
+          const scaleFactorY = frameContentDimensions.height / originalVideoDimensions.height;
+
+          let targetTranslateX = -deltaX * scaleFactorX;
+          let targetTranslateY = -deltaY * scaleFactorY;
+
+          const panElapsedTime = currentTime - zoomInEndTime;
+          if (panElapsedTime < PAN_TRANSITION_DURATION) {
+            const t = EASING_MAP['easeInOutCubic'](panElapsedTime / PAN_TRANSITION_DURATION);
+            targetTranslateX = lerp(0, targetTranslateX, t);
+            targetTranslateY = lerp(0, targetTranslateY, t);
+          }
+
+          const maxPanX = (frameContentDimensions.width * (zoomLevel - 1)) / 2;
+          const maxPanY = (frameContentDimensions.height * (zoomLevel - 1)) / 2;
+
+          const clampedTranslateX = Math.max(-maxPanX, Math.min(targetTranslateX, maxPanX));
+          const clampedTranslateY = Math.max(-maxPanY, Math.min(targetTranslateY, maxPanY));
+
+          currentTranslateX = clampedTranslateX / zoomLevel;
+          currentTranslateY = clampedTranslateY / zoomLevel;
+        }
+      }
+    }
+  }
+
+  // --- ZOOM-OUT ---
+  else if (currentTime >= zoomOutStartTime && currentTime <= startTime + duration) {
+    const t = EASING_MAP[ZOOM.ZOOM_EASING as keyof typeof EASING_MAP](
+      (currentTime - zoomOutStartTime) / ZOOM.TRANSITION_DURATION
+    );
+    currentScale = lerp(zoomLevel, 1, t);
+  }
+
+  return { scale: currentScale, translateX: currentTranslateX, translateY: currentTranslateY, transformOrigin };
 };
