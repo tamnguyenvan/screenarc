@@ -4,80 +4,29 @@ import { ZOOM } from './constants';
 import { EASING_MAP } from './easing';
 import { ZoomRegion, MetaDataItem } from '../types/store';
 
-// --- Constants for Panning ---
-const PAN_EASING_FACTOR = 0.08; // How quickly the pan follows the mouse. Lower is smoother.
-const MOUSE_UPDATE_THRESHOLD = 5; // Min distance (in video pixels) the mouse must move to update the pan target.
+// --- Constants ---
+const SMOOTHING_WINDOW_SIZE = 0.5; // seconds. Lấy dữ liệu chuột trong khoảng +/- 0.25s so với currentTime.
+const WEIGHT_EPSILON = 0.001; // Một hằng số nhỏ để tránh chia cho 0.
+
+// --- Helper Functions ---
 
 /**
- * Manages the state of the pan between animation frames.
- * This is necessary because calculateZoomTransform is a pure function called on every frame,
- * but the panning effect needs to remember its previous position to create a smooth transition.
+ * Nội suy tuyến tính giữa hai số.
  */
-const panState = {
-  currentX: 0,
-  currentY: 0,
-  targetX: 0,
-  targetY: 0,
-  lastRegionId: null as string | null,
-  lastMousePos: { x: 0, y: 0 },
-};
-
-/**
- * Resets the pan state to its default (centered) position.
- * @param {boolean} immediate - If true, snaps instantly. If false, allows easing back to center.
- */
-function resetPanState(immediate = false) {
-  panState.targetX = 0;
-  panState.targetY = 0;
-  panState.lastRegionId = null;
-  if (immediate) {
-    panState.currentX = 0;
-    panState.currentY = 0;
-  }
-}
-
 function lerp(start: number, end: number, t: number): number {
   return start * (1 - t) + end * t;
 }
 
 /**
- * Calculates the Euclidean distance between two points.
+ * Tìm index của metadata item cuối cùng tại hoặc trước một thời điểm nhất định.
+ * Sử dụng tìm kiếm nhị phân để tối ưu hiệu suất (O(log n)).
  */
-function calculateDistance(x1: number, y1: number, x2: number, y2: number): number {
-    return Math.sqrt(Math.pow(x2 - x1, 2) + Math.pow(y2 - y1, 2));
-}
-
-/**
- * Calculates the transform-origin based on a normalized target point [-0.5, 0.5].
- * Implements edge snapping to prevent zooming outside the video frame.
- * The output is a value from 0 to 1 for CSS transform-origin.
- */
-function getTransformOrigin(targetX: number, targetY: number, zoomLevel: number): { x: number; y: number } {
-  const boundary = 0.5 * (1 - 1 / zoomLevel);
-  let originX: number;
-  if (targetX > boundary) {
-    originX = 1;
-  } else if (targetX < -boundary) {
-    originX = 0;
-  } else {
-    originX = targetX + 0.5;
-  }
-  let originY: number;
-  if (targetY > boundary) {
-    originY = 1;
-  } else if (targetY < -boundary) {
-    originY = 0;
-  } else {
-    originY = targetY + 0.5;
-  }
-  return { x: originX, y: originY };
-}
-
-const findLastMousePosition = (metadata: MetaDataItem[], currentTime: number): MetaDataItem | null => {
-  if (metadata.length === 0) return null;
+const findLastMetadataIndex = (metadata: MetaDataItem[], currentTime: number): number => {
+  if (metadata.length === 0) return -1;
   let left = 0;
   let right = metadata.length - 1;
   let result = -1;
+
   while (left <= right) {
     const mid = Math.floor((left + right) / 2);
     if (metadata[mid].timestamp <= currentTime) {
@@ -87,17 +36,95 @@ const findLastMousePosition = (metadata: MetaDataItem[], currentTime: number): M
       right = mid - 1;
     }
   }
-  return result === -1 ? metadata[0] : metadata[result];
+  return result;
 };
 
 
+/**
+ * Tính toán vị trí chuột đã được làm mượt tại một thời điểm cụ thể.
+ * Đây là cốt lõi của giải pháp stateless. Nó xem xét một cửa sổ các điểm dữ liệu chuột
+ * xung quanh currentTime và tính trung bình có trọng số của chúng.
+ */
+const calculateSmoothedMousePosition = (
+  metadata: MetaDataItem[],
+  currentTime: number,
+  windowSize: number
+): { x: number; y: number } | null => {
+  const startIndex = findLastMetadataIndex(metadata, currentTime);
+  if (startIndex === -1) return metadata.length > 0 ? { x: metadata[0].x, y: metadata[0].y } : null;
+
+  const windowStart = currentTime - windowSize / 2;
+  const windowEnd = currentTime + windowSize / 2;
+
+  let totalWeight = 0;
+  let weightedX = 0;
+  let weightedY = 0;
+  let pointsInWindow = 0;
+
+  // Quét lùi từ startIndex
+  for (let i = startIndex; i >= 0 && metadata[i].timestamp >= windowStart; i--) {
+    const point = metadata[i];
+    const weight = 1 / (Math.abs(point.timestamp - currentTime) + WEIGHT_EPSILON);
+    weightedX += point.x * weight;
+    weightedY += point.y * weight;
+    totalWeight += weight;
+    pointsInWindow++;
+  }
+
+  // Quét tiến từ startIndex + 1
+  for (let i = startIndex + 1; i < metadata.length && metadata[i].timestamp <= windowEnd; i++) {
+    const point = metadata[i];
+    const weight = 1 / (Math.abs(point.timestamp - currentTime) + WEIGHT_EPSILON);
+    weightedX += point.x * weight;
+    weightedY += point.y * weight;
+    totalWeight += weight;
+    pointsInWindow++;
+  }
+
+  if (pointsInWindow === 0) {
+    // Nếu không có điểm nào trong cửa sổ, chỉ cần trả về điểm gần nhất
+    return { x: metadata[startIndex].x, y: metadata[startIndex].y };
+  }
+
+  return {
+    x: weightedX / totalWeight,
+    y: weightedY / totalWeight,
+  };
+};
+
+
+/**
+ * Tính toán transform-origin dựa trên một điểm mục tiêu đã được chuẩn hóa [-0.5, 0.5].
+ * Triển khai "edge snapping" để ngăn việc zoom ra ngoài khung video.
+ * Kết quả trả về là một giá trị từ 0 đến 1 cho CSS transform-origin.
+ */
+function getTransformOrigin(targetX: number, targetY: number, zoomLevel: number): { x: number; y: number } {
+  const boundary = 0.5 * (1 - 1 / zoomLevel);
+
+  let originX: number;
+  if (targetX > boundary) originX = 1;
+  else if (targetX < -boundary) originX = 0;
+  else originX = targetX + 0.5;
+
+  let originY: number;
+  if (targetY > boundary) originY = 1;
+  else if (targetY < -boundary) originY = 0;
+  else originY = targetY + 0.5;
+
+  return { x: originX, y: originY };
+}
+
+
+/**
+ * Hàm chính để tính toán các thuộc tính transform (scale, translate, origin) cho một frame cụ thể.
+ * Hàm này hoàn toàn stateless.
+ */
 export const calculateZoomTransform = (
   currentTime: number,
   zoomRegions: Record<string, ZoomRegion>,
   metadata: MetaDataItem[],
-  canvasInfo: { width: number; height: number, scale: number },
-  padding: number,
-  videoInfo: { width: number; height: number, scale: number },
+  originalVideoDimensions: { width: number; height: number },
+  frameContentDimensions: { width: number; height: number }
 ): { scale: number; translateX: number; translateY: number; transformOrigin: string } => {
   const activeRegion = Object.values(zoomRegions).find(r => currentTime >= r.startTime && currentTime < r.startTime + r.duration);
 
@@ -108,105 +135,72 @@ export const calculateZoomTransform = (
     transformOrigin: '50% 50%',
   };
 
-  // If no active zoom region, ease the pan back to center.
-  if (!activeRegion) {
-    resetPanState(); // Set target to 0, but let current ease back.
-    panState.currentX = lerp(panState.currentX, panState.targetX, PAN_EASING_FACTOR);
-    panState.currentY = lerp(panState.currentY, panState.targetY, PAN_EASING_FACTOR);
-
-    // If it's very close to center, snap it to avoid lingering micro-values.
-    if (Math.abs(panState.currentX) < 0.01) panState.currentX = 0;
-    if (Math.abs(panState.currentY) < 0.01) panState.currentY = 0;
-
-    // Only return pan if it's still easing out.
-    if (panState.currentX !== 0 || panState.currentY !== 0) {
-      return {
-        ...defaultTransform,
-        translateX: (panState.currentX / videoInfo.width) * 100,
-        translateY: (panState.currentY / videoInfo.height) * 100,
-      }
-    }
+  if (!activeRegion || !originalVideoDimensions.width) {
     return defaultTransform;
-  }
-
-  // If we entered a new region, reset the pan state to avoid jumps.
-  if (panState.lastRegionId !== activeRegion.id) {
-    resetPanState(true); // Reset immediately.
-    panState.lastRegionId = activeRegion.id;
   }
 
   const { startTime, duration, zoomLevel, targetX, targetY, mode } = activeRegion;
   const zoomOutStartTime = startTime + duration - ZOOM.TRANSITION_DURATION;
   const zoomInEndTime = startTime + ZOOM.TRANSITION_DURATION;
 
+  // Tính toán một transform-origin cố định cho toàn bộ vùng zoom, dựa trên mục tiêu ban đầu.
+  // Đây là "điểm neo" của hiệu ứng zoom.
   const fixedOrigin = getTransformOrigin(targetX, targetY, zoomLevel);
   const transformOrigin = `${fixedOrigin.x * 100}% ${fixedOrigin.y * 100}%`;
 
   let currentScale = 1;
+  let currentTranslateX = 0;
+  let currentTranslateY = 0;
 
-  // --- Phase 1: ZOOM-IN ---
+  // --- Xác định vị trí pan mục tiêu ---
+  let panTargetPosition = { x: 0, y: 0 };
+  if (mode === 'auto' && metadata.length > 0) {
+    const smoothedPos = calculateSmoothedMousePosition(metadata, currentTime, SMOOTHING_WINDOW_SIZE);
+    if (smoothedPos) {
+      panTargetPosition = {
+        x: smoothedPos.x / originalVideoDimensions.width,
+        y: smoothedPos.y / originalVideoDimensions.height,
+      };
+    }
+  } else {
+    // Chế độ 'fixed' hoặc không có metadata
+    panTargetPosition = {
+      x: targetX + 0.5,
+      y: targetY + 0.5,
+    };
+  }
+
+  // Tính toán giá trị translate cuối cùng nếu đang ở mức zoom tối đa
+  const finalTranslateX = -(panTargetPosition.x - fixedOrigin.x) * frameContentDimensions.width * zoomLevel;
+  const finalTranslateY = -(panTargetPosition.y - fixedOrigin.y) * frameContentDimensions.height * zoomLevel;
+
+  // --- Giai đoạn 1: ZOOM-IN ---
   if (currentTime >= startTime && currentTime < zoomInEndTime) {
     const t = EASING_MAP[ZOOM.ZOOM_EASING as keyof typeof EASING_MAP]((currentTime - startTime) / ZOOM.TRANSITION_DURATION);
     currentScale = lerp(1, zoomLevel, t);
-    resetPanState(); // Keep it centered during zoom-in.
+    // Pan cũng được nội suy mượt mà từ 0 đến vị trí mục tiêu
+    currentTranslateX = lerp(0, finalTranslateX, t);
+    currentTranslateY = lerp(0, finalTranslateY, t);
   }
-  // --- Phase 2: PAN (Hold Zoom & Follow Mouse) ---
+  // --- Giai đoạn 2: HOLD (Giữ zoom và pan) ---
   else if (currentTime >= zoomInEndTime && currentTime < zoomOutStartTime) {
     currentScale = zoomLevel;
-
-    if (mode === 'auto' && videoInfo.width && metadata.length > 0) {
-      const lastMousePos = findLastMousePosition(metadata, currentTime);
-
-      if (lastMousePos) {
-        // Update target only if mouse moved enough to prevent jitter.
-        if (calculateDistance(lastMousePos.x, lastMousePos.y, panState.lastMousePos.x, panState.lastMousePos.y) > MOUSE_UPDATE_THRESHOLD) {
-            
-            // 1. Calculate the size of the zoomed video on the canvas.
-            const zoomedWidth = videoInfo.width * zoomLevel;
-            const zoomedHeight = videoInfo.height * zoomLevel;
-
-            // 2. Convert mouse position (video coords) to a target offset.
-            // The goal is to shift the video so the mouse cursor is at the center of the viewport.
-            // `(0.5 - mouseX / videoW)` gives a normalized offset.
-            // Multiply by zoomed size to get pixel offset.
-            const targetOffsetX = (0.5 - (lastMousePos.x / videoInfo.width)) * zoomedWidth;
-            const targetOffsetY = (0.5 - (lastMousePos.y / videoInfo.height)) * zoomedHeight;
-            
-            // 3. Calculate max pannable distance to stay within frame boundaries.
-            const maxPanX = (zoomedWidth - videoInfo.width) / 2;
-            const maxPanY = (zoomedHeight - videoInfo.height) / 2;
-            
-            // 4. Clamp the target offset to the boundaries.
-            panState.targetX = Math.max(-maxPanX, Math.min(maxPanX, targetOffsetX));
-            panState.targetY = Math.max(-maxPanY, Math.min(maxPanY, targetOffsetY));
-
-            panState.lastMousePos = { x: lastMousePos.x, y: lastMousePos.y };
-        }
-      }
-    } else {
-      // Fixed mode or no data, stay centered.
-      resetPanState();
-    }
+    currentTranslateX = finalTranslateX;
+    currentTranslateY = finalTranslateY;
   }
-  // --- Phase 3: ZOOM-OUT ---
+  // --- Giai đoạn 3: ZOOM-OUT ---
   else if (currentTime >= zoomOutStartTime && currentTime <= startTime + duration) {
     const t = EASING_MAP[ZOOM.ZOOM_EASING as keyof typeof EASING_MAP]((currentTime - zoomOutStartTime) / ZOOM.TRANSITION_DURATION);
     currentScale = lerp(zoomLevel, 1, t);
-    resetPanState(); // Ease back to center during zoom-out.
+    // Pan cũng được nội suy mượt mà về 0
+    currentTranslateX = lerp(finalTranslateX, 0, t);
+    currentTranslateY = lerp(finalTranslateY, 0, t);
   }
-
-  // --- Apply Easing to Pan ---
-  panState.currentX = lerp(panState.currentX, panState.targetX, PAN_EASING_FACTOR);
-  panState.currentY = lerp(panState.currentY, panState.targetY, PAN_EASING_FACTOR);
-
-  // Return values as percentages for the renderer
-  const translateXPercent = (panState.currentX / videoInfo.width) * 100;
-  const translateYPercent = (panState.currentY / videoInfo.height) * 100;
 
   return {
     scale: currentScale,
-    translateX: translateXPercent,
-    translateY: translateYPercent,
+    translateX: currentTranslateX,
+    translateY: currentTranslateY,
     transformOrigin,
   };
 };

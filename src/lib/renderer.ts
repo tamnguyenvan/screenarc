@@ -148,25 +148,12 @@ export const drawScene = async (
   // --- 3. Main video frame transform and drawing ---
   ctx.save();
 
-  const canvasScale = Math.min(
-    outputWidth / videoDimensions.width,
-    outputHeight / videoDimensions.height
-  );
-  const videoScale = Math.min(
-    frameContentWidth / videoDimensions.width,
-    frameContentHeight / videoDimensions.height
-  );
   const { scale, translateX, translateY, transformOrigin } = calculateZoomTransform(
     currentTime,
     state.zoomRegions,
     state.metadata,
-    { width: outputWidth, height: outputHeight, scale: canvasScale },
-    paddingPercent,
-    {
-      width: frameContentWidth * videoScale,
-      height: frameContentHeight * videoScale,
-      scale: videoScale
-    }
+    state.videoDimensions,
+    { width: frameContentWidth, height: frameContentHeight }
   );
   const [originXStr, originYStr] = transformOrigin.split(' ');
   const originXMul = parseFloat(originXStr) / 100;
@@ -174,11 +161,17 @@ export const drawScene = async (
   const originPxX = originXMul * frameContentWidth;
   const originPxY = originYMul * frameContentHeight;
 
-  ctx.translate(frameX, frameY);
-  ctx.translate(originPxX, originPxY);
+  // ctx.translate(frameX, frameY);
+  // ctx.translate(originPxX, originPxY);
+  // ctx.scale(scale, scale);
+  // ctx.translate(translateX, translateY);
+  // ctx.translate(-originPxX, -originPxY);
+
+  ctx.translate(
+    frameX + originPxX + translateX - (originPxX * scale),
+    frameY + originPxY + translateY - (originPxY * scale)
+  );
   ctx.scale(scale, scale);
-  ctx.translate((translateX / 100) * frameContentWidth, (translateY / 100) * frameContentHeight);
-  ctx.translate(-originPxX, -originPxY);
 
   const { shadow, borderRadius, shadowColor, borderWidth } = frameStyles;
 
