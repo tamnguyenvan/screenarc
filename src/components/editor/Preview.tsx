@@ -6,6 +6,7 @@ import { formatTime } from '../../lib/utils';
 import { Slider } from '../ui/slider';
 import { Button } from '../ui/button';
 import { drawScene } from '../../lib/renderer';
+import { cn } from '../../lib/utils';
 
 export const Preview = memo(({ videoRef }: { videoRef: React.RefObject<HTMLVideoElement> }) => {
   const {
@@ -39,94 +40,107 @@ export const Preview = memo(({ videoRef }: { videoRef: React.RefObject<HTMLVideo
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const webcamVideoRef = useRef<HTMLVideoElement>(null);
   const animationFrameId = useRef<number>();
-
-  // ADDED: State to reliably track the canvas's rendered width for the control bar
   const [controlBarWidth, setControlBarWidth] = useState(0);
 
-  // ADDED: Use ResizeObserver to listen for actual canvas size changes
+  // --- Start of Changes for Fullscreen Controls ---
+  const [isControlBarVisible, setIsControlBarVisible] = useState(false);
+  const inactivityTimerRef = useRef<number | null>(null);
+  const previewContainerRef = useRef<HTMLDivElement>(null);
+
+  // This effect handles the auto-hiding control bar in fullscreen mode.
+  useEffect(() => {
+    if (!isPreviewFullScreen) {
+      if (inactivityTimerRef.current) {
+        window.clearTimeout(inactivityTimerRef.current);
+        inactivityTimerRef.current = null;
+      }
+      return; // Do nothing if not in fullscreen
+    }
+
+    // Start with controls hidden
+    setIsControlBarVisible(false);
+
+    const showControlsAndSetTimer = () => {
+      setIsControlBarVisible(true);
+      if (inactivityTimerRef.current) {
+        window.clearTimeout(inactivityTimerRef.current);
+      }
+      inactivityTimerRef.current = window.setTimeout(() => {
+        setIsControlBarVisible(false);
+      }, 3000); // Hide after 3 seconds of inactivity
+    };
+
+    const container = previewContainerRef.current;
+    if (container) {
+      container.addEventListener('mousemove', showControlsAndSetTimer);
+    }
+    
+    // Cleanup function
+    return () => {
+      if (inactivityTimerRef.current) {
+        window.clearTimeout(inactivityTimerRef.current);
+      }
+      if (container) {
+        container.removeEventListener('mousemove', showControlsAndSetTimer);
+      }
+    };
+  }, [isPreviewFullScreen]);
+  // --- End of Changes for Fullscreen Controls ---
+
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-
     const resizeObserver = new ResizeObserver(entries => {
       if (entries[0]) {
         const newWidth = entries[0].contentRect.width;
-        if (newWidth > 0) {
-          setControlBarWidth(newWidth);
-        }
+        if (newWidth > 0) { setControlBarWidth(newWidth); }
       }
     });
-
     resizeObserver.observe(canvas);
+    return () => { resizeObserver.disconnect(); };
+  }, [canvasDimensions]);
 
-    return () => {
-      resizeObserver.disconnect();
-    };
-  }, [canvasDimensions]); // Re-attach observer if canvas is re-rendered due to aspect ratio change
-
-  // Effect to pre-load background images
   useEffect(() => {
     const background = frameStyles.background;
     if ((background.type === 'image' || background.type === 'wallpaper') && background.imageUrl) {
       const img = new Image();
-      img.onload = () => {
-        setBgImage(img);
-      };
-      const finalUrl = background.imageUrl.startsWith('blob:')
-        ? background.imageUrl
-        : `media://${background.imageUrl}`;
+      img.onload = () => { setBgImage(img); };
+      const finalUrl = background.imageUrl.startsWith('blob:') ? background.imageUrl : `media://${background.imageUrl}`;
       img.src = finalUrl;
     } else {
-      setBgImage(null); // Clear image for color/gradient backgrounds
+      setBgImage(null);
     }
   }, [frameStyles.background]);
 
-  // Main render loop
   const renderCanvas = useCallback(async () => {
     const canvas = canvasRef.current;
     const video = videoRef.current;
     const webcamVideo = webcamVideoRef.current;
     const state = useEditorStore.getState();
     const ctx = canvas?.getContext('2d');
-
     if (!canvas || !video || !ctx || !state.videoDimensions.width) {
       if (state.isPlaying) animationFrameId.current = requestAnimationFrame(renderCanvas);
       return;
     }
-
-    await drawScene(
-      ctx,
-      state,
-      video,
-      webcamVideo,
-      video.currentTime,
-      canvas.width,
-      canvas.height,
-      bgImage
-    );
-
+    await drawScene(ctx, state, video, webcamVideo, video.currentTime, canvas.width, canvas.height, bgImage);
     if (state.isPlaying) {
       animationFrameId.current = requestAnimationFrame(renderCanvas);
     }
   }, [videoRef, bgImage]);
 
-  // Manage animation frame loop
   useEffect(() => {
     if (isPlaying) {
       animationFrameId.current = requestAnimationFrame(renderCanvas);
     } else {
       renderCanvas();
     }
-
     return () => {
       if (animationFrameId.current) {
         cancelAnimationFrame(animationFrameId.current);
       }
     };
-  }, [isPlaying, currentTime, renderCanvas, canvasDimensions, frameStyles,
-    isWebcamVisible, webcamPosition, webcamStyles, videoDimensions]);
+  }, [isPlaying, currentTime, renderCanvas, canvasDimensions, frameStyles, isWebcamVisible, webcamPosition, webcamStyles, videoDimensions]);
 
-  // Control video playback
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
@@ -140,15 +154,12 @@ export const Preview = memo(({ videoRef }: { videoRef: React.RefObject<HTMLVideo
     }
   }, [isPlaying, videoRef]);
 
-  // Handle seeking when in a cut region
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
     if (isPlaying && isCurrentlyCut) {
       const allCutRegions = Object.values(useEditorStore.getState().cutRegions);
-      const activeCutRegion = allCutRegions.find(
-        r => video.currentTime >= r.startTime && video.currentTime < (r.startTime + r.duration)
-      );
+      const activeCutRegion = allCutRegions.find(r => video.currentTime >= r.startTime && video.currentTime < (r.startTime + r.duration));
       if (activeCutRegion) {
         video.currentTime = activeCutRegion.startTime + activeCutRegion.duration;
         setCurrentTime(video.currentTime);
@@ -169,21 +180,26 @@ export const Preview = memo(({ videoRef }: { videoRef: React.RefObject<HTMLVideo
     setCurrentTime(videoRef.current.currentTime);
   };
 
+  // --- Start of Bug Fix for Rewind on Fullscreen ---
   const handleLoadedMetadata = () => {
     const video = videoRef.current;
     if (video) {
       setDuration(video.duration);
       setVideoDimensions({ width: video.videoWidth, height: video.videoHeight });
 
-      const onInitialSeekComplete = () => {
+      const timeFromStore = useEditorStore.getState().currentTime;
+
+      const onSeekComplete = () => {
         renderCanvas();
-        video.removeEventListener('seeked', onInitialSeekComplete);
+        video.removeEventListener('seeked', onSeekComplete);
       };
 
-      video.addEventListener('seeked', onInitialSeekComplete);
-      video.currentTime = 0;
+      video.addEventListener('seeked', onSeekComplete);
+      // Restore the video's time from the store to prevent rewinding
+      video.currentTime = timeFromStore;
     }
   };
+  // --- End of Bug Fix ---
 
   const handleWebcamLoadedMetadata = useCallback(() => {
     const mainVideo = videoRef.current;
@@ -206,7 +222,7 @@ export const Preview = memo(({ videoRef }: { videoRef: React.RefObject<HTMLVideo
   };
 
   return (
-    <div className="w-full h-full flex flex-col items-center justify-center">
+    <div ref={previewContainerRef} className="w-full h-full flex flex-col items-center justify-center relative">
       <div
         id="preview-container"
         className="transition-all duration-300 ease-out flex items-center justify-center w-full flex-1 min-h-0"
@@ -256,12 +272,15 @@ export const Preview = memo(({ videoRef }: { videoRef: React.RefObject<HTMLVideo
       {/* Control bar */}
       {videoUrl && (
         <div
-          className="w-full mt-2"
-          style={{ maxWidth: "100%" }}
+          className={cn(
+            "w-full mt-2 transition-opacity duration-300",
+            isPreviewFullScreen && "absolute bottom-6 left-0 right-0 mx-auto px-4 z-10",
+            isPreviewFullScreen && !isControlBarVisible && "opacity-0 pointer-events-none"
+          )}
+          style={{ maxWidth: isPreviewFullScreen ? "min(90%, 800px)" : "100%" }}
         >
-          {/* MODIFIED: Use the state variable for width */}
           <div className="bg-card/90 backdrop-blur-xl border border-border/40 rounded-xl px-4 py-2.5 flex items-center gap-4 shadow-lg max-w-full mx-auto"
-               style={{ width: controlBarWidth, minWidth: 400 }} // Added minWidth for graceful loading
+               style={{ width: isPreviewFullScreen ? 'auto' : controlBarWidth, minWidth: isPreviewFullScreen ? 'auto' : 400 }}
           >
             <Button
               variant="ghost"
