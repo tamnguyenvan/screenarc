@@ -202,7 +202,7 @@ export const drawScene = async (
 
   // --- 4. Draw Webcam with same technique ---
   const { webcamPosition, webcamStyles, isWebcamVisible } = state;
-  if (isWebcamVisible && webcamVideoElement) {
+  if (isWebcamVisible && webcamVideoElement && webcamVideoElement.videoWidth > 0) {
     const baseSize = Math.min(outputWidth, outputHeight);
     let webcamWidth, webcamHeight;
 
@@ -219,7 +219,8 @@ export const drawScene = async (
     if (webcamStyles.shape === 'circle') {
       webcamRadius = maxRadius;
     } else {
-      webcamRadius = Math.min(webcamStyles.borderRadius, maxRadius);
+      // borderRadius is 0-50, treat it as a percentage of the max possible radius (half the shortest side)
+      webcamRadius = maxRadius * (webcamStyles.borderRadius / 50);
     }
     
     const webcamEdgePadding = baseSize * 0.02;
@@ -263,7 +264,23 @@ export const drawScene = async (
     const webcamPath = new Path2D();
     webcamPath.roundRect(webcamX, webcamY, webcamWidth, webcamHeight, webcamRadius);
     ctx.clip(webcamPath);
-    ctx.drawImage(webcamVideoElement, webcamX, webcamY, webcamWidth, webcamHeight);
+
+    // Crop webcam source to prevent distortion
+    const webcamVideo = webcamVideoElement;
+    const webcamAR = webcamVideo.videoWidth / webcamVideo.videoHeight;
+    const targetAR = webcamWidth / webcamHeight;
+
+    let sx = 0, sy = 0, sWidth = webcamVideo.videoWidth, sHeight = webcamVideo.videoHeight;
+
+    if (webcamAR > targetAR) { // Webcam is wider than target area -> crop sides
+        sWidth = webcamVideo.videoHeight * targetAR;
+        sx = (webcamVideo.videoWidth - sWidth) / 2;
+    } else { // Webcam is taller or same AR as target area -> crop top/bottom
+        sHeight = webcamVideo.videoWidth / targetAR;
+        sy = (webcamVideo.videoHeight - sHeight) / 2;
+    }
+    ctx.drawImage(webcamVideo, sx, sy, sWidth, sHeight, webcamX, webcamY, webcamWidth, webcamHeight);
+    
     ctx.restore();
   }
 };

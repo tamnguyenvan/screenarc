@@ -77,11 +77,11 @@ export function PresetPreview({
     switch (webcamStyles.shape) {
       case 'rectangle':
         cssStyles.aspectRatio = '16 / 9';
-        cssStyles.borderRadius = `${webcamStyles.borderRadius}px`;
+        cssStyles.borderRadius = `${webcamStyles.borderRadius}%`;
         break;
       case 'square':
         cssStyles.aspectRatio = '1 / 1';
-        cssStyles.borderRadius = `${webcamStyles.borderRadius}px`;
+        cssStyles.borderRadius = `${webcamStyles.borderRadius}%`;
         break;
       case 'circle':
         cssStyles.aspectRatio = '1 / 1';
