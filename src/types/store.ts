@@ -16,9 +16,12 @@ export interface FrameStyles {
   padding: number;
   background: Background;
   borderRadius: number;
-  shadow: number; // Controls blur and offset strength (0-50)
-  shadowColor: string; // Hex or RGBA string for shadow color
+  shadowBlur: number;
+  shadowOffsetX: number;
+  shadowOffsetY: number;
+  shadowColor: string;
   borderWidth: number;
+  borderColor: string;
 }
 
 export interface Preset {
@@ -70,9 +73,11 @@ export interface WebcamPosition {
 }
 
 export interface WebcamStyles {
-  size: number; // percentage of container height
-  shadow: number; // 0-50 for shadow strength (blur/offset)
-  shadowColor: string; // Hex or RGBA string for webcam shadow color
+  size: number;
+  shadowBlur: number;
+  shadowOffsetX: number;
+  shadowOffsetY: number;
+  shadowColor: string;
 }
 
 export type RecordingGeometry = { x: number, y: number, width: number, height: number };

@@ -51,38 +51,26 @@ export function PresetPreview({
   const cssAspectRatio = useMemo(() => aspectRatio.replace(":", " / "), [aspectRatio])
 
   const frameStyle = useMemo(() => {
-    const shadowBlur = styles.shadow * 1.5
-    const shadowString = styles.shadow > 0 ? `0px 0px ${shadowBlur}px ${styles.shadowColor}` : "none"
+    const shadowString =
+      styles.shadowBlur > 0
+        ? `${styles.shadowOffsetX}px ${styles.shadowOffsetY}px ${styles.shadowBlur}px ${styles.shadowColor}`
+        : "none"
 
     return {
       width: "100%",
       height: "100%",
-      padding: `${styles.borderWidth}px`,
       borderRadius: `${styles.borderRadius}px`,
       boxShadow: shadowString,
-      background: `
-              linear-gradient(135deg, 
-                  rgba(255, 255, 255, 0.25) 0%, 
-                  rgba(255, 255, 255, 0.15) 50%, 
-                  rgba(255, 255, 255, 0.05) 100%
-              ),
-              radial-gradient(ellipse at top left, 
-                  rgba(255, 255, 255, 0.2) 0%, 
-                  transparent 50%
-              )
-          `,
-      backdropFilter: "blur(20px) saturate(180%)",
-      WebkitBackdropFilter: "blur(20px) saturate(180%)",
-      border: "1px solid rgba(255, 255, 255, 0.3)",
+      border: `${styles.borderWidth}px solid ${styles.borderColor}`,
+      boxSizing: "border-box" as const, // Ensure border is part of the element's size
     }
   }, [styles])
 
   const fakeWebcamStyle = useMemo(() => {
     if (!webcamStyles) return {}
-    const shadowBlur = webcamStyles.shadow * 1.5
     return {
       height: `${webcamStyles.size}%`,
-      filter: `drop-shadow(0px 0px ${shadowBlur}px ${webcamStyles.shadowColor})`,
+      filter: `drop-shadow(${webcamStyles.shadowOffsetX}px ${webcamStyles.shadowOffsetY}px ${webcamStyles.shadowBlur}px ${webcamStyles.shadowColor})`,
     }
   }, [webcamStyles])
 

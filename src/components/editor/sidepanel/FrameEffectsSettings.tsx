@@ -20,6 +20,11 @@ export function FrameEffectsSettings() {
     () => rgbaToHexAlpha(frameStyles.shadowColor),
     [frameStyles.shadowColor],
   )
+  
+  const { hex: borderHex } = useMemo(
+    () => rgbaToHexAlpha(frameStyles.borderColor),
+    [frameStyles.borderColor]
+  );
 
   const handleShadowColorChange = (newHex: string) => {
     const rgb = hexToRgb(newHex)
@@ -36,6 +41,15 @@ export function FrameEffectsSettings() {
       updateFrameStyle({ shadowColor: newRgbaColor })
     }
   }
+
+  const handleBorderColorChange = (newHex: string) => {
+    const rgb = hexToRgb(newHex);
+    if(rgb) {
+      // Assuming border is always opaque for simplicity, can be changed
+      const newRgbaColor = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 1)`;
+      updateFrameStyle({ borderColor: newRgbaColor });
+    }
+  };
 
   return (
     <div className="space-y-8">
@@ -92,18 +106,27 @@ export function FrameEffectsSettings() {
             <div className="pl-7 space-y-4">
               <div className="space-y-2.5">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">Size</span>
-                  <span className="text-xs font-semibold text-primary tabular-nums">{frameStyles.shadow}px</span>
+                  <span className="text-sm text-muted-foreground">Blur</span>
+                  <span className="text-xs font-semibold text-primary tabular-nums">{frameStyles.shadowBlur}px</span>
                 </div>
-                <Slider
-                  min={0}
-                  max={100}
-                  step={1}
-                  value={frameStyles.shadow}
-                  onChange={(value) => handleStyleChange("shadow", value)}
-                />
+                <Slider min={0} max={100} step={1} value={frameStyles.shadowBlur} onChange={(v) => handleStyleChange("shadowBlur", v)} />
               </div>
-
+               <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2.5">
+                      <div className="flex items-center justify-between">
+                          <span className="text-sm text-muted-foreground">Offset X</span>
+                          <span className="text-xs font-semibold text-primary tabular-nums">{frameStyles.shadowOffsetX}px</span>
+                      </div>
+                      <Slider min={-50} max={50} step={1} value={frameStyles.shadowOffsetX} onChange={(v) => handleStyleChange("shadowOffsetX", v)} />
+                  </div>
+                  <div className="space-y-2.5">
+                      <div className="flex items-center justify-between">
+                          <span className="text-sm text-muted-foreground">Offset Y</span>
+                          <span className="text-xs font-semibold text-primary tabular-nums">{frameStyles.shadowOffsetY}px</span>
+                      </div>
+                      <Slider min={-50} max={50} step={1} value={frameStyles.shadowOffsetY} onChange={(v) => handleStyleChange("shadowOffsetY", v)} />
+                  </div>
+              </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <ColorPicker label="Color" value={shadowHex} onChange={handleShadowColorChange} />
@@ -121,23 +144,26 @@ export function FrameEffectsSettings() {
             </div>
           </div>
 
-          {/* Border Thickness */}
-          <div className="space-y-3">
-            <label className="flex items-center justify-between text-sm font-medium text-sidebar-foreground">
-              <div className="flex items-center gap-2.5">
+          {/* Border */}
+          <div className="space-y-4">
+             <div className="flex items-center gap-2.5 text-sm font-medium text-sidebar-foreground">
                 <div className="w-5 h-5 flex items-center justify-center text-primary">
                   <BorderThicknessIcon />
                 </div>
-                <span>Border Thickness</span>
+                <span>Border</span>
               </div>
-              <span className="text-xs font-semibold text-primary tabular-nums">{frameStyles.borderWidth}px</span>
-            </label>
-            <Slider
-              min={0}
-              max={20}
-              value={frameStyles.borderWidth}
-              onChange={(value) => handleStyleChange("borderWidth", value)}
-            />
+              <div className="pl-7 space-y-4">
+                <div className="space-y-2.5">
+                  <div className="flex items-center justify-between">
+                      <span className="text-sm text-muted-foreground">Thickness</span>
+                      <span className="text-xs font-semibold text-primary tabular-nums">{frameStyles.borderWidth}px</span>
+                  </div>
+                  <Slider min={0} max={20} value={frameStyles.borderWidth} onChange={(v) => handleStyleChange("borderWidth", v)} />
+                </div>
+                <div>
+                  <ColorPicker label="Color" value={borderHex} onChange={handleBorderColorChange} />
+                </div>
+              </div>
           </div>
         </div>
       </ControlGroup>

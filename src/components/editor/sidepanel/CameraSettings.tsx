@@ -60,6 +60,12 @@ export function CameraSettings() {
       updateWebcamStyle({ shadowColor: newRgbaColor })
     }
   }
+  
+  const handleWebcamStyleChange = (name: string, value: string | number) => {
+    updateWebcamStyle({
+      [name]: typeof value === "string" ? Number.parseFloat(value) || 0 : value,
+    })
+  }
 
   return (
     <div className="h-full flex flex-col">
@@ -145,36 +151,38 @@ export function CameraSettings() {
 
             {/* Webcam Shadow Control */}
             <div className="space-y-4">
-              <div className="flex items-center gap-2.5 text-sm font-medium text-sidebar-foreground">
+               <div className="flex items-center gap-2.5 text-sm font-medium text-sidebar-foreground">
                 <div className="w-5 h-5 flex items-center justify-center text-primary">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    height="16px"
-                    viewBox="0 -960 960 960"
-                    width="16px"
-                    fill="currentColor"
-                  >
+                  <svg xmlns="http://www.w3.org/2000/svg" height="16px" viewBox="0 -960 960 960" width="16px" fill="currentColor">
                     <path d="M160-80q-33 0-56.5-23.5T80-160v-480q0-33 23.5-56.5T160-720h80v-80q0-33 23.5-56.5T320-880h480q33 0 56.5 23.5T880-800v480q0 33-23.5 56.5T800-240h-80v80q0 33-23.5 56.5T640-80H160Zm160-240h480v-480H320v480Z" />
                   </svg>
                 </div>
                 <span>Shadow</span>
               </div>
-
               <div className="pl-7 space-y-4">
                 <div className="space-y-2.5">
                   <div className="flex items-center justify-between">
-                    <span className="text-sm text-muted-foreground">Size</span>
-                    <span className="text-xs font-semibold text-primary tabular-nums">{webcamStyles.shadow}px</span>
+                    <span className="text-sm text-muted-foreground">Blur</span>
+                    <span className="text-xs font-semibold text-primary tabular-nums">{webcamStyles.shadowBlur}px</span>
                   </div>
-                  <Slider
-                    min={0}
-                    max={40}
-                    step={1}
-                    value={webcamStyles.shadow}
-                    onChange={(value) => updateWebcamStyle({ shadow: value })}
-                  />
+                  <Slider min={0} max={80} step={1} value={webcamStyles.shadowBlur} onChange={(v) => handleWebcamStyleChange("shadowBlur", v)} />
                 </div>
-
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-muted-foreground">Offset X</span>
+                      <span className="text-xs font-semibold text-primary tabular-nums">{webcamStyles.shadowOffsetX}px</span>
+                    </div>
+                    <Slider min={-40} max={40} step={1} value={webcamStyles.shadowOffsetX} onChange={(v) => handleWebcamStyleChange("shadowOffsetX", v)} />
+                  </div>
+                  <div className="space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-muted-foreground">Offset Y</span>
+                      <span className="text-xs font-semibold text-primary tabular-nums">{webcamStyles.shadowOffsetY}px</span>
+                    </div>
+                    <Slider min={-40} max={40} step={1} value={webcamStyles.shadowOffsetY} onChange={(v) => handleWebcamStyleChange("shadowOffsetY", v)} />
+                  </div>
+                </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <ColorPicker label="Color" value={shadowHex} onChange={handleShadowColorChange} />
@@ -182,9 +190,7 @@ export function CameraSettings() {
                   <div className="space-y-2.5">
                     <div className="flex items-center justify-between">
                       <span className="text-sm text-muted-foreground">Opacity</span>
-                      <span className="text-xs font-semibold text-primary tabular-nums">
-                        {Math.round(shadowAlpha * 100)}%
-                      </span>
+                      <span className="text-xs font-semibold text-primary tabular-nums">{Math.round(shadowAlpha * 100)}%</span>
                     </div>
                     <Slider min={0} max={1} step={0.01} value={shadowAlpha} onChange={handleShadowOpacityChange} />
                   </div>

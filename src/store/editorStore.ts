@@ -18,10 +18,13 @@ const DEFAULT_PRESET_STYLES: FrameStyles = {
     thumbnailUrl: WALLPAPERS[0].thumbnailUrl,
     imageUrl: WALLPAPERS[0].imageUrl,
   },
-  borderRadius: 8,
-  shadow: 30,
-  shadowColor: 'rgba(0, 0, 0, 0.75)',
+  borderRadius: 16,
+  shadowBlur: 35,
+  shadowOffsetX: 0,
+  shadowOffsetY: 15,
+  shadowColor: 'rgba(0, 0, 0, 0.8)',
   borderWidth: 4,
+  borderColor: 'rgba(255, 255, 255, 0.2)',
 };
 
 const DEFAULT_PRESET: Omit<Preset, 'id' | 'name'> = {
@@ -30,7 +33,9 @@ const DEFAULT_PRESET: Omit<Preset, 'id' | 'name'> = {
   isDefault: true,
   webcamStyles: {
     size: 30,  // percent
-    shadow: 30,
+    shadowBlur: 20,
+    shadowOffsetX: 0,
+    shadowOffsetY: 10,
     shadowColor: 'rgba(0, 0, 0, 0.5)',
   },
   webcamPosition: { pos: 'bottom-right' },
@@ -107,7 +112,13 @@ const initialProjectState = {
   webcamVideoUrl: null,
   isWebcamVisible: false,
   webcamPosition: { pos: 'bottom-right' } as WebcamPosition,
-  webcamStyles: { size: 30, shadow: 15, shadowColor: 'rgba(0, 0, 0, 0.4)' }, // Added shadowColor
+  webcamStyles: { 
+    size: 30, 
+    shadowBlur: 20, 
+    shadowOffsetX: 0,
+    shadowOffsetY: 10,
+    shadowColor: 'rgba(0, 0, 0, 0.4)' 
+  },
 };
 
 const initialAppState = {
@@ -125,9 +136,12 @@ const initialFrameStyles: FrameStyles = {
     imageUrl: WALLPAPERS[0].imageUrl,
   },
   borderRadius: 16,
-  shadow: 5, // Controls blur and offset strength
-  shadowColor: 'rgba(0, 0, 0, 0.4)', // Default shadow color with 40% opacity
-  borderWidth: 6,
+  shadowBlur: 35,
+  shadowOffsetX: 0,
+  shadowOffsetY: 15,
+  shadowColor: 'rgba(0, 0, 0, 0.8)',
+  borderWidth: 4,
+  borderColor: 'rgba(255, 255, 255, 0.2)',
 }
 
 
@@ -537,35 +551,25 @@ export const useEditorStore = create(
         try {
           const loadedPresets = await window.electronAPI.getSetting<Record<string, Preset>>('presets') || {};
 
-          // Always ensure the default preset exists and is up-to-date. It's the source of truth.
+          // Always ensure the default preset exists and is up-to-date.
           loadedPresets[DEFAULT_PRESET_ID] = {
             id: DEFAULT_PRESET_ID,
             name: 'Default',
             ...JSON.parse(JSON.stringify(DEFAULT_PRESET))
           };
           
-          // Ensure `shadowColor` property exists in old presets for backward compatibility
           let presetsModified = false;
           Object.values(loadedPresets).forEach(preset => {
-            if (preset.id !== DEFAULT_PRESET_ID && preset.isDefault) {
-              delete preset.isDefault; // Clean up old default flags
-              presetsModified = true;
-            }
-            if (preset.styles && preset.styles.shadowColor === undefined) {
-              preset.styles.shadowColor = initialFrameStyles.shadowColor;
-              presetsModified = true;
-            }
-            if (preset.webcamStyles && preset.webcamStyles.shadowColor === undefined) {
-              preset.webcamStyles.shadowColor = initialProjectState.webcamStyles.shadowColor;
-              presetsModified = true;
-            }
-            // Ensure all presets have webcam settings
-            if (!preset.webcamStyles || !preset.webcamPosition || preset.isWebcamVisible === undefined) {
-              preset.webcamStyles = JSON.parse(JSON.stringify(DEFAULT_PRESET.webcamStyles));
-              preset.webcamPosition = JSON.parse(JSON.stringify(DEFAULT_PRESET.webcamPosition));
-              preset.isWebcamVisible = DEFAULT_PRESET.isWebcamVisible;
-              presetsModified = true;
-            }
+              if (preset.id !== DEFAULT_PRESET_ID && preset.isDefault) {
+                  delete preset.isDefault; // Clean up old default flags
+                  presetsModified = true;
+              }
+
+              // Add borderColor if missing
+              if (preset.styles && preset.styles.borderColor === undefined) {
+                  preset.styles.borderColor = DEFAULT_PRESET_STYLES.borderColor;
+                  presetsModified = true;
+              }
           });
 
 

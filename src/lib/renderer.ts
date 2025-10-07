@@ -167,28 +167,35 @@ export const drawScene = async (
   ctx.translate(translateX, translateY);
   ctx.translate(-originPxX, -originPxY);
 
-  const { shadow, borderRadius, shadowColor } = frameStyles;
+  const { shadowBlur, shadowOffsetX, shadowOffsetY, borderRadius, shadowColor, borderWidth, borderColor } = frameStyles;
 
   // Draw shadow if needed
-  if (shadow > 0) {
+  if (shadowBlur > 0) {
     ctx.save();
     ctx.shadowColor = shadowColor;
-    ctx.shadowBlur = shadow * 2;
-    ctx.shadowOffsetX = 0;
-    ctx.shadowOffsetY = shadow * 0.4;
+    ctx.shadowBlur = shadowBlur;
+    ctx.shadowOffsetX = shadowOffsetX;
+    ctx.shadowOffsetY = shadowOffsetY;
     const shadowPath = new Path2D();
     shadowPath.roundRect(0, 0, frameContentWidth, frameContentHeight, borderRadius);
-    ctx.fillStyle = 'rgba(0,0,0,1)';
+    ctx.fillStyle = 'rgba(0,0,0,1)'; // Color doesn't matter, only needed to cast shadow
     ctx.fill(shadowPath);
     ctx.restore();
   }
 
-  // Draw the video with border radius
+  // Draw the video and border
   ctx.save();
   const path = new Path2D();
   path.roundRect(0, 0, frameContentWidth, frameContentHeight, borderRadius);
   ctx.clip(path);
   ctx.drawImage(videoElement, 0, 0, frameContentWidth, frameContentHeight);
+  
+  // Draw border on top of the video content
+  if (borderWidth > 0) {
+      ctx.strokeStyle = borderColor;
+      ctx.lineWidth = borderWidth * 2; // Stroke is centered, so double the width to get full width inside
+      ctx.stroke(path);
+  }
   ctx.restore();
 
   ctx.restore(); // Restore from main zoom/pan transforms
@@ -223,12 +230,12 @@ export const drawScene = async (
     }
 
     // Draw webcam shadow if needed
-    if (webcamStyles.shadow > 0) {
+    if (webcamStyles.shadowBlur > 0) {
       ctx.save();
       ctx.shadowColor = webcamStyles.shadowColor;
-      ctx.shadowBlur = webcamStyles.shadow * 2;
-      ctx.shadowOffsetX = 0;
-      ctx.shadowOffsetY = webcamStyles.shadow * 0.4;
+      ctx.shadowBlur = webcamStyles.shadowBlur;
+      ctx.shadowOffsetX = webcamStyles.shadowOffsetX;
+      ctx.shadowOffsetY = webcamStyles.shadowOffsetY;
       const webcamShadowPath = new Path2D();
       webcamShadowPath.roundRect(webcamX, webcamY, webcamWidth, webcamHeight, webcamRadius);
       ctx.fillStyle = 'rgba(0,0,0,1)';
