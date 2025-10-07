@@ -5,23 +5,22 @@ import { ZoomRegion, MetaDataItem } from '../types/store';
 // --- HELPER FUNCTIONS ---
 
 /**
- * Ánh xạ một giá trị từ một khoảng này sang một khoảng khác.
- * Tương tự hàm map() trong Processing hay p5.js.
+ * Maps a value from one range to another.
  */
 function map(value: number, start1: number, stop1: number, start2: number, stop2: number): number {
   return start2 + (stop2 - start2) * ((value - start1) / (stop1 - start1));
 }
 
 /**
- * Nội suy tuyến tính giữa hai giá trị.
+ * Linearly interpolates between two values.
  */
 function lerp(start: number, end: number, t: number): number {
   return start * (1 - t) + end * t;
 }
 
 /**
- * Tìm index của item metadata cuối cùng có timestamp nhỏ hơn hoặc bằng thời gian cho trước.
- * Sử dụng tìm kiếm nhị phân để tối ưu hiệu suất.
+ * Finds the index of the last metadata item with a timestamp less than or equal to the given time.
+ * Uses binary search for performance optimization.
  */
 const findLastMetadataIndex = (metadata: MetaDataItem[], currentTime: number): number => {
   if (metadata.length === 0) return -1;
@@ -42,8 +41,8 @@ const findLastMetadataIndex = (metadata: MetaDataItem[], currentTime: number): n
 };
 
 /**
- * Lấy vị trí chuột đã được làm mượt bằng cách lấy trung bình các điểm trong một khoảng thời gian.
- * Điều này giúp loại bỏ các chuyển động giật cục và tạo ra đường pan mượt hơn.
+ * Gets the smoothed mouse position by averaging points over a time window.
+ * This helps eliminate jerky movements and creates smoother panning.
  */
 const getSmoothedMousePosition = (metadata: MetaDataItem[], endTime: number, windowDuration: number): { x: number; y: number } | null => {
   const startIndex = findLastMetadataIndex(metadata, endTime);
@@ -56,7 +55,7 @@ const getSmoothedMousePosition = (metadata: MetaDataItem[], endTime: number, win
   let totalY = 0;
   let count = 0;
 
-  // Lặp ngược từ vị trí hiện tại để tìm các điểm trong khoảng thời gian làm mượt
+  // Loop backwards from the current position to find points within the smoothing window.
   for (let i = startIndex; i >= 0; i--) {
     const point = metadata[i];
     if (point.timestamp < startTime) {
@@ -68,7 +67,7 @@ const getSmoothedMousePosition = (metadata: MetaDataItem[], endTime: number, win
   }
 
   if (count === 0) {
-    // Nếu không có điểm nào trong khoảng thời gian, trả về điểm cuối cùng
+    // If no points are within the smoothing window, return the last point.
     const lastPoint = metadata[startIndex];
     return { x: lastPoint.x, y: lastPoint.y };
   }
@@ -83,20 +82,26 @@ const getSmoothedMousePosition = (metadata: MetaDataItem[], endTime: number, win
  * The output is a value from 0 to 1 for CSS transform-origin.
  */
 function getTransformOrigin(targetX: number, targetY: number, zoomLevel: number): { x: number; y: number } {
-  // Biên an toàn, vượt qua biên này thì transform-origin sẽ bị "dính" vào cạnh
+  // Safe boundary, transform-origin will be "stuck" to the edge when exceeded
   const boundary = 0.5 * (1 - 1 / zoomLevel);
 
-  // Tính toán vị trí gốc cho trục X
+  // Calculate the origin for the X axis
+  // If the target is beyond the boundary, it will be stuck to the right edge
+  // If the target is beyond the boundary, it will be stuck to the left edge
+  // Otherwise, it will move freely in the middle
   let originX: number;
-  if (targetX > boundary) originX = 1; // Dính vào cạnh phải
-  else if (targetX < -boundary) originX = 0; // Dính vào cạnh trái
-  else originX = 0.5 + targetX; // Di chuyển tự do ở giữa
+  if (targetX > boundary) originX = 1; // Stuck to the right edge
+  else if (targetX < -boundary) originX = 0; // Stuck to the left edge
+  else originX = 0.5 + targetX; // Move freely in the middle
 
-  // Tính toán vị trí gốc cho trục Y
+  // Calculate the origin for the Y axis
+  // If the target is beyond the boundary, it will be stuck to the bottom edge
+  // If the target is beyond the boundary, it will be stuck to the top edge
+  // Otherwise, it will move freely in the middle
   let originY: number;
-  if (targetY > boundary) originY = 1; // Dính vào cạnh dưới
-  else if (targetY < -boundary) originY = 0; // Dính vào cạnh trên
-  else originY = 0.5 + targetY; // Di chuyển tự do ở giữa
+  if (targetY > boundary) originY = 1; // Stuck to the bottom edge
+  else if (targetY < -boundary) originY = 0; // Stuck to the top edge
+  else originY = 0.5 + targetY; // Move freely in the middle
 
   return { x: originX, y: originY };
 }
@@ -141,36 +146,36 @@ export const calculateZoomTransform = (
     currentScale = lerp(1, zoomLevel, t);
   }
 
-  // --- PAN (LOGIC MỚI) ---
+  // --- PAN ---
   else if (currentTime >= zoomInEndTime && currentTime < zoomOutStartTime) {
     currentScale = zoomLevel;
 
     if (mode === 'auto' && metadata.length > 0 && originalVideoDimensions.width > 0) {
-      // Khoảng thời gian để lấy trung bình vị trí chuột, giúp pan mượt hơn
+      // Time window to average mouse position, helps with smoother panning
       const PAN_SMOOTHING_WINDOW = 0.25; // 250ms
 
-      // Lấy vị trí chuột đã được làm mượt
+      // Get smoothed mouse position
       const smoothedMousePos = getSmoothedMousePosition(metadata, currentTime, PAN_SMOOTHING_WINDOW);
 
       if (smoothedMousePos) {
-        // Chuẩn hóa tọa độ chuột về khoảng [0, 1]
+        // Normalize mouse position to [0, 1]
         const normalizedX = smoothedMousePos.x / originalVideoDimensions.width;
         const normalizedY = smoothedMousePos.y / originalVideoDimensions.height;
 
-        // Vùng có thể nhìn thấy của video khi đã zoom (ví dụ: zoom 2x thì chỉ thấy 1/2 = 0.5)
+        // The visible ratio of the video when zoomed in (e.g., zoom 2x then only see 1/2 = 0.5)
         const visibleRatio = 1 / zoomLevel;
         
-        // Tính toán khoảng pan tối đa có thể thực hiện mà không lộ ra ngoài khung hình
+        // Calculate the maximum pan that can be performed without going outside the frame
         const maxPanX = frameContentDimensions.width * (1 - visibleRatio) / 2;
         const maxPanY = frameContentDimensions.height * (1 - visibleRatio) / 2;
 
-        // Ánh xạ vị trí chuột đã chuẩn hóa sang khoảng pan
-        // Khi chuột ở rìa trái (0), video dịch sang phải (maxPanX)
-        // Khi chuột ở rìa phải (1), video dịch sang trái (-maxPanX)
+        // Map the normalized mouse position to the pan range
+        // When mouse is at the left edge (0), video pans to the right (maxPanX)
+        // When mouse is at the right edge (1), video pans to the left (-maxPanX)
         const targetTranslateX = map(normalizedX, 0, 1, maxPanX, -maxPanX);
         const targetTranslateY = map(normalizedY, 0, 1, maxPanY, -maxPanY);
 
-        // Chia cho mức zoom vì translation được áp dụng trong không gian đã được scale
+        // Divide by zoom level because translation is applied in the scaled space
         currentTranslateX = targetTranslateX / zoomLevel;
         currentTranslateY = targetTranslateY / zoomLevel;
       }
@@ -184,7 +189,7 @@ export const calculateZoomTransform = (
     );
     currentScale = lerp(zoomLevel, 1, t);
     
-    // Giữ nguyên vị trí pan của frame cuối cùng trước khi zoom-out để tránh bị giật
+    // Keep the final pan position of the frame before zoom-out to avoid jitters
     if (mode === 'auto' && metadata.length > 0 && originalVideoDimensions.width > 0) {
         const PAN_SMOOTHING_WINDOW = 0.25;
         const smoothedMousePos = getSmoothedMousePosition(metadata, zoomOutStartTime, PAN_SMOOTHING_WINDOW);
@@ -198,7 +203,7 @@ export const calculateZoomTransform = (
             const lastPanX = map(normalizedX, 0, 1, maxPanX, -maxPanX);
             const lastPanY = map(normalizedY, 0, 1, maxPanY, -maxPanY);
 
-            // Nội suy từ vị trí pan cuối cùng về 0 khi zoom-out
+            // Interpolate from the final pan position to 0 when zooming out
             currentTranslateX = lerp(lastPanX / zoomLevel, 0, t);
             currentTranslateY = lerp(lastPanY / zoomLevel, 0, t);
         }
