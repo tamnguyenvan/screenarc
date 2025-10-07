@@ -147,7 +147,7 @@ export const drawScene = async (
 
   // --- 3. Main video frame transform and drawing ---
   ctx.save();
-
+  
   const { scale, translateX, translateY, transformOrigin } = calculateZoomTransform(
     currentTime,
     state.zoomRegions,
@@ -161,17 +161,11 @@ export const drawScene = async (
   const originPxX = originXMul * frameContentWidth;
   const originPxY = originYMul * frameContentHeight;
 
-  // ctx.translate(frameX, frameY);
-  // ctx.translate(originPxX, originPxY);
-  // ctx.scale(scale, scale);
-  // ctx.translate(translateX, translateY);
-  // ctx.translate(-originPxX, -originPxY);
-
-  ctx.translate(
-    frameX + originPxX + translateX - (originPxX * scale),
-    frameY + originPxY + translateY - (originPxY * scale)
-  );
+  ctx.translate(frameX, frameY);
+  ctx.translate(originPxX, originPxY);
   ctx.scale(scale, scale);
+  ctx.translate(translateX, translateY);
+  ctx.translate(-originPxX, -originPxY);
 
   const { shadow, borderRadius, shadowColor, borderWidth } = frameStyles;
 
