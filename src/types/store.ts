@@ -41,7 +41,8 @@ export interface ZoomRegion {
   startTime: number;
   duration: number;
   zoomLevel: number;
-  easing: 'linear' | 'ease-in-out';
+  easing: string; // Changed from 'linear' | 'ease-in-out'
+  transitionDuration: number; // New property for speed
   targetX: number;
   targetY: number;
   mode: 'auto' | 'fixed';

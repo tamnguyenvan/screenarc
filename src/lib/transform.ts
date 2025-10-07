@@ -1,4 +1,3 @@
-import { ZOOM } from './constants';
 import { EASING_MAP } from './easing';
 import { ZoomRegion, MetaDataItem } from '../types/store';
 
@@ -127,9 +126,9 @@ export const calculateZoomTransform = (
 
   if (!activeRegion) return defaultTransform;
 
-  const { startTime, duration, zoomLevel, targetX, targetY, mode } = activeRegion;
-  const zoomOutStartTime = startTime + duration - ZOOM.TRANSITION_DURATION;
-  const zoomInEndTime = startTime + ZOOM.TRANSITION_DURATION;
+  const { startTime, duration, zoomLevel, targetX, targetY, mode, easing, transitionDuration } = activeRegion;
+  const zoomOutStartTime = startTime + duration - transitionDuration;
+  const zoomInEndTime = startTime + transitionDuration;
 
   const fixedOrigin = getTransformOrigin(targetX, targetY, zoomLevel);
   const transformOrigin = `${fixedOrigin.x * 100}% ${fixedOrigin.y * 100}%`;
@@ -140,8 +139,8 @@ export const calculateZoomTransform = (
 
   // --- ZOOM-IN ---
   if (currentTime >= startTime && currentTime < zoomInEndTime) {
-    const t = EASING_MAP[ZOOM.ZOOM_EASING as keyof typeof EASING_MAP](
-      (currentTime - startTime) / ZOOM.TRANSITION_DURATION
+    const t = (EASING_MAP[easing as keyof typeof EASING_MAP] || EASING_MAP.easeInOutQuint)(
+      (currentTime - startTime) / transitionDuration
     );
     currentScale = lerp(1, zoomLevel, t);
   }
@@ -184,8 +183,8 @@ export const calculateZoomTransform = (
 
   // --- ZOOM-OUT ---
   else if (currentTime >= zoomOutStartTime && currentTime <= startTime + duration) {
-    const t = EASING_MAP[ZOOM.ZOOM_EASING as keyof typeof EASING_MAP](
-      (currentTime - zoomOutStartTime) / ZOOM.TRANSITION_DURATION
+    const t = (EASING_MAP[easing as keyof typeof EASING_MAP] || EASING_MAP.easeInOutQuint)(
+      (currentTime - zoomOutStartTime) / transitionDuration
     );
     currentScale = lerp(zoomLevel, 1, t);
     

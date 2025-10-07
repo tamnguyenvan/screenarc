@@ -45,7 +45,7 @@ const easeOutElastic = (x: number): number => {
  * @param p3 - End point (fixed = 1)
  * @returns Function that maps t ∈ [0,1] → eased value ∈ [0,1]
  */
-const cubicBezier = (x1: number, y1: number, x2: number, y2: number) => {
+const cubicBezier = (_x1: number, y1: number, _x2: number, y2: number) => {
   // Cubic Bézier helper
   const cubic = (a: number, b: number, c: number, d: number, t: number) =>
     ((1 - t) ** 3) * a + 3 * ((1 - t) ** 2) * t * b + 3 * (1 - t) * (t ** 2) * c + (t ** 3) * d;

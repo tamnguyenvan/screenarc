@@ -1,15 +1,16 @@
 import { useEditorStore } from '../../store/editorStore';
 import { RegionSettingsPanel } from './RegionSettingsPanel';
-import { AudioLines, Webcam, PanelsTopLeft } from 'lucide-react';
+import { AudioLines, Webcam, PanelsTopLeft, LineSquiggle } from 'lucide-react';
 import { BackgroundSettings } from './sidepanel/BackgroundSettings';
 import { FrameEffectsSettings } from './sidepanel/FrameEffectsSettings';
 import { CameraSettings } from './sidepanel/CameraSettings';
+import { AnimationSettingsPanel } from './sidepanel/AnimationSettingsPanel';
 import { useShallow } from 'zustand/react/shallow';
 import { useEffect, useState, useMemo } from 'react';
 import { cn } from '../../lib/utils';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip';
 
-type SidePanelTab = 'general' | 'camera' | 'audio' | 'settings';
+type SidePanelTab = 'general' | 'camera' | 'audio' | 'animation' | 'settings';
 
 interface TabButtonProps {
   label: string;
@@ -150,6 +151,8 @@ export function SidePanel() {
         return <CameraSettings />;
       case 'audio':
         return <AudioSettingsPanel />;
+      case 'animation':
+        return <AnimationSettingsPanel />;
       default:
         return <FrameSettingsPanel />;
     }
@@ -183,6 +186,12 @@ export function SidePanel() {
             icon={<AudioLines className="w-5 h-5" />}
             isActive={activeTab === 'audio'}
             onClick={() => setActiveTab('audio')}
+          />
+          <TabButton
+            label="Animation"
+            icon={<LineSquiggle className="w-5 h-5" />}
+            isActive={activeTab === 'animation'}
+            onClick={() => setActiveTab('animation')}
           />
         </div>
       </div>

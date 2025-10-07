@@ -81,6 +81,7 @@ export interface EditorActions {
   updateActivePreset: () => void;
   deletePreset: (id: string) => void;
   togglePreviewFullScreen: () => void;
+  applyAnimationSettingsToAll: (settings: { transitionDuration: number; easing: string; zoomLevel: number }) => void;
 
   // webcam
   setWebcamPosition: (position: WebcamPosition) => void;
@@ -316,7 +317,8 @@ export const useEditorStore = create(
               startTime,
               duration,
               zoomLevel: ZOOM.DEFAULT_LEVEL,
-              easing: 'ease-in-out',
+              easing: ZOOM.DEFAULT_EASING,
+              transitionDuration: ZOOM.SPEED_OPTIONS[ZOOM.DEFAULT_SPEED as keyof typeof ZOOM.SPEED_OPTIONS],
               targetX: (firstClick.x / (geometry?.width || videoWidth)) - 0.5,
               targetY: (firstClick.y / (geometry?.height || videoHeight)) - 0.5,
               mode: 'auto',
@@ -457,7 +459,8 @@ export const useEditorStore = create(
           startTime: currentTime,
           duration: ZOOM.DEFAULT_DURATION,
           zoomLevel: ZOOM.DEFAULT_LEVEL,
-          easing: 'ease-in-out',
+          easing: ZOOM.DEFAULT_EASING,
+          transitionDuration: ZOOM.SPEED_OPTIONS[ZOOM.DEFAULT_SPEED as keyof typeof ZOOM.SPEED_OPTIONS],
           targetX: lastMousePos ? (lastMousePos.x / videoWidth) - 0.5 : 0,
           targetY: lastMousePos ? (lastMousePos.y / videoHeight) - 0.5 : 0,
           mode: 'auto',
@@ -740,6 +743,16 @@ export const useEditorStore = create(
       }),
 
       togglePreviewFullScreen: () => set(state => { state.isPreviewFullScreen = !state.isPreviewFullScreen }),
+
+      applyAnimationSettingsToAll: ({ transitionDuration, easing, zoomLevel }) => {
+        set(state => {
+          Object.values(state.zoomRegions).forEach(region => {
+            region.transitionDuration = transitionDuration;
+            region.easing = easing;
+            region.zoomLevel = zoomLevel;
+          });
+        });
+      },
 
       setWebcamPosition: (position) => {
         set({ webcamPosition: position });

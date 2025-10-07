@@ -5,8 +5,8 @@ import type { TimelineRegion, ZoomRegion } from "../../types/store"
 import { cn } from "../../lib/utils"
 import { Button } from "../ui/button"
 import { Camera, Scissors, MousePointer, Video, Trash2 } from "lucide-react"
-import { Slider } from "../ui/slider"
 import { FocusPointPicker } from "./sidepanel/FocusPointPicker"
+import { AnimationSettings } from "./sidepanel/AnimationSettings"
 
 interface RegionSettingsPanelProps {
   region: TimelineRegion
@@ -15,16 +15,7 @@ interface RegionSettingsPanelProps {
 function ZoomSettings({ region }: { region: ZoomRegion }) {
   const { updateRegion, deleteRegion } = useEditorStore.getState()
 
-  const handleDelete = () => {
-    deleteRegion(region.id)
-  }
-
   const [activeTab, setActiveTab] = useState(region.mode)
-
-  const handleValueChange = (name: string, value: string | number) => {
-    const finalValue = typeof value === "string" ? Number.parseFloat(value) : value
-    updateRegion(region.id, { [name]: finalValue })
-  }
 
   const handleModeChange = (newMode: "auto" | "fixed") => {
     setActiveTab(newMode)
@@ -54,57 +45,43 @@ function ZoomSettings({ region }: { region: ZoomRegion }) {
           </Button>
         </div>
       </div>
-
-      <div className="space-y-5">
-        {activeTab === "auto" && (
-          <div className="p-4 bg-primary/5 border border-primary/20 rounded-lg">
-            <div className="flex items-start gap-3">
-              <MousePointer className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
-              <div>
-                <p className="text-sm font-medium text-foreground mb-1">Auto Tracking</p>
-                <p className="text-xs text-muted-foreground leading-relaxed">
-                  Zoom will automatically follow the mouse cursor in this area.
-                </p>
-              </div>
+      
+      {activeTab === "auto" && (
+        <div className="p-4 bg-primary/5 border border-primary/20 rounded-lg">
+          <div className="flex items-start gap-3">
+            <MousePointer className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-medium text-foreground mb-1">Auto Tracking</p>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Zoom will automatically follow the mouse cursor in this area.
+              </p>
             </div>
           </div>
-        )}
-
-        {activeTab === "fixed" && (
-          <FocusPointPicker
-            regionId={region.id}
-            targetX={region.targetX}
-            targetY={region.targetY}
-            startTime={region.startTime}
-            onTargetChange={({ x, y }) => updateRegion(region.id, { targetX: x, targetY: y })}
-          />
-        )}
-
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <label className="text-sm font-medium text-sidebar-foreground">Zoom Level</label>
-            <span className="text-xs font-semibold text-primary tabular-nums">{region.zoomLevel.toFixed(1)}x</span>
-          </div>
-          <Slider
-            min={1}
-            max={3}
-            step={0.1}
-            value={region.zoomLevel}
-            onChange={(value) => handleValueChange("zoomLevel", value)}
-          />
         </div>
+      )}
 
-        <div className="pt-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleDelete}
-            className="w-full h-10 bg-destructive/10 hover:bg-destructive text-destructive hover:text-destructive-foreground transition-all duration-200 flex items-center gap-2 justify-center font-medium"
-          >
-            <Trash2 className="w-4 h-4" />
-            <span>Delete Region</span>
-          </Button>
-        </div>
+      {activeTab === "fixed" && (
+        <FocusPointPicker
+          regionId={region.id}
+          targetX={region.targetX}
+          targetY={region.targetY}
+          startTime={region.startTime}
+          onTargetChange={({ x, y }) => updateRegion(region.id, { targetX: x, targetY: y })}
+        />
+      )}
+
+      <AnimationSettings region={region} />
+
+      <div className="pt-2">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => deleteRegion(region.id)}
+          className="w-full h-10 bg-destructive/10 hover:bg-destructive text-destructive hover:text-destructive-foreground transition-all duration-200 flex items-center gap-2 justify-center font-medium"
+        >
+          <Trash2 className="w-4 h-4" />
+          <span>Delete Region</span>
+        </Button>
       </div>
     </div>
   )

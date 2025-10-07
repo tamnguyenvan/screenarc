@@ -40,10 +40,16 @@ export const TIMELINE = {
 
 // Zoom and Pan specific constants
 export const ZOOM = {
-  TRANSITION_DURATION: 1.0, // Duration of zoom-in and zoom-out animations
+  DEFAULT_SPEED: 'Mellow',
+  SPEED_OPTIONS: {
+    Slow: 1.5,
+    Mellow: 1.0,
+    Quick: 0.7,
+    Rapid: 0.4,
+  },
   DEFAULT_LEVEL: 2.0, // Default zoom level when adding a new region
   DEFAULT_DURATION: 3.0, // Default duration when adding a new region
-  ZOOM_EASING: 'easeInOutQuint', // Easing function for zoom transitions
+  DEFAULT_EASING: 'easeInOutQuint',
   
   // --- Auto-Zoom Generation ---
   AUTO_ZOOM_PRE_CLICK_OFFSET: 1.5, // Time to start zoom before the first click
