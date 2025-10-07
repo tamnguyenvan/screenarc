@@ -35,10 +35,34 @@ export const Preview = memo(({ videoRef }: { videoRef: React.RefObject<HTMLVideo
   const { setPlaying, setCurrentTime, setDuration, setVideoDimensions } = useEditorStore.getState();
   const { isPlaying, isCurrentlyCut } = usePlaybackState();
 
-  const [bgImage, setBgImage] = useState<HTMLImageElement | null>(null); // State for pre-loaded image
+  const [bgImage, setBgImage] = useState<HTMLImageElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const webcamVideoRef = useRef<HTMLVideoElement>(null);
   const animationFrameId = useRef<number>();
+
+  // ADDED: State to reliably track the canvas's rendered width for the control bar
+  const [controlBarWidth, setControlBarWidth] = useState(0);
+
+  // ADDED: Use ResizeObserver to listen for actual canvas size changes
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const resizeObserver = new ResizeObserver(entries => {
+      if (entries[0]) {
+        const newWidth = entries[0].contentRect.width;
+        if (newWidth > 0) {
+          setControlBarWidth(newWidth);
+        }
+      }
+    });
+
+    resizeObserver.observe(canvas);
+
+    return () => {
+      resizeObserver.disconnect();
+    };
+  }, [canvasDimensions]); // Re-attach observer if canvas is re-rendered due to aspect ratio change
 
   // Effect to pre-load background images
   useEffect(() => {
@@ -88,17 +112,12 @@ export const Preview = memo(({ videoRef }: { videoRef: React.RefObject<HTMLVideo
 
   // Manage animation frame loop
   useEffect(() => {
-    // If playing, start the animation loop
     if (isPlaying) {
       animationFrameId.current = requestAnimationFrame(renderCanvas);
     } else {
-      // If paused, just render once.
-      // This effect will be re-triggered by dependencies (currentTime, canvasDimensions, renderCanvas)
-      // and redraw when needed.
       renderCanvas();
     }
 
-    // Cleanup function to stop the animation loop when component unmounts or effect runs again
     return () => {
       if (animationFrameId.current) {
         cancelAnimationFrame(animationFrameId.current);
@@ -162,7 +181,6 @@ export const Preview = memo(({ videoRef }: { videoRef: React.RefObject<HTMLVideo
       };
 
       video.addEventListener('seeked', onInitialSeekComplete);
-
       video.currentTime = 0;
     }
   };
@@ -171,7 +189,6 @@ export const Preview = memo(({ videoRef }: { videoRef: React.RefObject<HTMLVideo
     const mainVideo = videoRef.current;
     const webcamVideo = webcamVideoRef.current;
     if (mainVideo && webcamVideo) {
-      // Sync the initial state of the webcam video to the main video
       webcamVideo.currentTime = mainVideo.currentTime;
       if (mainVideo.paused) {
         webcamVideo.pause();
@@ -236,13 +253,15 @@ export const Preview = memo(({ videoRef }: { videoRef: React.RefObject<HTMLVideo
         />
       )}
 
+      {/* Control bar */}
       {videoUrl && (
         <div
           className="w-full mt-2"
           style={{ maxWidth: "100%" }}
         >
+          {/* MODIFIED: Use the state variable for width */}
           <div className="bg-card/90 backdrop-blur-xl border border-border/40 rounded-xl px-4 py-2.5 flex items-center gap-4 shadow-lg max-w-full mx-auto"
-               style={{ width: canvasRef.current?.clientWidth }}
+               style={{ width: controlBarWidth, minWidth: 400 }} // Added minWidth for graceful loading
           >
             <Button
               variant="ghost"
