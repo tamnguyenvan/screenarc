@@ -43,12 +43,12 @@ export const ZOOM = {
   TRANSITION_DURATION: 1.0, // Duration of zoom-in and zoom-out animations
   DEFAULT_LEVEL: 2.0, // Default zoom level when adding a new region
   DEFAULT_DURATION: 3.0, // Default duration when adding a new region
-  ZOOM_EASING: 'easeInOutCirc', // Easing function for zoom transitions
+  ZOOM_EASING: 'easeInOutQuint', // Easing function for zoom transitions
   
   // --- Auto-Zoom Generation ---
   AUTO_ZOOM_PRE_CLICK_OFFSET: 1.5, // Time to start zoom before the first click
   AUTO_ZOOM_POST_CLICK_PADDING: 0.9, // Time to hold zoom after the last click
   AUTO_ZOOM_MIN_DURATION: 3.0, // Minimum duration for an auto-generated zoom region
-  PAN_EASING: 'easeInOutCubic', // Easing function for pan transitions
+  PAN_EASING: 'easeInOutQuint', // Easing function for pan transitions
   
 };
