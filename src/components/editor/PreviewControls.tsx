@@ -1,16 +1,12 @@
 // Main control bar for video playback and timeline editing
 import React from "react"
-import { Play, Pause, Scissors, ZoomIn, Trash2, Undo2, Redo2, StepBack, StepForward } from "lucide-react"
+import { Play, Pause, Scissors, ZoomIn, Trash2, Undo2, Redo2 } from "lucide-react"
 import { useEditorStore } from "../../store/editorStore"
 import type { AspectRatio } from "../../types/store"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select"
 import { Slider } from "../ui/slider"
+import { StepBackIcon, StepForwardIcon, RewindIcon } from "../ui/icons"
 
-const Rewind = (props: React.SVGProps<SVGSVGElement>) => (
-  <svg xmlns="http://www.w3.org/2000/svg" width={20} height={20} viewBox="0 0 256 256" fill="currentColor" {...props}>
-    <path d="M223.77,58a16,16,0,0,0-16.25.53L128,109.14V71.84A15.91,15.91,0,0,0,103.52,58.5L15.33,114.66a15.8,15.8,0,0,0,0,26.68l88.19,56.16A15.91,15.91,0,0,0,128,184.16v-37.3l79.52,50.64A15.91,15.91,0,0,0,232,184.16V71.84A15.83,15.83,0,0,0,223.77,58ZM112,183.93,24.18,128,112,72.06Zm104,0L128.18,128,216,72.06Z" />
-  </svg>
-)
 
 interface ToolbarButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: "default" | "icon"
@@ -152,10 +148,10 @@ export function PreviewControls({
       {/* Center Playback Controls */}
       <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center gap-3">
         <ToolbarButton variant="icon" title="Rewind to Start" onClick={handleRewind}>
-          <Rewind className="w-4 h-4" />
+          <RewindIcon className="w-4 h-4" />
         </ToolbarButton>
         <ToolbarButton variant="icon" title="Previous Frame (J)" onClick={() => onSeekFrame("prev")}>
-          <StepBack className="w-4 h-4" />
+          <StepBackIcon className="w-4 h-4" />
         </ToolbarButton>
 
         <PlayButton title="Play/Pause (Space)" onClick={togglePlay}>
@@ -163,7 +159,7 @@ export function PreviewControls({
         </PlayButton>
 
         <ToolbarButton variant="icon" title="Next Frame (K)" onClick={() => onSeekFrame("next")}>
-          <StepForward className="w-4 h-4" />
+          <StepForwardIcon className="w-4 h-4" />
         </ToolbarButton>
       </div>
 

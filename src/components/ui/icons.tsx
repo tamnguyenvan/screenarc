@@ -81,3 +81,62 @@ export const InfoIcon = (props: React.SVGProps<SVGSVGElement>) => (
     <path d="M12 8h.01" />
   </svg>
 );
+
+export const RewindIcon = (props: React.SVGProps<SVGSVGElement>) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width={24}
+    height={24}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth={2}
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className="icon icon-tabler icons-tabler-outline icon-tabler-player-track-prev"
+    {...props}
+  >
+    <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+    <path d="M21 5v14l-8 -7z" />
+    <path d="M10 5v14l-8 -7z" />
+  </svg>
+);
+
+export const StepBackIcon = (props: React.SVGProps<SVGSVGElement>) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width={24}
+    height={24}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth={2}
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className="icon icon-tabler icons-tabler-outline icon-tabler-player-skip-back"
+    {...props}
+  >
+    <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+    <path d="M20 5v14l-12 -7z" />
+    <path d="M4 5l0 14" />
+  </svg>
+);
+
+export const StepForwardIcon = (props: React.SVGProps<SVGSVGElement>) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width={24}
+    height={24}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth={2}
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className="icon icon-tabler icons-tabler-outline icon-tabler-player-skip-forward"
+    {...props}
+  >
+    <path d="M0 0h24v24H0z" stroke="none" />
+    <path d="M4 5v14l12-7zm16 0v14" />
+  </svg>
+);
