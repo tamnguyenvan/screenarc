@@ -70,7 +70,7 @@ function FrameSettingsPanel() {
         </div>
       </div>
       {/* Content */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto stable-scrollbar"> {/* MODIFIED HERE */}
         <div className="p-6 space-y-8">
           <BackgroundSettings />
           <FrameEffectsSettings />
@@ -94,7 +94,7 @@ function AudioSettingsPanel() {
           </div>
         </div>
       </div>
-      <div className="flex-1 p-6 flex items-center justify-center">
+      <div className="flex-1 p-6 flex items-center justify-center stable-scrollbar"> {/* MODIFIED HERE */}
         <p className="text-muted-foreground text-sm">Audio controls coming soon.</p>
       </div>
     </div>
@@ -158,7 +158,7 @@ export function SidePanel() {
   return (
     <div className="h-full flex">
       {/* Main content area */}
-      <div className="flex-1 overflow-y-auto bg-sidebar">
+      <div className="flex-1 bg-sidebar overflow-hidden"> {/* REMOVED overflow-y-auto here */}
         {renderContent()}
       </div>
 

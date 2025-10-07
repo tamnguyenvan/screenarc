@@ -6,6 +6,10 @@
     animation: fadeIn 0.2s ease-out;
   }
 
+  .stable-scrollbar {
+    scrollbar-gutter: stable;
+  }
+
   .card-clean {
     @apply bg-card/80 border border-border rounded-lg shadow-lg backdrop-blur-xl;
     animation: scaleIn 0.25s ease-out;
