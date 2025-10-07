@@ -85,10 +85,19 @@ async function startActualRecording(inputArgs: string[], hasWebcam: boolean, has
   if (appState.mouseTracker) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     appState.mouseTracker.on('data', (data: any) => {
-      const relativeTimestampData = { ...data, timestamp: data.timestamp - appState.recordingStartTime };
+      // Make mouse coordinates relative to the recorded screen
+      // This is the critical fix. We subtract the top-left corner of the recorded
+      // display from the global mouse coordinates.
+      const relativeEvent = {
+        ...data,
+        x: data.x - recordingGeometry.x,
+        y: data.y - recordingGeometry.y,
+        timestamp: data.timestamp - appState.recordingStartTime,
+      };
+
       if (appState.metadataStream?.writable) {
         if (!appState.firstChunkWritten) appState.metadataStream.write(',\n');
-        appState.metadataStream.write(JSON.stringify(relativeTimestampData));
+        appState.metadataStream.write(JSON.stringify(relativeEvent));
         appState.firstChunkWritten = false;
       }
     });

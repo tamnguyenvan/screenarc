@@ -258,8 +258,8 @@ export const useEditorStore = create(
           const processedMetadata = parsedData.events.map((item: MetaDataItem) => ({
             ...item,
             timestamp: item.timestamp / 1000,
-            x: item.x - (geometry?.x ?? 0), // Calculate local coordinates
-            y: item.y - (geometry?.y ?? 0),
+            x: item.x, // the location is local already
+            y: item.y,
           }));
 
           set(state => { 
