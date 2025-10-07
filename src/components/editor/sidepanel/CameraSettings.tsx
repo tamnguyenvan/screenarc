@@ -92,7 +92,7 @@ export function CameraSettings() {
       </div>
 
       {/* Content */}
-      <div className="flex-1 p-6 space-y-6 overflow-y-auto">
+      <div className="flex-1 p-6 space-y-6 overflow-y-auto stable-scrollbar">
         <ControlGroup
           label="Visibility"
           icon={<Eye className="w-4 h-4 text-primary" />}
