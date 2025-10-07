@@ -167,70 +167,29 @@ export const drawScene = async (
   ctx.translate(translateX, translateY);
   ctx.translate(-originPxX, -originPxY);
 
-  const { shadow, borderRadius, shadowColor, borderWidth } = frameStyles;
+  const { shadow, borderRadius, shadowColor } = frameStyles;
 
-  // Create paths - outer path for border, inner path for video
-  const outerPath = new Path2D();
-  outerPath.roundRect(0, 0, frameContentWidth, frameContentHeight, borderRadius);
-
-  const innerRadius = Math.max(0, borderRadius - borderWidth);
-  const innerPath = new Path2D();
-  innerPath.roundRect(
-    borderWidth,
-    borderWidth,
-    frameContentWidth - 2 * borderWidth,
-    frameContentHeight - 2 * borderWidth,
-    innerRadius
-  );
-
-  // Step 1: Draw shadow bên ngoài border (từ mép ngoài của outerPath)
+  // Draw shadow if needed
   if (shadow > 0) {
     ctx.save();
     ctx.shadowColor = shadowColor;
     ctx.shadowBlur = shadow * 2;
     ctx.shadowOffsetX = 0;
     ctx.shadowOffsetY = shadow * 0.4;
-
-    // Fill một hình trong suốt để tạo shadow, shadow sẽ nằm bên ngoài
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.01)';
-    ctx.fill(outerPath);
+    const shadowPath = new Path2D();
+    shadowPath.roundRect(0, 0, frameContentWidth, frameContentHeight, borderRadius);
+    ctx.fillStyle = 'rgba(0,0,0,1)';
+    ctx.fill(shadowPath);
     ctx.restore();
   }
 
-  // Step 2: Draw video content (bên trong border)
+  // Draw the video with border radius
   ctx.save();
-  ctx.clip(innerPath);
-  ctx.drawImage(
-    videoElement,
-    borderWidth,
-    borderWidth,
-    frameContentWidth - 2 * borderWidth,
-    frameContentHeight - 2 * borderWidth
-  );
+  const path = new Path2D();
+  path.roundRect(0, 0, frameContentWidth, frameContentHeight, borderRadius);
+  ctx.clip(path);
+  ctx.drawImage(videoElement, 0, 0, frameContentWidth, frameContentHeight);
   ctx.restore();
-
-  // Step 3: Draw border/ring với backdrop-filter blur effect
-  // Border được vẽ cuối cùng, không bị ảnh hưởng bởi shadow
-  if (borderWidth > 0) {
-    ctx.save();
-
-    // Clip vùng border (giữa outerPath và innerPath)
-    ctx.clip(outerPath);
-    ctx.clip(innerPath, 'evenodd'); // Inverse clip để chỉ lấy vùng border
-
-    // Backdrop blur simulation: semi-transparent white with slight blur effect
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
-    ctx.fillRect(0, 0, frameContentWidth, frameContentHeight);
-
-    ctx.restore();
-
-    // Draw border ring stroke
-    ctx.save();
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
-    ctx.lineWidth = borderWidth;
-    ctx.stroke(outerPath);
-    ctx.restore();
-  }
 
   ctx.restore(); // Restore from main zoom/pan transforms
 
@@ -241,7 +200,6 @@ export const drawScene = async (
     const webcamHeight = baseSize * (webcamStyles.size / 100);
     const webcamWidth = webcamHeight;
     const webcamRadius = webcamHeight * 0.35;
-    const webcamBorderWidth = Math.max(2, webcamWidth * 0.012);
     const webcamEdgePadding = baseSize * 0.02;
     let webcamX, webcamY;
 
@@ -264,49 +222,26 @@ export const drawScene = async (
         break;
     }
 
-    // Create webcam paths
-    const webcamOuterPath = new Path2D();
-    webcamOuterPath.roundRect(webcamX, webcamY, webcamWidth, webcamHeight, webcamRadius);
-
-    const webcamInnerRadius = Math.max(0, webcamRadius - webcamBorderWidth);
-    const webcamInnerPath = new Path2D();
-    webcamInnerPath.roundRect(
-      webcamX + webcamBorderWidth,
-      webcamY + webcamBorderWidth,
-      webcamWidth - 2 * webcamBorderWidth,
-      webcamHeight - 2 * webcamBorderWidth,
-      webcamInnerRadius
-    );
-
-    // Draw webcam shadow (bên ngoài border)
+    // Draw webcam shadow if needed
     if (webcamStyles.shadow > 0) {
       ctx.save();
       ctx.shadowColor = webcamStyles.shadowColor;
       ctx.shadowBlur = webcamStyles.shadow * 2;
       ctx.shadowOffsetX = 0;
       ctx.shadowOffsetY = webcamStyles.shadow * 0.4;
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.01)';
-      ctx.fill(webcamOuterPath);
+      const webcamShadowPath = new Path2D();
+      webcamShadowPath.roundRect(webcamX, webcamY, webcamWidth, webcamHeight, webcamRadius);
+      ctx.fillStyle = 'rgba(0,0,0,1)';
+      ctx.fill(webcamShadowPath);
       ctx.restore();
     }
 
-    // Draw webcam video
+    // Draw webcam video with border radius
     ctx.save();
-    ctx.clip(webcamInnerPath);
-    ctx.drawImage(
-      webcamVideoElement,
-      webcamX + webcamBorderWidth,
-      webcamY + webcamBorderWidth,
-      webcamWidth - 2 * webcamBorderWidth,
-      webcamHeight - 2 * webcamBorderWidth
-    );
-    ctx.restore();
-
-    // Draw webcam border/ring
-    ctx.save();
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
-    ctx.lineWidth = webcamBorderWidth;
-    ctx.stroke(webcamOuterPath);
+    const webcamPath = new Path2D();
+    webcamPath.roundRect(webcamX, webcamY, webcamWidth, webcamHeight, webcamRadius);
+    ctx.clip(webcamPath);
+    ctx.drawImage(webcamVideoElement, webcamX, webcamY, webcamWidth, webcamHeight);
     ctx.restore();
   }
 };
