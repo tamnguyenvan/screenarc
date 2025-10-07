@@ -105,6 +105,7 @@ export function EditorPage() {
       k: () => handleSeekFrame("next"),
       arrowleft: () => handleSeekByTime(-1),
       arrowright: () => handleSeekByTime(1),
+      f: () => togglePreviewFullScreen(),
       "ctrl+z": (e) => {
         e.preventDefault()
         undo()
@@ -118,7 +119,7 @@ export function EditorPage() {
         redo()
       },
     },
-    [handleDeleteSelectedRegion, undo, redo, togglePlay, handleSeekFrame],
+    [handleDeleteSelectedRegion, undo, redo, togglePlay, handleSeekFrame, togglePreviewFullScreen],
   )
 
   useEffect(() => {
