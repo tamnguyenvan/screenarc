@@ -101,11 +101,11 @@ export function PreviewControls({
       {/* Left Controls - Timeline Tools */}
       <div className="flex items-center gap-3">
         <div className="flex items-center gap-2">
-          <ToolbarButton title="Add Zoom Region" onClick={() => addZoomRegion()}>
+          <ToolbarButton title="Add Zoom Region" onClick={() => addZoomRegion()} disabled={!!selectedRegionId}>
             <ZoomIn className="w-4 h-4" />
             <span>Zoom</span>
           </ToolbarButton>
-          <ToolbarButton title="Add Cut Region" onClick={() => addCutRegion()}>
+          <ToolbarButton title="Add Cut Region" onClick={() => addCutRegion()} disabled={!!selectedRegionId}>
             <Scissors className="w-4 h-4" />
             <span>Trim</span>
           </ToolbarButton>
