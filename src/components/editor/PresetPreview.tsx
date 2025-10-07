@@ -68,15 +68,32 @@ export function PresetPreview({
 
   const fakeWebcamStyle = useMemo(() => {
     if (!webcamStyles) return {}
-    return {
-      height: `${webcamStyles.size}%`,
+    
+    const cssStyles: React.CSSProperties = {
+      width: `${webcamStyles.size}%`,
       filter: `drop-shadow(${webcamStyles.shadowOffsetX}px ${webcamStyles.shadowOffsetY}px ${webcamStyles.shadowBlur}px ${webcamStyles.shadowColor})`,
+    };
+
+    switch (webcamStyles.shape) {
+      case 'rectangle':
+        cssStyles.aspectRatio = '16 / 9';
+        cssStyles.borderRadius = `${webcamStyles.borderRadius}px`;
+        break;
+      case 'square':
+        cssStyles.aspectRatio = '1 / 1';
+        cssStyles.borderRadius = `${webcamStyles.borderRadius}px`;
+        break;
+      case 'circle':
+        cssStyles.aspectRatio = '1 / 1';
+        cssStyles.borderRadius = '50%';
+        break;
     }
+    return cssStyles;
   }, [webcamStyles])
 
   const fakeWebcamClasses = useMemo(() => {
     if (!webcamPosition) return ""
-    return cn("absolute z-20 aspect-square overflow-hidden rounded-[35%]", "transition-all duration-300 ease-in-out", {
+    return cn("absolute z-20 overflow-hidden", "transition-all duration-300 ease-in-out", {
       "top-4 left-4": webcamPosition.pos === "top-left",
       "top-4 right-4": webcamPosition.pos === "top-right",
       "bottom-4 left-4": webcamPosition.pos === "bottom-left",

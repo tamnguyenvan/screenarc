@@ -32,6 +32,8 @@ const DEFAULT_PRESET: Omit<Preset, 'id' | 'name'> = {
   aspectRatio: '16:9',
   isDefault: true,
   webcamStyles: {
+    shape: 'circle',
+    borderRadius: 50,
     size: 30,  // percent
     shadowBlur: 20,
     shadowOffsetX: 0,
@@ -113,6 +115,8 @@ const initialProjectState = {
   isWebcamVisible: false,
   webcamPosition: { pos: 'bottom-right' } as WebcamPosition,
   webcamStyles: { 
+    shape: 'circle' as const,
+    borderRadius: 50,
     size: 30, 
     shadowBlur: 20, 
     shadowOffsetX: 0,
@@ -568,6 +572,17 @@ export const useEditorStore = create(
               // Add borderColor if missing
               if (preset.styles && preset.styles.borderColor === undefined) {
                   preset.styles.borderColor = DEFAULT_PRESET_STYLES.borderColor;
+                  presetsModified = true;
+              }
+              
+              // Add webcam shape if missing
+              if (preset.webcamStyles && preset.webcamStyles.shape === undefined) {
+                  preset.webcamStyles.shape = 'circle';
+                  presetsModified = true;
+              }
+              // Add webcam border radius if missing
+              if (preset.webcamStyles && preset.webcamStyles.borderRadius === undefined) {
+                  preset.webcamStyles.borderRadius = 50; // default for circle
                   presetsModified = true;
               }
           });

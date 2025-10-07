@@ -204,9 +204,24 @@ export const drawScene = async (
   const { webcamPosition, webcamStyles, isWebcamVisible } = state;
   if (isWebcamVisible && webcamVideoElement) {
     const baseSize = Math.min(outputWidth, outputHeight);
-    const webcamHeight = baseSize * (webcamStyles.size / 100);
-    const webcamWidth = webcamHeight;
-    const webcamRadius = webcamHeight * 0.35;
+    let webcamWidth, webcamHeight;
+
+    if (webcamStyles.shape === 'rectangle') {
+      webcamWidth = baseSize * (webcamStyles.size / 100);
+      webcamHeight = webcamWidth * (9 / 16);
+    } else {
+      webcamWidth = baseSize * (webcamStyles.size / 100);
+      webcamHeight = webcamWidth; // Square or Circle
+    }
+
+    const maxRadius = Math.min(webcamWidth, webcamHeight) / 2;
+    let webcamRadius = 0;
+    if (webcamStyles.shape === 'circle') {
+      webcamRadius = maxRadius;
+    } else {
+      webcamRadius = Math.min(webcamStyles.borderRadius, maxRadius);
+    }
+    
     const webcamEdgePadding = baseSize * 0.02;
     let webcamX, webcamY;
 

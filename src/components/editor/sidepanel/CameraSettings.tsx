@@ -9,9 +9,11 @@ import {
   CornerDownRight,
   Video,
   Eye,
-  EyeOff,
   ImageIcon,
   Maximize,
+  Circle,
+  Square,
+  RectangleHorizontal,
 } from "lucide-react"
 import { Button } from "../../ui/button"
 import { Switch } from "../../ui/switch"
@@ -19,6 +21,7 @@ import { Slider } from "../../ui/slider"
 import { ColorPicker } from "../../ui/color-picker"
 import { rgbaToHexAlpha, hexToRgb } from "../../../lib/utils"
 import { useShallow } from "zustand/react/shallow"
+import { CornerRadiusIcon } from "../../ui/icons"
 
 export function CameraSettings() {
   const { isWebcamVisible, webcamPosition, webcamStyles, setWebcamVisibility, setWebcamPosition, updateWebcamStyle } =
@@ -60,12 +63,14 @@ export function CameraSettings() {
       updateWebcamStyle({ shadowColor: newRgbaColor })
     }
   }
-  
+
   const handleWebcamStyleChange = (name: string, value: string | number) => {
     updateWebcamStyle({
       [name]: typeof value === "string" ? Number.parseFloat(value) || 0 : value,
     })
   }
+
+  const isCircle = webcamStyles.shape === 'circle';
 
   return (
     <div className="h-full flex flex-col">
@@ -97,9 +102,7 @@ export function CameraSettings() {
               checked={isWebcamVisible}
               onCheckedChange={setWebcamVisibility}
               className="data-[state=on]:bg-primary"
-            >
-              {isWebcamVisible ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
-            </Switch>
+            />
           </div>
         </ControlGroup>
 
@@ -126,27 +129,47 @@ export function CameraSettings() {
         <ControlGroup
           label="Appearance"
           icon={<ImageIcon className="w-4 h-4 text-primary" />}
-          description="Adjust size and shadow"
+          description="Adjust size, shape, and shadow"
         >
           <div className="space-y-6">
+            {/* Shape Selector */}
+            <div className="space-y-3">
+              <label className="text-sm font-medium text-sidebar-foreground">Shape</label>
+              <div className="grid grid-cols-3 gap-2 p-1 bg-muted/50 rounded-lg">
+                <Button variant={webcamStyles.shape === "rectangle" ? "secondary" : "ghost"} onClick={() => updateWebcamStyle({ shape: 'rectangle' })} className="h-auto py-2.5 flex items-center justify-center gap-2">
+                  <RectangleHorizontal className="w-5 h-4" />
+                </Button>
+                <Button variant={webcamStyles.shape === "square" ? "secondary" : "ghost"} onClick={() => updateWebcamStyle({ shape: 'square' })} className="h-auto py-2.5 flex items-center justify-center gap-2">
+                  <Square className="w-4 h-4" />
+                </Button>
+                <Button variant={webcamStyles.shape === "circle" ? "secondary" : "ghost"} onClick={() => updateWebcamStyle({ shape: 'circle' })} className="h-auto py-2.5 flex items-center justify-center gap-2">
+                  <Circle className="w-4 h-4" />
+                </Button>
+              </div>
+            </div>
+
+            {/* Border Radius Control */}
+            <div className="space-y-3">
+              <label className="flex items-center justify-between text-sm font-medium text-sidebar-foreground">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-5 h-5 flex items-center justify-center text-primary"> <CornerRadiusIcon className="w-4 h-4" /> </div>
+                  <span className={isCircle ? 'text-muted-foreground' : ''}>Corner Radius</span>
+                </div>
+                {!isCircle && (<span className="text-xs font-semibold text-primary tabular-nums">{webcamStyles.borderRadius}px</span>)}
+              </label>
+              <Slider min={0} max={50} step={1} value={webcamStyles.borderRadius} onChange={(value) => updateWebcamStyle({ borderRadius: value })} disabled={isCircle} />
+            </div>
+
             {/* Webcam Size Control */}
             <div className="space-y-3">
               <label className="flex items-center justify-between text-sm font-medium text-sidebar-foreground">
                 <div className="flex items-center gap-2.5">
-                  <div className="w-5 h-5 flex items-center justify-center text-primary">
-                    <Maximize className="w-4 h-4" />
-                  </div>
+                  <div className="w-5 h-5 flex items-center justify-center text-primary"> <Maximize className="w-4 h-4" /> </div>
                   <span>Size</span>
                 </div>
                 <span className="text-xs font-semibold text-primary tabular-nums">{webcamStyles.size}%</span>
               </label>
-              <Slider
-                min={10}
-                max={50}
-                step={1}
-                value={webcamStyles.size}
-                onChange={(value) => updateWebcamStyle({ size: value })}
-              />
+              <Slider min={10} max={50} step={1} value={webcamStyles.size} onChange={(value) => updateWebcamStyle({ size: value })} />
             </div>
 
             {/* Webcam Shadow Control */}

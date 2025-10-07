@@ -73,6 +73,8 @@ export interface WebcamPosition {
 }
 
 export interface WebcamStyles {
+  shape: 'circle' | 'square' | 'rectangle';
+  borderRadius: number;
   size: number;
   shadowBlur: number;
   shadowOffsetX: number;
