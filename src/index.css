@@ -5,13 +5,14 @@
     @apply fixed inset-0 bg-black/30 backdrop-blur-lg;
     animation: fadeIn 0.2s ease-out;
   }
+
   .card-clean {
     @apply bg-card/80 border border-border rounded-lg shadow-lg backdrop-blur-xl;
     animation: scaleIn 0.25s ease-out;
   }
-  
+
   .btn-clean {
-     @apply focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background;
+    @apply focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background;
   }
 
   /* Timeline tick colors */
@@ -55,82 +56,222 @@
     border-color: var(--ring);
     box-shadow: 0 0 0 1px var(--ring);
   }
-  
+
   @keyframes fadeIn {
-    from { opacity: 0; }
-    to { opacity: 1; }
+    from {
+      opacity: 0;
+    }
+
+    to {
+      opacity: 1;
+    }
   }
 
   @keyframes scaleIn {
-    from { transform: scale(0.95); opacity: 0; }
-    to { transform: scale(1); opacity: 1; }
+    from {
+      transform: scale(0.95);
+      opacity: 0;
+    }
+
+    to {
+      transform: scale(1);
+      opacity: 1;
+    }
+  }
+
+  /* Collapse Component - macOS Style */
+  .collapse-root {
+    @apply rounded-lg overflow-hidden;
+    border: 1px solid var(--border);
+    background-color: var(--card);
+    transition: all 0.2s ease;
+  }
+
+  .collapse-root:hover {
+    border-color: var(--sidebar-border);
+  }
+
+  .collapse-trigger {
+    @apply w-full flex items-center justify-between gap-3 px-4 py-3 cursor-pointer;
+    @apply transition-all duration-200 select-none;
+    background: transparent;
+    border: none;
+    outline: none;
+  }
+
+  .collapse-trigger:hover {
+    background-color: var(--accent);
+  }
+
+  .collapse-trigger:active {
+    background-color: var(--muted);
+  }
+
+  .collapse-trigger:focus-visible {
+    @apply ring-2 ring-ring ring-offset-2 ring-offset-background outline-none;
+  }
+
+  .collapse-chevron {
+    @apply w-4 h-4 text-muted-foreground transition-transform duration-300 ease-out flex-shrink-0;
+  }
+
+  .collapse-root[data-state="open"] .collapse-chevron {
+    transform: rotate(180deg);
+  }
+
+  .collapse-root[data-state="closed"] .collapse-chevron {
+    transform: rotate(0deg);
+  }
+
+  .collapse-content {
+    overflow: hidden;
+    transition: height 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .collapse-content[data-state="open"] {
+    animation: collapseOpen 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .collapse-content[data-state="closed"] {
+    animation: collapseClose 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .collapse-content-inner {
+    @apply px-4 pb-4 pt-2;
+  }
+
+  @keyframes collapseOpen {
+    from {
+      height: 0;
+      opacity: 0;
+    }
+
+    to {
+      height: var(--radix-collapsible-content-height);
+      opacity: 1;
+    }
+  }
+
+  @keyframes collapseClose {
+    from {
+      height: var(--radix-collapsible-content-height);
+      opacity: 1;
+    }
+
+    to {
+      height: 0;
+      opacity: 0;
+    }
   }
 }
 
 :root {
-  --background: hsl(0 0% 97%);
+  /* Main background colors - Lighter, more unified */
+  --background: hsl(0 0% 96%);
   --foreground: hsl(0 0% 9%);
-  --card: hsl(0 0% 100%);
+  
+  /* Card colors - Subtle elevation */
+  --card: hsl(0 0% 99%);
   --card-foreground: hsl(0 0% 9%);
-  --popover: hsl(0 0% 100%);
+  
+  /* Popover */
+  --popover: hsl(0 0% 99%);
   --popover-foreground: hsl(0 0% 9%);
+  
+  /* Primary accent */
   --primary: hsl(217 91% 60%);
   --primary-foreground: hsl(0 0% 100%);
-  --secondary: hsl(0 0% 95%);
+  
+  /* Secondary colors */
+  --secondary: hsl(0 0% 94%);
   --secondary-foreground: hsl(0 0% 9%);
-  --muted: hsl(0 0% 95%);
+  
+  /* Muted colors */
+  --muted: hsl(0 0% 94%);
   --muted-foreground: hsl(0 0% 45%);
+  
+  /* Accent colors */
   --accent: hsl(0 0% 92%);
   --accent-foreground: hsl(0 0% 9%);
+  
+  /* Destructive */
   --destructive: hsl(0 84% 60%);
   --destructive-foreground: hsl(0 0% 100%);
-  --border: hsl(0 0% 89%);
-  --input: hsl(0 0% 93%);
-  --ring: hsl(217 91% 60%);
-  --sidebar: hsl(0 0% 92%);
-  --sidebar-foreground: hsl(0 0% 9%);
-  --sidebar-border: hsl(0 0% 85%);
-  --color-picker-border: hsl(0 0% 80%);
-  --color-picker-border-hover: hsl(0 0% 70%);
-  --color-picker-focus-ring: hsla(217, 91%, 60%, 0.4);
-  --color-picker-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  --color-picker-input-bg: #f8f8f8;
-  --color-picker-input-border: #d2d2d2;
-  --radius: 0.5rem; /* 8px */
   
+  /* Borders - Subtle and consistent */
+  --border: hsl(0 0% 88%);
+  --input: hsl(0 0% 92%);
+  --ring: hsl(217 91% 60%);
+  
+  /* Sidebar colors - Now harmonized with main background */
+  --sidebar: hsl(0 0% 97%);
+  --sidebar-foreground: hsl(0 0% 9%);
+  --sidebar-border: hsl(0 0% 88%);
+  
+  /* Color picker */
+  --color-picker-border: hsl(0 0% 82%);
+  --color-picker-border-hover: hsl(0 0% 72%);
+  --color-picker-focus-ring: hsla(217, 91%, 60%, 0.4);
+  --color-picker-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  --color-picker-input-bg: hsl(0 0% 98%);
+  --color-picker-input-border: hsl(0 0% 88%);
+  
+  --radius: 0.5rem;
+
   --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
   --font-mono: "JetBrains Mono", "SF Mono", "Consolas", "Liberation Mono", Menlo, Courier, monospace;
 }
 
 .dark {
-  --color-picker-border: hsl(0 0% 30%);
-  --color-picker-border-hover: hsl(0 0% 40%);
-  --color-picker-focus-ring: hsla(217, 91%, 60%, 0.6);
-  --color-picker-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
-  --color-picker-input-bg: #2a2a2a;
-  --color-picker-input-border: #404040;
-  --background: hsl(0 0% 7%);
+  /* Main background colors - Deeper, more unified */
+  --background: hsl(0 0% 9%);
   --foreground: hsl(0 0% 98%);
-  --card: hsl(0 0% 19%);
+  
+  /* Card colors - Subtle elevation */
+  --card: hsl(0 0% 12%);
   --card-foreground: hsl(0 0% 98%);
-  --popover: hsl(0 0% 19%);
+  
+  /* Popover */
+  --popover: hsl(0 0% 12%);
   --popover-foreground: hsl(0 0% 98%);
+  
+  /* Primary accent */
   --primary: hsl(217 91% 65%);
   --primary-foreground: hsl(0 0% 100%);
-  --secondary: hsl(0 0% 24%);
+  
+  /* Secondary colors */
+  --secondary: hsl(0 0% 18%);
   --secondary-foreground: hsl(0 0% 98%);
-  --muted: hsl(0 0% 24%);
-  --muted-foreground: hsl(0 0% 68%);
-  --accent: hsl(0 0% 28%);
+  
+  /* Muted colors */
+  --muted: hsl(0 0% 18%);
+  --muted-foreground: hsl(0 0% 65%);
+  
+  /* Accent colors */
+  --accent: hsl(0 0% 20%);
   --accent-foreground: hsl(0 0% 98%);
+  
+  /* Destructive */
   --destructive: hsl(0 72% 51%);
   --destructive-foreground: hsl(0 0% 100%);
-  --border: hsl(0 0% 30%);
-  --input: hsl(0 0% 26%);
+  
+  /* Borders - Subtle and consistent */
+  --border: hsl(0 0% 22%);
+  --input: hsl(0 0% 18%);
   --ring: hsl(217 91% 65%);
-  --sidebar: hsl(0 0% 22%);
+  
+  /* Sidebar colors - Now harmonized with main background */
+  --sidebar: hsl(0 0% 11%);
   --sidebar-foreground: hsl(0 0% 98%);
-  --sidebar-border: hsl(0 0% 32%);
+  --sidebar-border: hsl(0 0% 22%);
+  
+  /* Color picker */
+  --color-picker-border: hsl(0 0% 28%);
+  --color-picker-border-hover: hsl(0 0% 38%);
+  --color-picker-focus-ring: hsla(217, 91%, 60%, 0.6);
+  --color-picker-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+  --color-picker-input-bg: hsl(0 0% 16%);
+  --color-picker-input-border: hsl(0 0% 28%);
 }
 
 
@@ -161,27 +302,31 @@
   --font-sans: var(--font-sans);
   --font-mono: var(--font-mono);
   --font-serif: var(--font-serif);
-  
+
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
 }
 
+
 /* Custom Scrollbar */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
+
 ::-webkit-scrollbar-track {
   background: transparent;
 }
+
 ::-webkit-scrollbar-thumb {
   background-color: var(--color-border);
   border-radius: 10px;
   border: 2px solid transparent;
   background-clip: content-box;
 }
+
 ::-webkit-scrollbar-thumb:hover {
   background-color: var(--color-primary);
 }
