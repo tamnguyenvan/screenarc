@@ -98,7 +98,7 @@ export const calculateZoomTransform = (
 
     if (mode === 'auto' && metadata.length > 0 && originalVideoDimensions.width > 0) {
       const PAN_TRANSITION_DURATION = 0.5;
-      const PAN_THRESHOLD_PERCENT = 0.1;
+      const PAN_THRESHOLD_PERCENT = 0.01;
 
       const panStartMousePos = findLastMousePosition(metadata, zoomInEndTime);
       const currentMousePos = findLastMousePosition(metadata, currentTime);
