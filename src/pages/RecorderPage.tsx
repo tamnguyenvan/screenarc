@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   Mic, Webcam, Monitor, SquareDashed, Loader2,
-  Video, X, MousePointer, VideoOff, MicOff, FileVideoCamera
+  Video, X, MousePointer, MicOff, FolderOpen
 } from 'lucide-react';
+import { WebcamOffIcon } from '../components/ui/icons';
 import { Button } from '../components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { cn } from '../lib/utils';
@@ -258,7 +259,7 @@ export function RecorderPage() {
 
           {/* Main Control Bar */}
           <div
-            className="relative flex items-center gap-3 px-4 py-3 rounded-2xl bg-card/95 border border-border shadow-2xl"
+            className="relative flex items-center gap-3 px-4 py-3 rounded-2xl bg-card border border-border shadow-2xl"
             style={{ WebkitAppRegion: 'drag' }}
           >
             {/* Close Button */}
@@ -292,36 +293,61 @@ export function RecorderPage() {
             {/* Display Select */}
             <div style={{ WebkitAppRegion: 'no-drag' }}>
               <Select value={selectedDisplayId} onValueChange={setSelectedDisplayId}>
-                <SelectTrigger className="w-14 h-10 rounded-xl border-0 bg-background/60 hover:bg-background transition-colors">
+                <SelectTrigger
+                  variant="minimal"
+                  className="w-auto min-w-[120px] max-w-[150px] h-9 rounded-lg"
+                >
                   <SelectValue asChild>
-                    <Monitor size={13} className="text-primary" />
+                    <div className="flex items-center gap-1.5 text-xs min-w-0">
+                      <Monitor size={14} className="text-primary shrink-0" />
+                      <span className="truncate">
+                        {displays.find(d => String(d.id) === selectedDisplayId)?.name || `Display ${selectedDisplayId}`}
+                      </span>
+                    </div>
                   </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {displays.map(d => (
-                    <SelectItem key={d.id} value={String(d.id)}>{d.name}</SelectItem>
+                    <SelectItem key={d.id} value={String(d.id)}>
+                      {d.name}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
 
-            {/* Webcam Select */}
+            {/* Webcam Select - icon only with tooltip */}
             <div style={{ WebkitAppRegion: 'no-drag' }}>
               <Select
                 value={selectedWebcamId}
                 onValueChange={handleSelectionChange(setSelectedWebcamId, 'recorder.selectedWebcamId')}
               >
-                <SelectTrigger className="w-14 h-10 rounded-xl border-0 bg-background/60 hover:bg-background transition-colors">
+                <SelectTrigger
+                  variant="minimal"
+                  className="w-auto min-w-[120px] max-w-[150px] h-9 rounded-lg"
+                >
                   <SelectValue asChild>
-                    {selectedWebcamId !== 'none' ? (
-                      <Webcam size={13} className="text-primary" />
-                    ) : (
-                      <VideoOff size={13} className="text-muted-foreground" />
-                    )}
+                    <div className="flex items-center gap-1.5 text-xs min-w-0">
+                      {selectedWebcamId !== 'none' ? (
+                        <Webcam size={16} className="text-primary flex-shrink-0" />
+                      ) : (
+                        <WebcamOffIcon width={16} height={16} className="text-muted-foreground/60 flex-shrink-0" />
+                      )}
+                      {selectedWebcamId !== 'none' ? (
+                        <span className="truncate leading-none">
+                          {webcams.find(w => w.id === selectedWebcamId)?.name || `Webcam ${selectedWebcamId}`}
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground leading-none">No webcam</span>
+                      )}
+                    </div>
                   </SelectValue>
                 </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Don't use webcam</SelectItem>
+
+                <SelectContent align="center">
+                  <SelectItem value="none">
+                    <span className="text-muted-foreground">No webcam</span>
+                  </SelectItem>
                   {webcams.map(c => (
                     <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
                   ))}
@@ -329,23 +355,38 @@ export function RecorderPage() {
               </Select>
             </div>
 
-            {/* Microphone Select */}
+            {/* Microphone Select - tương tự webcam */}
             <div style={{ WebkitAppRegion: 'no-drag' }}>
               <Select
                 value={selectedMicId}
                 onValueChange={handleSelectionChange(setSelectedMicId, 'recorder.selectedMicId')}
               >
-                <SelectTrigger className="w-14 h-10 rounded-xl border-0 bg-background/60 hover:bg-background transition-colors">
+                <SelectTrigger
+                  variant="minimal"
+                  className="w-auto min-w-[120px] max-w-[150px] h-9 rounded-lg"
+                >
                   <SelectValue asChild>
-                    {selectedMicId !== 'none' ? (
-                      <Mic size={13} className="text-primary" />
-                    ) : (
-                      <MicOff size={13} className="text-muted-foreground" />
-                    )}
+                    <div className="flex items-center gap-1.5 text-xs min-w-0">
+                      {selectedMicId !== 'none' ? (
+                        <Mic size={14} className="text-primary" />
+                      ) : (
+                        <MicOff size={14} className="text-muted-foreground/60" />
+                      )}
+                      {selectedMicId !== 'none' ? (
+                        <span className="truncate">
+                          {mics.find(m => m.id === selectedMicId)?.name || `Mic ${selectedMicId}`}
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground">No microphone</span>
+                      )}
+                    </div>
                   </SelectValue>
                 </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Don't use microphone</SelectItem>
+
+                <SelectContent align="center">
+                  <SelectItem value="none">
+                    <span className="text-muted-foreground">No microphone</span>
+                  </SelectItem>
                   {mics.map(m => (
                     <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
                   ))}
@@ -353,16 +394,21 @@ export function RecorderPage() {
               </Select>
             </div>
 
-            {/* Cursor Scale */}
+            {/* Cursor Scale - compact with icon */}
             <div className="flex items-center gap-1.5" style={{ WebkitAppRegion: 'no-drag' }}>
-              <MousePointer size={16} className="text-muted-foreground" />
+              <MousePointer size={14} className="text-muted-foreground/60" />
               <Select value={String(cursorScale)} onValueChange={handleCursorScaleChange}>
-                <SelectTrigger className="w-16 h-9 rounded-lg border-0 bg-background/60 hover:bg-background transition-colors text-sm">
+                <SelectTrigger
+                  variant="minimal"
+                  className="w-[52px] h-9 rounded-lg text-xs"
+                >
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent align="end">
                   {cursorScales.map(s => (
-                    <SelectItem key={s.value} value={String(s.value)}>{s.label}</SelectItem>
+                    <SelectItem key={s.value} value={String(s.value)}>
+                      {s.label}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -398,7 +444,7 @@ export function RecorderPage() {
                   <Loader2 size={18} className="animate-spin" />
                 ) : (
                   <>
-                    <FileVideoCamera size={18} />
+                    <FolderOpen size={18} />
                   </>
                 )}
               </Button>
@@ -409,7 +455,7 @@ export function RecorderPage() {
           <div
             data-interactive="true"
             className={cn(
-              "mt-4 mx-auto w-40 aspect-square rounded-[32%] overflow-hidden shadow-2xl bg-black ring-2 ring-border/20 transition-all duration-300",
+              "mt-4 mx-auto w-48 aspect-square rounded-[32%] overflow-hidden shadow-2xl bg-black ring-2 ring-border/20 transition-all duration-300",
               (selectedWebcamId !== 'none' && actionInProgress === 'none')
                 ? 'opacity-100 scale-100'
                 : 'opacity-0 scale-95 pointer-events-none'

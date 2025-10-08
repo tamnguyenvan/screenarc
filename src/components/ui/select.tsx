@@ -15,21 +15,62 @@ const SelectTrigger = React.forwardRef<
     label?: string;
     error?: string;
     helperText?: string;
+    variant?: 'default' | 'minimal';
   }
->(({ className, children, label, error, helperText, ...props }, ref) => {
+>(({ className, children, label, error, helperText, variant = 'default', ...props }, ref) => {
   const selectId = React.useId();
 
+  if (variant === 'minimal') {
+    return (
+      <SelectPrimitive.Trigger
+        id={selectId}
+        ref={ref}
+        className={cn(
+          // Base styles - compact và clean hơn
+          "flex h-9 w-full items-center justify-between rounded-lg",
+          "border border-border/40 bg-background/40 backdrop-blur-sm",
+          "px-2.5 text-sm font-medium text-foreground/90",
+
+          // Focus states - subtle ring
+          "focus:outline-none focus:ring-1 focus:ring-primary/30 focus:border-primary/50",
+
+          // Hover states
+          "hover:bg-background/60 hover:border-border/60",
+
+          // Disabled state
+          "disabled:cursor-not-allowed disabled:opacity-50",
+
+          // Smooth transitions
+          "transition-all duration-200",
+
+          // Active/open state
+          "data-[state=open]:border-primary/50 data-[state=open]:ring-1 data-[state=open]:ring-primary/30 data-[state=open]:bg-background/60",
+
+          className
+        )}
+        {...props}
+      >
+        {children}
+        <SelectPrimitive.Icon asChild>
+          {/* ChevronDown nhỏ hơn và subtle hơn */}
+          <ChevronDown className="h-3 w-3 opacity-40 shrink-0 transition-transform duration-200 data-[state=open]:rotate-180" />
+        </SelectPrimitive.Icon>
+      </SelectPrimitive.Trigger>
+    );
+  }
+
+  // Default variant giữ nguyên như cũ
   return (
     <div className="space-y-2">
       {label && (
-        <label 
+        <label
           htmlFor={selectId}
           className="block text-sm font-medium text-foreground"
         >
           {label}
         </label>
       )}
-      
+
       <SelectPrimitive.Trigger
         id={selectId}
         ref={ref}
@@ -51,13 +92,13 @@ const SelectTrigger = React.forwardRef<
           <ChevronDown className="h-4 w-4 opacity-50 transition-transform duration-200 data-[state=open]:rotate-180" />
         </SelectPrimitive.Icon>
       </SelectPrimitive.Trigger>
-      
+
       {error && (
         <p className="text-sm text-destructive font-medium">
           {error}
         </p>
       )}
-      
+
       {helperText && !error && (
         <p className="text-sm text-muted-foreground">
           {helperText}
@@ -110,14 +151,20 @@ const SelectContent = React.forwardRef<
     <SelectPrimitive.Content
       ref={ref}
       className={cn(
-        'relative z-50 max-h-96 min-w-[8rem] overflow-hidden rounded-lg border border-border bg-card/95 backdrop-blur-sm text-card-foreground shadow-2xl',
+        // Base styling - softer shadows, more blur
+        'relative z-50 max-h-96 min-w-[8rem] overflow-hidden',
+        'rounded-xl border border-border/60 bg-card/98 backdrop-blur-xl',
+        'text-card-foreground shadow-xl',
+
+        // Animations - smoother
         'data-[state=open]:animate-in data-[state=closed]:animate-out',
         'data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0',
-        'data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95',
-        'data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2',
-        'data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2',
+        'data-[state=closed]:zoom-out-98 data-[state=open]:zoom-in-98',
+        'data-[side=bottom]:slide-in-from-top-1 data-[side=left]:slide-in-from-right-1',
+        'data-[side=right]:slide-in-from-left-1 data-[side=top]:slide-in-from-bottom-1',
+
         position === 'popper' &&
-          'data-[side=bottom]:translate-y-1 data-[side=left]:-translate-x-1 data-[side=right]:translate-x-1 data-[side=top]:-translate-y-1',
+        'data-[side=bottom]:translate-y-1 data-[side=left]:-translate-x-1 data-[side=right]:translate-x-1 data-[side=top]:-translate-y-1',
         className
       )}
       position={position}
@@ -126,9 +173,9 @@ const SelectContent = React.forwardRef<
       <SelectScrollUpButton />
       <SelectPrimitive.Viewport
         className={cn(
-          'p-1',
+          'p-1.5', // Padding nhỏ hơn
           position === 'popper' &&
-            'h-[var(--radix-select-trigger-height)] w-full min-w-[var(--radix-select-trigger-width)]'
+          'h-[var(--radix-select-trigger-height)] w-full min-w-[var(--radix-select-trigger-width)]'
         )}
       >
         {children}
@@ -158,18 +205,25 @@ const SelectItem = React.forwardRef<
   <SelectPrimitive.Item
     ref={ref}
     className={cn(
-      'relative flex w-full cursor-default select-none items-center rounded-md py-2 pl-8 pr-2 text-sm outline-none',
-      'focus:bg-accent focus:text-accent-foreground',
+      // Base styling - tighter spacing
+      'relative flex w-full cursor-default select-none items-center',
+      'rounded-md py-1.5 pl-7 pr-2 text-sm outline-none',
+
+      // Focus/hover states - subtle
+      'focus:bg-accent/60 focus:text-accent-foreground',
       'data-[disabled]:pointer-events-none data-[disabled]:opacity-50',
+
+      // Smooth transition
       'transition-colors duration-150',
-      'hover:bg-accent/50',
+
       className
     )}
     {...props}
   >
-    <span className="absolute left-2 flex h-3.5 w-3.5 items-center justify-center">
+    <span className="absolute left-1.5 flex h-3.5 w-3.5 items-center justify-center">
       <SelectPrimitive.ItemIndicator>
-        <Check className="h-4 w-4 text-primary" />
+        {/* Check icon nhỏ hơn và màu primary */}
+        <Check className="h-3.5 w-3.5 text-primary" />
       </SelectPrimitive.ItemIndicator>
     </span>
 
