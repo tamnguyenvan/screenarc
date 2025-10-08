@@ -18,6 +18,13 @@ function lerp(start: number, end: number, t: number): number {
 }
 
 /**
+ * Clamps a value between min and max.
+ */
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(Math.max(value, min), max);
+}
+
+/**
  * Finds the index of the last metadata item with a timestamp less than or equal to the given time.
  * Uses binary search for performance optimization.
  */
@@ -39,40 +46,54 @@ const findLastMetadataIndex = (metadata: MetaDataItem[], currentTime: number): n
   return result;
 };
 
-/**
- * Gets the smoothed mouse position by averaging points over a time window.
- * This helps eliminate jerky movements and creates smoother panning.
- */
-const getSmoothedMousePosition = (metadata: MetaDataItem[], endTime: number, windowDuration: number): { x: number; y: number } | null => {
-  const startIndex = findLastMetadataIndex(metadata, endTime);
-  if (startIndex === -1) {
-    return metadata.length > 0 ? { x: metadata[0].x, y: metadata[0].y } : null;
+function getSmoothedMousePosition(
+  metadata: MetaDataItem[],
+  currentTime: number,
+  windowDuration: number
+): { x: number; y: number } | null {
+  if (!metadata || metadata.length === 0) return null;
+
+  // Tìm vị trí bắt đầu (mẫu đầu tiên >= currentTime)
+  let startIndex = -1;
+  for (let i = 0; i < metadata.length; i++) {
+    if (metadata[i].timestamp >= currentTime) {
+      startIndex = i;
+      break;
+    }
   }
 
-  const startTime = endTime - windowDuration;
+  if (startIndex === -1) {
+    // Không có dữ liệu tương lai -> dùng sample cuối cùng
+    return {
+      x: metadata[metadata.length - 1].x,
+      y: metadata[metadata.length - 1].y,
+    };
+  }
+
+  const endTime = currentTime + windowDuration;
+
   let totalX = 0;
   let totalY = 0;
   let count = 0;
 
-  // Loop backwards from the current position to find points within the smoothing window.
-  for (let i = startIndex; i >= 0; i--) {
+  for (let i = startIndex; i < metadata.length; i++) {
     const point = metadata[i];
-    if (point.timestamp < startTime) {
-      break; // Đã ra khỏi khoảng thời gian
-    }
+    if (point.timestamp > endTime) break;
     totalX += point.x;
     totalY += point.y;
     count++;
   }
 
-  if (count === 0) {
-    // If no points are within the smoothing window, return the last point.
-    const lastPoint = metadata[startIndex];
-    return { x: lastPoint.x, y: lastPoint.y };
+  if (count > 0) {
+    return {
+      x: totalX / count,
+      y: totalY / count,
+    };
   }
 
-  return { x: totalX / count, y: totalY / count };
-};
+  // Nếu không có sample nào trong window -> fallback mẫu đầu tiên sau currentTime
+  return { x: metadata[startIndex].x, y: metadata[startIndex].y };
+}
 
 
 /**
@@ -84,27 +105,18 @@ function getTransformOrigin(targetX: number, targetY: number, zoomLevel: number)
   // Safe boundary, transform-origin will be "stuck" to the edge when exceeded
   const boundary = 0.5 * (1 - 1 / zoomLevel);
 
-  // Calculate the origin for the X axis
-  // If the target is beyond the boundary, it will be stuck to the right edge
-  // If the target is beyond the boundary, it will be stuck to the left edge
-  // Otherwise, it will move freely in the middle
   let originX: number;
-  if (targetX > boundary) originX = 1; // Stuck to the right edge
-  else if (targetX < -boundary) originX = 0; // Stuck to the left edge
-  else originX = 0.5 + targetX; // Move freely in the middle
+  if (targetX > boundary) originX = 1;
+  else if (targetX < -boundary) originX = 0;
+  else originX = 0.5 + targetX;
 
-  // Calculate the origin for the Y axis
-  // If the target is beyond the boundary, it will be stuck to the bottom edge
-  // If the target is beyond the boundary, it will be stuck to the top edge
-  // Otherwise, it will move freely in the middle
   let originY: number;
-  if (targetY > boundary) originY = 1; // Stuck to the bottom edge
-  else if (targetY < -boundary) originY = 0; // Stuck to the top edge
-  else originY = 0.5 + targetY; // Move freely in the middle
+  if (targetY > boundary) originY = 1;
+  else if (targetY < -boundary) originY = 0;
+  else originY = 0.5 + targetY;
 
   return { x: originX, y: originY };
 }
-
 
 export const calculateZoomTransform = (
   currentTime: number,
@@ -150,33 +162,32 @@ export const calculateZoomTransform = (
     currentScale = zoomLevel;
 
     if (mode === 'auto' && metadata.length > 0 && originalVideoDimensions.width > 0) {
-      // Time window to average mouse position, helps with smoother panning
-      const PAN_SMOOTHING_WINDOW = 0.25; // 250ms
-
-      // Get smoothed mouse position
+      const PAN_SMOOTHING_WINDOW = 0.25;
       const smoothedMousePos = getSmoothedMousePosition(metadata, currentTime, PAN_SMOOTHING_WINDOW);
 
       if (smoothedMousePos) {
-        // Normalize mouse position to [0, 1]
-        const normalizedX = smoothedMousePos.x / originalVideoDimensions.width;
-        const normalizedY = smoothedMousePos.y / originalVideoDimensions.height;
+        // // Mouse position in original video coordinates (pixels)
+        // const mouseX = smoothedMousePos.x;
+        // const mouseY = smoothedMousePos.y;
 
-        // The visible ratio of the video when zoomed in (e.g., zoom 2x then only see 1/2 = 0.5)
-        const visibleRatio = 1 / zoomLevel;
-        
-        // Calculate the maximum pan that can be performed without going outside the frame
-        const maxPanX = frameContentDimensions.width * (1 - visibleRatio) / 2;
-        const maxPanY = frameContentDimensions.height * (1 - visibleRatio) / 2;
+        // // Normalize mouse position to [0, 1] in original video space
+        // const normalizedX = Math.max(0, Math.min(1, mouseX / originalVideoDimensions.width));
+        // const normalizedY = Math.max(0, Math.min(1, mouseY / originalVideoDimensions.height));
 
-        // Map the normalized mouse position to the pan range
-        // When mouse is at the left edge (0), video pans to the right (maxPanX)
-        // When mouse is at the right edge (1), video pans to the left (-maxPanX)
-        const targetTranslateX = map(normalizedX, 0, 1, maxPanX, -maxPanX);
-        const targetTranslateY = map(normalizedY, 0, 1, maxPanY, -maxPanY);
+        // const maxPanXLeft = frameContentDimensions.width * fixedOrigin.x * (1 - 1 / zoomLevel) / 2;
+        // const maxPanXRight = frameContentDimensions.width * (1 - fixedOrigin.x) * (1 - 1 / zoomLevel) / 2;
+        // const maxPanYTop = frameContentDimensions.height * fixedOrigin.y * (1 - 1 / zoomLevel) / 2;
+        // const maxPanYBottom = frameContentDimensions.height * (1 - fixedOrigin.y) * (1 - 1 / zoomLevel) / 2;
 
-        // Divide by zoom level because translation is applied in the scaled space
-        currentTranslateX = targetTranslateX / zoomLevel;
-        currentTranslateY = targetTranslateY / zoomLevel;
+        // const clampedX = Math.max(0, Math.min(1, normalizedX));
+        // const clampedY = Math.max(0, Math.min(1, normalizedY));
+        // console.log(`mouseX: ${mouseX}, mouseY: ${mouseY} | normalizedX: ${normalizedX}, normalizedY: ${normalizedY} | clampedX: ${clampedX}, clampedY: ${clampedY}`)
+        // console.log(`maxPanXLeft: ${maxPanXLeft}, maxPanXRight: ${maxPanXRight}, maxPanYTop: ${maxPanYTop}, maxPanYBottom: ${maxPanYBottom}`)
+        // const targetTranslateX = map(clampedX, 0, 1, -maxPanXRight, maxPanXLeft);
+        // const targetTranslateY = map(clampedY, 0, 1, -maxPanYBottom, maxPanYTop);
+
+        // currentTranslateX = targetTranslateX / zoomLevel;
+        // currentTranslateY = targetTranslateY / zoomLevel;
       }
     }
   }
@@ -187,26 +198,6 @@ export const calculateZoomTransform = (
       (currentTime - zoomOutStartTime) / transitionDuration
     );
     currentScale = lerp(zoomLevel, 1, t);
-    
-    // Keep the final pan position of the frame before zoom-out to avoid jitters
-    if (mode === 'auto' && metadata.length > 0 && originalVideoDimensions.width > 0) {
-        const PAN_SMOOTHING_WINDOW = 0.25;
-        const smoothedMousePos = getSmoothedMousePosition(metadata, zoomOutStartTime, PAN_SMOOTHING_WINDOW);
-        if (smoothedMousePos) {
-            const normalizedX = smoothedMousePos.x / originalVideoDimensions.width;
-            const normalizedY = smoothedMousePos.y / originalVideoDimensions.height;
-            const visibleRatio = 1 / zoomLevel;
-            const maxPanX = frameContentDimensions.width * (1 - visibleRatio) / 2;
-            const maxPanY = frameContentDimensions.height * (1 - visibleRatio) / 2;
-
-            const lastPanX = map(normalizedX, 0, 1, maxPanX, -maxPanX);
-            const lastPanY = map(normalizedY, 0, 1, maxPanY, -maxPanY);
-
-            // Interpolate from the final pan position to 0 when zooming out
-            currentTranslateX = lerp(lastPanX / zoomLevel, 0, t);
-            currentTranslateY = lerp(lastPanY / zoomLevel, 0, t);
-        }
-    }
   }
 
   return { scale: currentScale, translateX: currentTranslateX, translateY: currentTranslateY, transformOrigin };

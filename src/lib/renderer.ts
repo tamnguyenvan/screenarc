@@ -178,7 +178,7 @@ export const drawScene = async (
     ctx.shadowOffsetY = shadowOffsetY;
     const shadowPath = new Path2D();
     shadowPath.roundRect(0, 0, frameContentWidth, frameContentHeight, borderRadius);
-    ctx.fillStyle = 'rgba(0,0,0,1)'; // Color doesn't matter, only needed to cast shadow
+    ctx.fillStyle = 'rgba(0,0,0,1)';
     ctx.fill(shadowPath);
     ctx.restore();
   }
@@ -193,12 +193,12 @@ export const drawScene = async (
   // Draw border on top of the video content
   if (borderWidth > 0) {
       ctx.strokeStyle = borderColor;
-      ctx.lineWidth = borderWidth * 2; // Stroke is centered, so double the width to get full width inside
+      ctx.lineWidth = borderWidth * 2;
       ctx.stroke(path);
   }
   ctx.restore();
 
-  ctx.restore(); // Restore from main zoom/pan transforms
+  ctx.restore();
 
   // --- 4. Draw Webcam with same technique ---
   const { webcamPosition, webcamStyles, isWebcamVisible } = state;
@@ -211,7 +211,7 @@ export const drawScene = async (
       webcamHeight = webcamWidth * (9 / 16);
     } else {
       webcamWidth = baseSize * (webcamStyles.size / 100);
-      webcamHeight = webcamWidth; // Square or Circle
+      webcamHeight = webcamWidth;
     }
 
     const maxRadius = Math.min(webcamWidth, webcamHeight) / 2;
@@ -219,7 +219,6 @@ export const drawScene = async (
     if (webcamStyles.shape === 'circle') {
       webcamRadius = maxRadius;
     } else {
-      // borderRadius is 0-50, treat it as a percentage of the max possible radius (half the shortest side)
       webcamRadius = maxRadius * (webcamStyles.borderRadius / 50);
     }
     
@@ -255,7 +254,7 @@ export const drawScene = async (
         webcamX = (outputWidth - webcamWidth) / 2;
         webcamY = outputHeight - webcamHeight - webcamEdgePadding;
         break;
-      default: // bottom-right
+      default:
         webcamX = outputWidth - webcamWidth - webcamEdgePadding;
         webcamY = outputHeight - webcamHeight - webcamEdgePadding;
         break;
@@ -288,10 +287,10 @@ export const drawScene = async (
 
     let sx = 0, sy = 0, sWidth = webcamVideo.videoWidth, sHeight = webcamVideo.videoHeight;
 
-    if (webcamAR > targetAR) { // Webcam is wider than target area -> crop sides
+    if (webcamAR > targetAR) {
         sWidth = webcamVideo.videoHeight * targetAR;
         sx = (webcamVideo.videoWidth - sWidth) / 2;
-    } else { // Webcam is taller or same AR as target area -> crop top/bottom
+    } else {
         sHeight = webcamVideo.videoWidth / targetAR;
         sy = (webcamVideo.videoHeight - sHeight) / 2;
     }

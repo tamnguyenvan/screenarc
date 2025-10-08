@@ -66,6 +66,20 @@ Download the latest version for your operating system from the [**Releases Page*
     ```bash
     ./ScreenArc-*.AppImage
     ```
+## 💡 Tips
+
+- **Prefer the macOS cursor style?** If you'd like to use the macOS cursor theme, you can install it with these commands:
+  ```bash
+  # 1. Download the macOS cursor theme: https://www.gnome-look.org/p/1408466
+
+  # 2. Extract the theme
+  tar -xvf macOS.tar 
+
+  # 3. Move the theme to the icons directory
+  mv macOS* ~/.icons/
+  ```
+  Then apply it through your system settings or using GNOME Tweaks.
+
 ### Other Linux distributions
 Please check the [Development Setup](#development-setup) section for building from source.
 
