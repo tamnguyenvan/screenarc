@@ -6,7 +6,7 @@ import { EventEmitter } from 'node:events';
 import { dialog } from 'electron';
 import { createRequire } from 'node:module';
 import { MOUSE_RECORDING_FPS } from '../lib/constants';
-import { MOUSE_BUTTONS } from '../lib/system-constants';
+import { MOUSE_BUTTONS, MACOS_API } from '../lib/system-constants';
 
 const require = createRequire(import.meta.url);
 
@@ -14,6 +14,7 @@ const require = createRequire(import.meta.url);
 // --- Dynamic Imports for Platform-Specific Modules ---
 let X11Module: any;
 let mouseEvents: any;
+let ApplicationServices: any;
 
 export function initializeMouseTrackerDependencies() {
   if (process.platform === 'linux') {
@@ -33,6 +34,19 @@ export function initializeMouseTrackerDependencies() {
       log.error('[MouseTracker] Failed to load global-mouse-events. Mouse tracking on Windows will be disabled.', e);
     }
   }
+
+  if (process.platform === 'darwin') {
+    try {
+      ApplicationServices = require('ffi-rs');
+      ApplicationServices.open({
+        library: "ApplicationServices",
+        path: "/System/Library/Frameworks/ApplicationServices.framework/ApplicationServices",
+      });
+      log.info('[MouseTracker] Successfully loaded ApplicationServices for macOS.');
+    } catch (e) {
+      log.error('[MouseTracker] Failed to load ApplicationServices. Mouse tracking on macOS will be disabled.', e);
+    }
+  }
 }
 
 
@@ -41,6 +55,7 @@ export interface IMouseTracker extends EventEmitter {
   start(): void;
   stop(): void;
 }
+
 class LinuxMouseTracker extends EventEmitter implements IMouseTracker {
   private intervalId: NodeJS.Timeout | null = null;
   private X: any | null = null;
@@ -131,6 +146,81 @@ class WindowsMouseTracker extends EventEmitter implements IMouseTracker {
   };
 }
 
+class MacosMouseTracker extends EventEmitter implements IMouseTracker {
+  private intervalId: NodeJS.Timeout | null = null;
+  private lastButtonState = { left: false, right: false, middle: false };
+
+  async start() {
+    if (!ApplicationServices) {
+      log.error("[MouseTracker-macOS] Cannot start, ApplicationServices module not loaded.");
+      return;
+    }
+    this.intervalId = setInterval(this.pollMouseState, 1000 / MOUSE_RECORDING_FPS);
+    log.info('[MouseTracker-macOS] Started.');
+  }
+
+  stop() {
+    if (this.intervalId) {
+      clearInterval(this.intervalId);
+      this.intervalId = null;
+    }
+    log.info('[MouseTracker-macOS] Stopped.');
+  }
+
+  private pollMouseState = async () => {
+    try {
+      const event = await ApplicationServices.load({
+        library: "ApplicationServices",
+        funcName: "CGEventCreate",
+        retType: ApplicationServices.DataType.External,
+        paramsType: [ApplicationServices.DataType.External],
+        paramsValue: [null],
+      });
+
+      const location = await ApplicationServices.load({
+        library: "ApplicationServices",
+        funcName: "CGEventGetLocation",
+        retType: ApplicationServices.DataType.DoubleArray,
+        paramsType: [ApplicationServices.DataType.External],
+        paramsValue: [event],
+      });
+
+      if (!Array.isArray(location) || location.length < 2) return;
+      
+      const pos = { x: location[0], y: location[1] };
+      const timestamp = Date.now();
+      this.emit('data', { timestamp, ...pos, type: 'move' });
+
+      // Check button states
+      const leftPressed = await this.isButtonPressed(MOUSE_BUTTONS.MACOS.LEFT);
+      const rightPressed = await this.isButtonPressed(MOUSE_BUTTONS.MACOS.RIGHT);
+
+      if (leftPressed !== this.lastButtonState.left) {
+        this.emit('data', { timestamp, ...pos, type: 'click', button: 'left', pressed: leftPressed });
+        this.lastButtonState.left = leftPressed;
+      }
+      if (rightPressed !== this.lastButtonState.right) {
+        this.emit('data', { timestamp, ...pos, type: 'click', button: 'right', pressed: rightPressed });
+        this.lastButtonState.right = rightPressed;
+      }
+
+    } catch (error) {
+      log.error('[MouseTracker-macOS] Error polling mouse state:', error);
+      this.stop();
+    }
+  };
+
+  private isButtonPressed = (button: number): Promise<boolean> => {
+    return ApplicationServices.load({
+      library: "ApplicationServices",
+      funcName: "CGEventSourceButtonState",
+      retType: ApplicationServices.DataType.Boolean,
+      paramsType: [ApplicationServices.DataType.I32, ApplicationServices.DataType.I32],
+      paramsValue: [MACOS_API.kCGEventSourceStateHIDSystemState, button],
+    });
+  };
+}
+
 // --- Factory Function ---
 export function createMouseTracker(): IMouseTracker | null {
   switch (process.platform) {
@@ -146,6 +236,13 @@ export function createMouseTracker(): IMouseTracker | null {
         return null;
       }
       return new WindowsMouseTracker();
+    
+    case 'darwin':
+      if (!ApplicationServices) {
+        dialog.showErrorBox('Dependency Missing', 'Could not load the required module for mouse tracking on macOS.');
+        return null;
+      }
+      return new MacosMouseTracker();
     default:
       log.warn(`Mouse tracking not supported on platform: ${process.platform}`);
       return null;

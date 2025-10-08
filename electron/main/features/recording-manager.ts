@@ -51,8 +51,20 @@ async function validateRecordingFiles(session: RecordingSession): Promise<boolea
   return true;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function startActualRecording(inputArgs: string[], hasWebcam: boolean, hasMic: boolean, recordingGeometry: any) {
+interface RecordingGeometry {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+async function startActualRecording(
+  inputArgs: string[],
+  hasWebcam: boolean,
+  hasMic: boolean,
+  recordingGeometry: RecordingGeometry,
+  scaleFactor: number
+) {
   const recordingDir = path.join(process.env.HOME || process.env.USERPROFILE || '.', '.screenarc');
   await ensureDirectoryExists(recordingDir);
   const baseName = `ScreenArc-recording-${Date.now()}`;
@@ -85,13 +97,18 @@ async function startActualRecording(inputArgs: string[], hasWebcam: boolean, has
   if (appState.mouseTracker) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     appState.mouseTracker.on('data', (data: any) => {
-      // Make mouse coordinates relative to the recorded screen
-      // This is the critical fix. We subtract the top-left corner of the recorded
-      // display from the global mouse coordinates.
+      // --- IMPORTANT DISPLAY FIX ---
+      // Native APIs (macOS, Windows) return physical coordinates. Electron and FFmpeg
+      // work with logical coordinates. We must divide by scaleFactor.
+      const scaledX = data.x / scaleFactor;
+      const scaledY = data.y / scaleFactor;
+      
+      // 2. Make coordinates relative to the recording screen.
+      // Subtract the top-left corner of the recording screen (in logical coordinates).
       const relativeEvent = {
         ...data,
-        x: data.x - recordingGeometry.x,
-        y: data.y - recordingGeometry.y,
+        x: scaledX - recordingGeometry.x,
+        y: scaledY - recordingGeometry.y,
         timestamp: data.timestamp - appState.recordingStartTime,
       };
 
@@ -178,11 +195,11 @@ function createTray() {
 export async function startRecording(options: any) { // Type from preload.ts
   const { source, displayId, mic, webcam } = options;
   log.info('[RecordingManager] Received start recording request with options:', options);
+
   const display = process.env.DISPLAY || ':0.0';
   const baseFfmpegArgs: string[] = [];
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let recordingGeometry: any;
-
+  let recordingGeometry: RecordingGeometry;
+  let scaleFactor = 1; // THÊM MỚI: Khởi tạo scaleFactor
 
   if (mic) {
     switch (process.platform) {
@@ -202,6 +219,7 @@ export async function startRecording(options: any) { // Type from preload.ts
   if (source === 'fullscreen') {
     const allDisplays = screen.getAllDisplays();
     const targetDisplay = allDisplays.find(d => d.id === displayId) || screen.getPrimaryDisplay();
+    scaleFactor = targetDisplay.scaleFactor;
     const { x, y, width, height } = targetDisplay.bounds;
     const safeWidth = Math.floor(width / 2) * 2;
     const safeHeight = Math.floor(height / 2) * 2;
@@ -221,6 +239,8 @@ export async function startRecording(options: any) { // Type from preload.ts
     });
     if (!selectedGeometry) return { canceled: true };
 
+    scaleFactor = screen.getPrimaryDisplay().scaleFactor;
+
     // Ensure width and height are even numbers for FFmpeg compatibility
     const safeWidth = Math.floor(selectedGeometry.width / 2) * 2;
     const safeHeight = Math.floor(selectedGeometry.height / 2) * 2;
@@ -232,7 +252,9 @@ export async function startRecording(options: any) { // Type from preload.ts
   }
 
   appState.originalCursorScale = await getCursorScale();
-  return startActualRecording(baseFfmpegArgs, !!webcam, !!mic, recordingGeometry);
+  
+  log.info('[RecordingManager] Starting actual recording with args:', baseFfmpegArgs, 'scaleFactor:', scaleFactor);
+  return startActualRecording(baseFfmpegArgs, !!webcam, !!mic, recordingGeometry, scaleFactor);
 }
 
 export async function stopRecording() {

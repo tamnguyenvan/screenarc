@@ -20,4 +20,13 @@ export const MOUSE_BUTTONS = {
     MIDDLE: 512,
     RIGHT: 1024,
   },
+  MACOS: {
+    LEFT: 0,
+    RIGHT: 1,
+    MIDDLE: 2,
+  },
+};
+
+export const MACOS_API = {
+  kCGEventSourceStateHIDSystemState: 1,
 };

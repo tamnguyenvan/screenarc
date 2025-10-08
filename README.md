@@ -196,6 +196,18 @@ Contributions are welcome! If you have ideas for new features, bug fixes, or imp
     
     # Download FFmpeg static binary
     Invoke-WebRequest -Uri "https://github.com/tamnguyenvan/screenarc-assets/releases/download/v0.0.1/ffmpeg.exe" -OutFile "binaries\windows\ffmpeg.exe"
+
+    **For macOS**:
+    ```bash
+    # Create binaries directory if it doesn't exist
+    mkdir -p binaries/darwin
+    
+    # Download FFmpeg static binary
+    wget https://github.com/tamnguyenvan/screenarc-assets/releases/download/v0.0.1/ffmpeg -O binaries/darwin/ffmpeg
+    
+    # Make FFmpeg executable
+    chmod +x binaries/darwin/ffmpeg
+    ```
     ```
 
 4. **Run the development server**:

@@ -7,7 +7,7 @@ import fs from 'node:fs/promises';
 import { ResolutionKey, RESOLUTIONS } from './constants';
 
 export function getFFmpegPath(): string {
-  const platform = process.platform === 'win32' ? 'windows' : 'linux';
+  const platform = process.platform === 'win32' ? 'windows' : process.platform === 'darwin' ? 'darwin' : 'linux';
   const executableName = platform === 'windows' ? 'ffmpeg.exe' : 'ffmpeg';
 
   if (app.isPackaged) {
