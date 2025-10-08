@@ -329,9 +329,9 @@ export function RecorderPage() {
                   <SelectValue asChild>
                     <div className="flex items-center gap-1.5 text-xs min-w-0">
                       {selectedWebcamId !== 'none' ? (
-                        <Webcam size={16} className="text-primary flex-shrink-0" />
+                        <Webcam size={14} className="text-primary flex-shrink-0" />
                       ) : (
-                        <WebcamOffIcon width={16} height={16} className="text-muted-foreground/60 flex-shrink-0" />
+                        <WebcamOffIcon size={14} className="text-muted-foreground/60" />
                       )}
                       {selectedWebcamId !== 'none' ? (
                         <span className="truncate leading-none">
