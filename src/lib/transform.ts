@@ -46,56 +46,6 @@ const findLastMetadataIndex = (metadata: MetaDataItem[], currentTime: number): n
   return result;
 };
 
-function getSmoothedMousePosition(
-  metadata: MetaDataItem[],
-  currentTime: number,
-  windowDuration: number
-): { x: number; y: number } | null {
-  if (!metadata || metadata.length === 0) return null;
-
-  // Tìm vị trí bắt đầu (mẫu đầu tiên >= currentTime)
-  let startIndex = -1;
-  for (let i = 0; i < metadata.length; i++) {
-    if (metadata[i].timestamp >= currentTime) {
-      startIndex = i;
-      break;
-    }
-  }
-
-  if (startIndex === -1) {
-    // Không có dữ liệu tương lai -> dùng sample cuối cùng
-    return {
-      x: metadata[metadata.length - 1].x,
-      y: metadata[metadata.length - 1].y,
-    };
-  }
-
-  const endTime = currentTime + windowDuration;
-
-  let totalX = 0;
-  let totalY = 0;
-  let count = 0;
-
-  for (let i = startIndex; i < metadata.length; i++) {
-    const point = metadata[i];
-    if (point.timestamp > endTime) break;
-    totalX += point.x;
-    totalY += point.y;
-    count++;
-  }
-
-  if (count > 0) {
-    return {
-      x: totalX / count,
-      y: totalY / count,
-    };
-  }
-
-  // Nếu không có sample nào trong window -> fallback mẫu đầu tiên sau currentTime
-  return { x: metadata[startIndex].x, y: metadata[startIndex].y };
-}
-
-
 /**
  * Calculates the transform-origin based on a normalized target point [-0.5, 0.5].
  * Implements edge snapping to prevent zooming outside the video frame.
@@ -162,32 +112,134 @@ export const calculateZoomTransform = (
     currentScale = zoomLevel;
 
     if (mode === 'auto' && metadata.length > 0 && originalVideoDimensions.width > 0) {
-      const PAN_SMOOTHING_WINDOW = 0.25;
-      const smoothedMousePos = getSmoothedMousePosition(metadata, currentTime, PAN_SMOOTHING_WINDOW);
+      // -------------------------------
+      // Stateless PAN implementation
+      // - Start of pan (t == zoomInEndTime) => translate = 0
+      // - For t > zoomInEndTime => compute EMA-like smoothing
+      //   using only metadata timestamps >= zoomInEndTime up to currentTime
+      // - Uses exponential kernel that matches iterative easing:
+      //     y[n] = y[n-1] + alpha*(x[n] - y[n-1])
+      //   Equivalent closed-form (weighted sum) is applied here so function is stateless.
+      // -------------------------------
 
-      if (smoothedMousePos) {
-        // // Mouse position in original video coordinates (pixels)
-        // const mouseX = smoothedMousePos.x;
-        // const mouseY = smoothedMousePos.y;
+      // Parameters: can be overridden in zoomRegion (optional)
+      const panEase = (activeRegion as any).panEase ?? 0.08; // default = demo's 0.08
+      const frameDt = 1 / 60; // assume 60 FPS for discrete alpha -> continuous mapping
+      const weightBase = Math.max(0, 1 - panEase); // base for exponential weights
+      const panWindowSec = (activeRegion as any).panWindowSec ?? 3.0; // how far back to consider (safety)
 
-        // // Normalize mouse position to [0, 1] in original video space
-        // const normalizedX = Math.max(0, Math.min(1, mouseX / originalVideoDimensions.width));
-        // const normalizedY = Math.max(0, Math.min(1, mouseY / originalVideoDimensions.height));
+      const panStart = zoomInEndTime;
+      const elapsedPan = currentTime - panStart;
 
-        // const maxPanXLeft = frameContentDimensions.width * fixedOrigin.x * (1 - 1 / zoomLevel) / 2;
-        // const maxPanXRight = frameContentDimensions.width * (1 - fixedOrigin.x) * (1 - 1 / zoomLevel) / 2;
-        // const maxPanYTop = frameContentDimensions.height * fixedOrigin.y * (1 - 1 / zoomLevel) / 2;
-        // const maxPanYBottom = frameContentDimensions.height * (1 - fixedOrigin.y) * (1 - 1 / zoomLevel) / 2;
+      // If we are exactly at panStart (no time elapsed), initial state must be scaled but not panned.
+      if (elapsedPan <= 0) {
+        currentTranslateX = 0;
+        currentTranslateY = 0;
+      } else {
+        // Helper: build list of metadata samples to consider (timestamps in [panStart, currentTime])
+        // Also include an interpolated sample exactly at currentTime (if possible)
+        const samples: MetaDataItem[] = [];
 
-        // const clampedX = Math.max(0, Math.min(1, normalizedX));
-        // const clampedY = Math.max(0, Math.min(1, normalizedY));
-        // console.log(`mouseX: ${mouseX}, mouseY: ${mouseY} | normalizedX: ${normalizedX}, normalizedY: ${normalizedY} | clampedX: ${clampedX}, clampedY: ${clampedY}`)
-        // console.log(`maxPanXLeft: ${maxPanXLeft}, maxPanXRight: ${maxPanXRight}, maxPanYTop: ${maxPanYTop}, maxPanYBottom: ${maxPanYBottom}`)
-        // const targetTranslateX = map(clampedX, 0, 1, -maxPanXRight, maxPanXLeft);
-        // const targetTranslateY = map(clampedY, 0, 1, -maxPanYBottom, maxPanYTop);
+        // gather samples in window
+        const windowStart = Math.max(panStart, currentTime - panWindowSec);
+        for (let i = 0; i < metadata.length; i++) {
+          const m = metadata[i];
+          if (m.timestamp >= windowStart && m.timestamp <= currentTime) samples.push(m);
+        }
 
-        // currentTranslateX = targetTranslateX / zoomLevel;
-        // currentTranslateY = targetTranslateY / zoomLevel;
+        // ensure we include an interpolated sample at currentTime (important for responsiveness)
+        const lastIdx = findLastMetadataIndex(metadata, currentTime);
+        if (lastIdx >= 0) {
+          const a = metadata[lastIdx];
+          const b = metadata[lastIdx + 1];
+          if (b && b.timestamp > a.timestamp) {
+            const alpha = clamp((currentTime - a.timestamp) / (b.timestamp - a.timestamp), 0, 1);
+            const interp: MetaDataItem = {
+              ...a,
+              timestamp: currentTime,
+              x: lerp(a.x, b.x, alpha),
+              y: lerp(a.y, b.y, alpha),
+            } as MetaDataItem;
+            samples.push(interp);
+          } else if (!samples.some(s => s.timestamp === a.timestamp)) {
+            // if last sample is exactly at currentTime or earlier but not included, add it
+            if (a.timestamp >= windowStart) samples.push(a);
+          }
+        }
+
+        if (samples.length === 0) {
+          // no new tracking information since panStart -> stay at origin
+          currentTranslateX = 0;
+          currentTranslateY = 0;
+        } else {
+          // precompute some frequently used values
+          const W = frameContentDimensions.width;
+          const H = frameContentDimensions.height;
+          const originPxX_local = fixedOrigin.x * W;
+          const originPxY_local = fixedOrigin.y * H;
+          const centerX = W / 2;
+          const centerY = H / 2;
+
+          // clamp window and compute weighted average of instantaneous targets
+          let sumWx = 0, sumW = 0;
+          let sumWy = 0;
+
+          for (let i = 0; i < samples.length; i++) {
+            const s = samples[i];
+            // ignore samples earlier than panStart (shouldn't happen given selection), but guard:
+            if (s.timestamp < panStart) continue;
+
+            // compute normalized coordinates from metadata (supports pixels or normalized)
+            let nx = (s as any).x ?? 0;
+            let ny = (s as any).y ?? 0;
+            if (nx > 1 || ny > 1) {
+              // assume pixel coords
+              nx = nx / originalVideoDimensions.width;
+              ny = ny / originalVideoDimensions.height;
+            }
+            nx = clamp(nx, 0, 1);
+            ny = clamp(ny, 0, 1);
+
+            // map to content-local pixel coordinates
+            const pX = nx * W;
+            const pY = ny * H;
+
+            // instantaneous target translate (content-space) that would bring p to center
+            // formula: t = (center - o)/s - (p - o)
+            const tgtTX = (centerX - originPxX_local) / zoomLevel - (pX - originPxX_local);
+            const tgtTY = (centerY - originPxY_local) / zoomLevel - (pY - originPxY_local);
+
+            // weight by exponential kernel anchored at currentTime
+            const ageSec = Math.max(0, currentTime - s.timestamp);
+            const exponent = ageSec / frameDt;
+            // weightBase ^ exponent approximates (1 - alpha)^{n} where n = ageFrames
+            const w = Math.pow(weightBase, exponent);
+
+            sumWx += tgtTX * w;
+            sumWy += tgtTY * w;
+            sumW += w;
+          }
+
+          let smoothedTX = 0, smoothedTY = 0;
+          if (sumW > 0) {
+            smoothedTX = sumWx / sumW;
+            smoothedTY = sumWy / sumW;
+          } else {
+            smoothedTX = 0;
+            smoothedTY = 0;
+          }
+
+          // Compute pan clamp bounds so video never exposes background
+          // panFactor = 1 - 1/scale  (scale = zoomLevel)
+          const panFactor = 1 - 1 / zoomLevel;
+          const minTX = panFactor * (originPxX_local - W);
+          const maxTX = panFactor * originPxX_local;
+          const minTY = panFactor * (originPxY_local - H);
+          const maxTY = panFactor * originPxY_local;
+
+          currentTranslateX = clamp(smoothedTX, minTX, maxTX);
+          currentTranslateY = clamp(smoothedTY, minTY, maxTY);
+        }
       }
     }
   }
