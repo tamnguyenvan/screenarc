@@ -26,6 +26,10 @@ export function easeInOutQuint(t: number): number {
   }
 }
 
+export function easeOutQuint(t: number): number {
+  return 1 - Math.pow(1 - t, 5);
+}
+
 const easeOutElastic = (x: number): number => {
   const c4 = (2 * Math.PI) / 3;
 
@@ -68,6 +72,7 @@ export const EASING_MAP = {
   'easeInOutQuad': easeInOutQuad,
   'easeInOutQuart': easeInOutQuart,
   'easeInOutQuint': easeInOutQuint,
+  'easeOutQuint': easeOutQuint,
   'easeOutElastic': easeOutElastic,
   'easeInOutCubicBezier': easeInOutCubicBezier,
 };

@@ -38,6 +38,16 @@ export const TIMELINE = {
   REGION_DELETE_THRESHOLD: 0.05, // 50ms - Regions smaller than this on mouse up are deleted.
 };
 
+// Visual Effects constants
+export const EFFECTS = {
+  CLICK_ANIMATION: {
+    DURATION: 0.4, // seconds
+    MAX_RADIUS: 30, // pixels
+    EASING: 'easeOutQuint',
+    COLOR: 'rgba(255, 255, 255, 0.8)',
+  },
+};
+
 // Zoom and Pan specific constants
 export const ZOOM = {
   DEFAULT_SPEED: 'Mellow',

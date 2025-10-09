@@ -1,6 +1,8 @@
 import { EditorState } from '../types/store';
 import { calculateZoomTransform } from './transform';
 import { findLastMetadataIndex } from './transform';
+import { EFFECTS } from './constants';
+import { EASING_MAP } from './easing';
 
 type RenderableState = Pick<
   EditorState,
@@ -201,7 +203,42 @@ export const drawScene = async (
   }
   ctx.restore();
 
-  // --- 4. Draw Cursor ---
+  // --- 4. Draw Click Animations ---
+  const { DURATION, MAX_RADIUS, EASING, COLOR } = EFFECTS.CLICK_ANIMATION;
+  const clickAnimationEasing = EASING_MAP[EASING as keyof typeof EASING_MAP] || ((t: number) => t);
+
+  if (state.recordingGeometry) {
+    const recentClicks = state.metadata.filter(event =>
+      event.type === 'click' &&
+      event.pressed &&
+      currentTime >= event.timestamp &&
+      currentTime < event.timestamp + DURATION
+    );
+
+    for (const click of recentClicks) {
+      const progress = (currentTime - click.timestamp) / DURATION;
+      const easedProgress = clickAnimationEasing(progress);
+
+      const currentRadius = easedProgress * MAX_RADIUS;
+      const currentOpacity = 1 - easedProgress;
+
+      // Scale cursor position from original recording geometry to the current frame's content size
+      const cursorX = (click.x / state.recordingGeometry.width) * frameContentWidth;
+      const cursorY = (click.y / state.recordingGeometry.height) * frameContentHeight;
+      
+      const colorMatch = COLOR.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/);
+      if (colorMatch) {
+        const [r, g, b, baseAlpha] = [colorMatch[1], colorMatch[2], colorMatch[3], parseFloat(colorMatch[4] || '1')];
+        ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${baseAlpha * currentOpacity})`;
+      }
+
+      ctx.beginPath();
+      ctx.arc(cursorX, cursorY, currentRadius, 0, 2 * Math.PI);
+      ctx.fill();
+    }
+  }
+
+  // --- 5. Draw Cursor ---
   const lastEventIndex = findLastMetadataIndex(state.metadata, currentTime);
   if (lastEventIndex > -1 && state.recordingGeometry) {
     const event = state.metadata[lastEventIndex];
@@ -220,7 +257,7 @@ export const drawScene = async (
 
   ctx.restore(); // Restore from video's transform
 
-  // --- 5. Draw Webcam with same technique ---
+  // --- 6. Draw Webcam with same technique ---
   const { webcamPosition, webcamStyles, isWebcamVisible } = state;
   if (isWebcamVisible && webcamVideoElement && webcamVideoElement.videoWidth > 0) {
     const baseSize = Math.min(outputWidth, outputHeight);
