@@ -67,6 +67,16 @@ export interface MetaDataItem {
   type: 'click' | 'move' | 'scroll';
   button?: string;
   pressed?: boolean;
+  cursorImageKey: string;
+}
+
+export interface CursorImage {
+  width: number;
+  height: number;
+  xhot: number;
+  yhot: number;
+  image: number[]; // CHANGE: Was string, now an array of RGBA bytes.
+  imageData?: ImageData; // Processed ImageData for renderer
 }
 
 export interface WebcamPosition {
@@ -114,6 +124,7 @@ export interface EditorState {
   activePresetId: string | null;
   presetSaveStatus: 'idle' | 'saving' | 'saved';
   isPreviewFullScreen: boolean;
+  cursorImages: Record<string, CursorImage>;
 
   // webcam
   webcamVideoPath: string | null;

@@ -28,7 +28,7 @@ function clamp(value: number, min: number, max: number): number {
  * Finds the index of the last metadata item with a timestamp less than or equal to the given time.
  * Uses binary search for performance optimization.
  */
-const findLastMetadataIndex = (metadata: MetaDataItem[], currentTime: number): number => {
+export const findLastMetadataIndex = (metadata: MetaDataItem[], currentTime: number): number => {
   if (metadata.length === 0) return -1;
   let left = 0;
   let right = metadata.length - 1;

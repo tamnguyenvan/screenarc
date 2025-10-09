@@ -1,8 +1,8 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 // Manages global application state in a centralized way.
 
 import { BrowserWindow, Tray } from 'electron';
 import { ChildProcessWithoutNullStreams } from 'node:child_process'
-import type { WriteStream } from 'node:fs';
 import type { IMouseTracker } from './features/mouse-tracker';
 
 export interface RecordingSession {
@@ -24,11 +24,13 @@ interface AppState {
 
   // Processes & Streams
   ffmpegProcess: ChildProcessWithoutNullStreams | null;
-  metadataStream: WriteStream | null;
   mouseTracker: IMouseTracker | null;
+  
+  // In-memory recording data
+  recordedMouseEvents: any[];
+  runtimeCursorImageMap: Map<string, any>;
 
   // Recording State
-  firstChunkWritten: boolean;
   recordingStartTime: number;
   originalCursorScale: number | null;
   currentRecordingSession: RecordingSession | null;
@@ -46,9 +48,9 @@ export const appState: AppState = {
   selectionWin: null,
   tray: null,
   ffmpegProcess: null,
-  metadataStream: null,
   mouseTracker: null,
-  firstChunkWritten: true,
+  recordedMouseEvents: [],
+  runtimeCursorImageMap: new Map(),
   recordingStartTime: 0,
   originalCursorScale: null,
   currentRecordingSession: null,

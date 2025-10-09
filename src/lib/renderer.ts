@@ -1,5 +1,6 @@
 import { EditorState } from '../types/store';
 import { calculateZoomTransform } from './transform';
+import { findLastMetadataIndex } from './transform';
 
 type RenderableState = Pick<
   EditorState,
@@ -11,6 +12,8 @@ type RenderableState = Pick<
   | 'isWebcamVisible'
   | 'zoomRegions'
   | 'metadata'
+  | 'recordingGeometry'
+  | 'cursorImages'
 >;
 
 /**
@@ -198,9 +201,26 @@ export const drawScene = async (
   }
   ctx.restore();
 
-  ctx.restore();
+  // --- 4. Draw Cursor ---
+  const lastEventIndex = findLastMetadataIndex(state.metadata, currentTime);
+  if (lastEventIndex > -1 && state.recordingGeometry) {
+    const event = state.metadata[lastEventIndex];
+    const cursorData = state.cursorImages[event.cursorImageKey];
 
-  // --- 4. Draw Webcam with same technique ---
+    if (cursorData && cursorData.imageData) {
+      // Scale cursor position from original recording geometry to the current frame's content size
+      const cursorX = (event.x / state.recordingGeometry.width) * frameContentWidth;
+      const cursorY = (event.y / state.recordingGeometry.height) * frameContentHeight;
+      
+      // Draw the cursor image, offset by its hotspot.
+      // This happens inside the transformed context, so it will be scaled and panned correctly.
+      ctx.drawImage(cursorData.imageData.width > 0 ? await createImageBitmap(cursorData.imageData) : new Image(), Math.round(cursorX - cursorData.xhot), Math.round(cursorY - cursorData.yhot));
+    }
+  }
+
+  ctx.restore(); // Restore from video's transform
+
+  // --- 5. Draw Webcam with same technique ---
   const { webcamPosition, webcamStyles, isWebcamVisible } = state;
   if (isWebcamVisible && webcamVideoElement && webcamVideoElement.videoWidth > 0) {
     const baseSize = Math.min(outputWidth, outputHeight);

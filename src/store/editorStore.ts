@@ -6,7 +6,7 @@ import { WALLPAPERS, APP, TIMELINE, ZOOM } from '../lib/constants';
 import { shallow } from 'zustand/shallow';
 import {
   AspectRatio, Background, FrameStyles, Preset, ZoomRegion, CutRegion, TimelineRegion,
-  EditorState, MetaDataItem, WebcamStyles,
+  EditorState, MetaDataItem, WebcamStyles, CursorImage,
   WebcamPosition,
 } from '../types/store';
 
@@ -111,6 +111,7 @@ const initialProjectState = {
   isCurrentlyCut: false,
   timelineZoom: 1,
   isPreviewFullScreen: false,
+  cursorImages: {},
   webcamVideoPath: null,
   webcamVideoUrl: null,
   isWebcamVisible: false,
@@ -266,11 +267,23 @@ export const useEditorStore = create(
             x: item.x, // the location is local already
             y: item.y,
           }));
+          
+          const processedCursorImages: Record<string, CursorImage> = {};
+          for (const key in parsedData.cursorImages) {
+            const data = parsedData.cursorImages[key];
+            if (data.width > 0 && data.height > 0 && data.image.length > 0) {
+              const buffer = new Uint8ClampedArray(data.image);
+              processedCursorImages[key] = { ...data, imageData: new ImageData(buffer, data.width, data.height) };
+            } else {
+              processedCursorImages[key] = { ...data, imageData: undefined };
+            }
+          }
 
           set(state => { 
             state.metadata = processedMetadata;
             state.recordingGeometry = geometry || null;
             state.screenSize = screenSize || null;
+            state.cursorImages = processedCursorImages;
           });
 
           const clicks = processedMetadata.filter((item: MetaDataItem) => item.type === 'click' && item.pressed);

@@ -1,7 +1,7 @@
 // Contains core business logic for recording, stopping, and cleanup.
 
 import log from 'electron-log/main';
-import { spawn } from 'node:child_process';
+import { spawn, ChildProcessWithoutNullStreams } from 'node:child_process';
 import path from 'node:path';
 import fs from 'node:fs';
 import fsPromises from 'node:fs/promises';
@@ -77,48 +77,31 @@ async function startActualRecording(
 
   appState.recorderWin?.hide();
 
-  appState.firstChunkWritten = true;
   appState.recordingStartTime = Date.now();
+  appState.recordedMouseEvents = [];
+  appState.runtimeCursorImageMap = new Map();
   appState.mouseTracker = createMouseTracker();
-  appState.metadataStream = fs.createWriteStream(metadataPath);
-
-  // Write metadata header
-  const primaryDisplay = screen.getPrimaryDisplay();
-  const metadataHeader = {
-    screenSize: primaryDisplay.size,
-    geometry: recordingGeometry,
-    events: [] // Events will be streamed
-  };
-  
-  // Start writing the JSON object, open the events array
-  appState.metadataStream.write(`{\n"screenSize": ${JSON.stringify(metadataHeader.screenSize)},\n"geometry": ${JSON.stringify(metadataHeader.geometry)},\n"events": [\n`);
-
 
   if (appState.mouseTracker) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     appState.mouseTracker.on('data', (data: any) => {
       // --- IMPORTANT DISPLAY FIX ---
-      // Native APIs (macOS, Windows) return physical coordinates. Electron and FFmpeg
-      // work with logical coordinates. We must divide by scaleFactor.
+      // 1. Native APIs (macOS, Windows) return physical coordinates. Electron and FFmpeg
+      //    work with logical coordinates. We must divide by scaleFactor.
       const scaledX = data.x / scaleFactor;
       const scaledY = data.y / scaleFactor;
       
       // 2. Make coordinates relative to the recording screen.
-      // Subtract the top-left corner of the recording screen (in logical coordinates).
+      //    Subtract the top-left corner of the recording screen (in logical coordinates).
       const relativeEvent = {
         ...data,
         x: scaledX - recordingGeometry.x,
         y: scaledY - recordingGeometry.y,
         timestamp: data.timestamp - appState.recordingStartTime,
       };
-
-      if (appState.metadataStream?.writable) {
-        if (!appState.firstChunkWritten) appState.metadataStream.write(',\n');
-        appState.metadataStream.write(JSON.stringify(relativeEvent));
-        appState.firstChunkWritten = false;
-      }
+      appState.recordedMouseEvents.push(relativeEvent);
     });
-    appState.mouseTracker.start();
+    appState.mouseTracker.start(appState.runtimeCursorImageMap);
   }
 
   const finalArgs = buildFfmpegArgs(inputArgs, hasWebcam, hasMic, screenVideoPath, webcamVideoPath);
@@ -199,7 +182,7 @@ export async function startRecording(options: any) { // Type from preload.ts
   const display = process.env.DISPLAY || ':0.0';
   const baseFfmpegArgs: string[] = [];
   let recordingGeometry: RecordingGeometry;
-  let scaleFactor = 1; // THÊM MỚI: Khởi tạo scaleFactor
+  let scaleFactor = 1;
 
   if (mic) {
     switch (process.platform) {
@@ -225,8 +208,8 @@ export async function startRecording(options: any) { // Type from preload.ts
     const safeHeight = Math.floor(height / 2) * 2;
     recordingGeometry = { x, y, width: safeWidth, height: safeHeight };
     switch (process.platform) {
-      case 'linux': baseFfmpegArgs.push('-f', 'x11grab', '-video_size', `${safeWidth}x${safeHeight}`, '-i', `${display}+${x},${y}`); break;
-      case 'win32': baseFfmpegArgs.push('-f', 'gdigrab', '-offset_x', x.toString(), '-offset_y', y.toString(), '-video_size', `${safeWidth}x${safeHeight}`, '-i', 'desktop'); break;
+      case 'linux': baseFfmpegArgs.push('-f', 'x11grab', '-draw_mouse', '0', '-video_size', `${safeWidth}x${safeHeight}`, '-i', `${display}+${x},${y}`); break;
+      case 'win32': baseFfmpegArgs.push('-f', 'gdigrab', '-draw_mouse', '0', '-offset_x', x.toString(), '-offset_y', y.toString(), '-video_size', `${safeWidth}x${safeHeight}`, '-i', 'desktop'); break;
       case 'darwin': baseFfmpegArgs.push('-f', 'avfoundation', '-i', `${allDisplays.findIndex(d => d.id === targetDisplay.id) || 0}:none`); break;
     }
   } else if (source === 'area') {
@@ -246,7 +229,11 @@ export async function startRecording(options: any) { // Type from preload.ts
     const safeHeight = Math.floor(selectedGeometry.height / 2) * 2;
     recordingGeometry = { x: selectedGeometry.x, y: selectedGeometry.y, width: safeWidth, height: safeHeight };
     
-    baseFfmpegArgs.push('-f', 'x11grab', '-video_size', `${safeWidth}x${safeHeight}`, '-i', `${display}+${selectedGeometry.x},${selectedGeometry.y}`);
+    switch (process.platform) {
+      case 'linux': baseFfmpegArgs.push('-f', 'x11grab', '-draw_mouse', '0', '-video_size', `${safeWidth}x${safeHeight}`, '-i', `${display}+${selectedGeometry.x},${selectedGeometry.y}`); break;
+      case 'win32': baseFfmpegArgs.push('-f', 'gdigrab', '-draw_mouse', '0', '-offset_x', selectedGeometry.x.toString(), '-offset_y', selectedGeometry.y.toString(), '-video_size', `${safeWidth}x${safeHeight}`, '-i', 'desktop'); break;
+      // macOS area recording would require different logic
+    }
   } else { /* window source logic here if re-enabled */
     return { canceled: true };
   }
@@ -305,19 +292,35 @@ export async function cancelRecording() {
 }
 
 async function cleanupAndSave(): Promise<void> {
+  // 1. Stop tracker
+  if (appState.mouseTracker) {
+    appState.mouseTracker.stop();
+    appState.mouseTracker = null;
+  }
+
+  // 2. Write metadata file
+  if (appState.currentRecordingSession) {
+    const metadataPath = appState.currentRecordingSession.metadataPath;
+    const primaryDisplay = screen.getPrimaryDisplay();
+    const recordingGeometry = { x: 0, y: 0, width: primaryDisplay.bounds.width, height: primaryDisplay.bounds.height }; // This needs to be the actual geometry
+
+    const finalMetadata = {
+      screenSize: primaryDisplay.size,
+      geometry: recordingGeometry, // TODO: Pass actual geometry here
+      cursorImages: Object.fromEntries(appState.runtimeCursorImageMap || []),
+      events: appState.recordedMouseEvents,
+    };
+
+    try {
+      await fsPromises.writeFile(metadataPath, JSON.stringify(finalMetadata));
+      log.info(`Metadata saved to ${metadataPath}`);
+    } catch (err) {
+      log.error(`Failed to write metadata file: ${err}`);
+    }
+  }
+
+  // 3. Stop FFmpeg gracefully
   return new Promise((resolve) => {
-    if (appState.mouseTracker) {
-      appState.mouseTracker.stop();
-      appState.mouseTracker = null;
-    }
-    if (appState.metadataStream?.writable) {
-      if (!appState.metadataStream.writableEnded) {
-        // Close the events array and the main JSON object
-        appState.metadataStream.write('\n]\n}');
-        appState.metadataStream.end();
-      }
-      appState.metadataStream = null;
-    }
     if (appState.ffmpegProcess) {
       const ffmpeg = appState.ffmpegProcess;
       appState.ffmpegProcess = null;
@@ -327,14 +330,10 @@ async function cleanupAndSave(): Promise<void> {
         resolve();
       });
       if (process.platform === 'win32') {
-        // On Windows, send 'q' to stdin for graceful shutdown
         log.info('Sending "q" to FFmpeg for graceful shutdown on Windows...');
         ffmpeg.stdin?.write('q');
         ffmpeg.stdin?.end();
       } else {
-        // On Linux/macOS, use SIGINT for graceful shutdown
-        // FFmpeg is designed to catch SIGINT, finalize the file container (e.g., write the moov atom for MP4), and then exit.
-        // This prevents file corruption.
         log.info('Sending SIGINT to FFmpeg for graceful shutdown...');
         ffmpeg.kill('SIGINT');
       }
@@ -358,10 +357,10 @@ export async function cleanupAndDiscard() {
     appState.mouseTracker.stop();
     appState.mouseTracker = null;
   }
-  if (appState.metadataStream?.writable) {
-    appState.metadataStream.end();
-    appState.metadataStream = null;
-  }
+  
+  appState.recordedMouseEvents = [];
+  appState.runtimeCursorImageMap = new Map();
+
   restoreOriginalCursorScale();
   appState.tray?.destroy();
   appState.tray = null;
@@ -485,7 +484,7 @@ export async function loadVideoFromFile() {
 
     // 2. Create an empty metadata file with the new structure
     // The editor will populate geometry and screenSize from the video itself.
-    await fsPromises.writeFile(metadataPath, '{"events":[]}', 'utf-8');
+    await fsPromises.writeFile(metadataPath, '{"events":[], "cursorImages": {}}', 'utf-8');
     log.info(`[RecordingManager] Created empty metadata file at: ${metadataPath}`);
 
     const session: RecordingSession = { screenVideoPath, metadataPath, webcamVideoPath: undefined };
