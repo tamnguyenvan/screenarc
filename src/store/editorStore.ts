@@ -31,6 +31,7 @@ const DEFAULT_PRESET: Omit<Preset, 'id' | 'name'> = {
   styles: DEFAULT_PRESET_STYLES,
   aspectRatio: '16:9',
   isDefault: true,
+  cursorScale: 1,
   webcamStyles: {
     shape: 'square',
     borderRadius: 35,
@@ -70,6 +71,7 @@ export interface EditorActions {
   setPreviewCutRegion: (region: CutRegion | null) => void;
   toggleTheme: () => void;
   setTimelineZoom: (zoom: number) => void;
+  setCursorScale: (scale: number) => void;
   reset: () => void;
   _ensureActivePresetIsWritable: () => void;
   initializeSettings: () => Promise<void>;
@@ -112,6 +114,7 @@ const initialProjectState = {
   timelineZoom: 1,
   isPreviewFullScreen: false,
   cursorImages: {},
+  cursorScale: 1,
   syncOffset: 0,
   webcamVideoPath: null,
   webcamVideoUrl: null,
@@ -559,6 +562,12 @@ export const useEditorStore = create(
       setPreviewCutRegion: (region) => set(state => { state.previewCutRegion = region; }),
       setTimelineZoom: (zoom) => set(state => { state.timelineZoom = zoom; }),
 
+      setCursorScale: (scale) => {
+        set({ cursorScale: scale });
+        window.electronAPI.setCursorScale(scale); // Update system cursor for live preview
+        get()._ensureActivePresetIsWritable();
+      },
+
       initializeSettings: async () => {
         try {
           const appearance = await window.electronAPI.getSetting<{ theme: 'light' | 'dark' }>('appearance');
@@ -604,6 +613,10 @@ export const useEditorStore = create(
                   preset.webcamStyles.borderRadius = 50; // default for circle
                   presetsModified = true;
               }
+              if (preset.cursorScale === undefined) {
+                preset.cursorScale = 1;
+                presetsModified = true;
+              }
           });
 
 
@@ -619,6 +632,7 @@ export const useEditorStore = create(
             state.activePresetId = activeId;
             state.frameStyles = JSON.parse(JSON.stringify(loadedPresets[activeId].styles));
             state.aspectRatio = loadedPresets[activeId].aspectRatio;
+            state.cursorScale = loadedPresets[activeId].cursorScale || 1; // Load cursor scale
           });
 
         } catch (error) {
@@ -633,6 +647,7 @@ export const useEditorStore = create(
             state.frameStyles = JSON.parse(JSON.stringify(preset.styles));
             state.aspectRatio = preset.aspectRatio;
             state.activePresetId = id;
+            state.cursorScale = preset.cursorScale || 1; // Apply cursor scale from preset
 
             // Apply webcam settings from preset if available
             if (preset.webcamStyles) {
@@ -657,6 +672,7 @@ export const useEditorStore = create(
           if (presetToReset && presetToReset.isDefault) {
             presetToReset.styles = JSON.parse(JSON.stringify(DEFAULT_PRESET.styles));
             presetToReset.aspectRatio = DEFAULT_PRESET.aspectRatio;
+            presetToReset.cursorScale = DEFAULT_PRESET.cursorScale;
             presetToReset.webcamStyles = JSON.parse(JSON.stringify(DEFAULT_PRESET.webcamStyles));
             presetToReset.webcamPosition = JSON.parse(JSON.stringify(DEFAULT_PRESET.webcamPosition));
             presetToReset.isWebcamVisible = DEFAULT_PRESET.isWebcamVisible;
@@ -707,6 +723,7 @@ export const useEditorStore = create(
           name,
           styles: JSON.parse(JSON.stringify(get().frameStyles)),
           aspectRatio: get().aspectRatio,
+          cursorScale: get().cursorScale,
           isDefault: false, // New presets are never the default one
 
           // Save current webcam settings with the preset
@@ -723,11 +740,12 @@ export const useEditorStore = create(
       },
 
       updateActivePreset: () => {
-        const { activePresetId, presets, frameStyles, aspectRatio, webcamPosition, webcamStyles, isWebcamVisible } = get();
+        const { activePresetId, presets, frameStyles, aspectRatio, cursorScale, webcamPosition, webcamStyles, isWebcamVisible } = get();
         if (activePresetId && presets[activePresetId]) {
           set(state => {
             state.presets[activePresetId].styles = JSON.parse(JSON.stringify(frameStyles));
             state.presets[activePresetId].aspectRatio = aspectRatio;
+            state.presets[activePresetId].cursorScale = cursorScale;
             state.presets[activePresetId].webcamPosition = JSON.parse(JSON.stringify(webcamPosition));
             state.presets[activePresetId].webcamStyles = JSON.parse(JSON.stringify(webcamStyles));
             state.presets[activePresetId].isWebcamVisible = isWebcamVisible;
@@ -797,6 +815,7 @@ export const useEditorStore = create(
           cutRegions,
           presets,
           activePresetId,
+          cursorScale,
           webcamPosition,
           webcamStyles,
           isWebcamVisible
@@ -809,6 +828,7 @@ export const useEditorStore = create(
           cutRegions,
           presets,
           activePresetId,
+          cursorScale,
           webcamPosition,
           webcamStyles,
           isWebcamVisible

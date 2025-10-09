@@ -1,16 +1,17 @@
 import { useEditorStore } from '../../store/editorStore';
 import { RegionSettingsPanel } from './RegionSettingsPanel';
-import { AudioLines, Webcam, PanelsTopLeft, LineSquiggle } from 'lucide-react';
+import { AudioLines, Webcam, PanelsTopLeft, LineSquiggle, MousePointerClick } from 'lucide-react';
 import { BackgroundSettings } from './sidepanel/BackgroundSettings';
 import { FrameEffectsSettings } from './sidepanel/FrameEffectsSettings';
 import { CameraSettings } from './sidepanel/CameraSettings';
 import { AnimationSettingsPanel } from './sidepanel/AnimationSettingsPanel';
+import { CursorSettingsPanel } from './sidepanel/CursorSettingsPanel'; // IMPORT NEW PANEL
 import { useShallow } from 'zustand/react/shallow';
 import { useEffect, useState, useMemo } from 'react';
 import { cn } from '../../lib/utils';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip';
 
-type SidePanelTab = 'general' | 'camera' | 'audio' | 'animation' | 'settings';
+type SidePanelTab = 'general' | 'camera' | 'audio' | 'animation' | 'cursor'; // ADDED 'cursor'
 
 interface TabButtonProps {
   label: string;
@@ -43,8 +44,8 @@ function TabButton({ label, icon, isActive, onClick, disabled }: TabButtonProps)
             </div>
           </button>
         </TooltipTrigger>
-        <TooltipContent 
-          side="left" 
+        <TooltipContent
+          side="left"
           sideOffset={8}
           className="capitalize px-3 py-1.5 text-sm font-medium bg-popover text-popover-foreground shadow-md rounded-md border border-border/50 dark:bg-popover/95 dark:border-border/80 dark:text-foreground"
         >
@@ -128,7 +129,7 @@ export function SidePanel() {
       setActiveTab('general');
     }
   }, [selectedRegion]);
-  
+
   // Handle Escape key to clear selection
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -153,6 +154,8 @@ export function SidePanel() {
         return <AudioSettingsPanel />;
       case 'animation':
         return <AnimationSettingsPanel />;
+      case 'cursor':
+        return <CursorSettingsPanel />; // ADDED CURSOR PANEL
       default:
         return <FrameSettingsPanel />;
     }
@@ -186,6 +189,12 @@ export function SidePanel() {
             icon={<AudioLines className="w-5 h-5" />}
             isActive={activeTab === 'audio'}
             onClick={() => setActiveTab('audio')}
+          />
+          <TabButton
+            label="Cursor"
+            icon={<MousePointerClick className="w-5 h-5" />}
+            isActive={activeTab === 'cursor'}
+            onClick={() => setActiveTab('cursor')}
           />
           <TabButton
             label="Animation"

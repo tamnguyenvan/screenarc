@@ -395,24 +395,26 @@ export function RecorderPage() {
             </div>
 
             {/* Cursor Scale - compact with icon */}
-            <div className="flex items-center gap-1.5" style={{ WebkitAppRegion: 'no-drag' }}>
-              <MousePointer size={14} className="text-muted-foreground/60" />
-              <Select value={String(cursorScale)} onValueChange={handleCursorScaleChange}>
-                <SelectTrigger
-                  variant="minimal"
-                  className="w-[52px] h-9 rounded-lg text-xs"
-                >
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent align="end">
-                  {cursorScales.map(s => (
-                    <SelectItem key={s.value} value={String(s.value)}>
-                      {s.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            {platform !== 'win32' && (
+              <div className="flex items-center gap-1.5" style={{ WebkitAppRegion: 'no-drag' }}>
+                <MousePointer size={14} className="text-muted-foreground/60" />
+                <Select value={String(cursorScale)} onValueChange={handleCursorScaleChange}>
+                  <SelectTrigger
+                    variant="minimal"
+                    className="w-[52px] h-9 rounded-lg text-xs"
+                  >
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent align="end">
+                    {cursorScales.map(s => (
+                      <SelectItem key={s.value} value={String(s.value)}>
+                        {s.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
 
             <div className="w-px h-8 bg-border/50"></div>
 

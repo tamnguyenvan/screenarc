@@ -1,9 +1,8 @@
 // Contains core business logic for recording, stopping, and cleanup.
 
 import log from 'electron-log/main';
-import { spawn, ChildProcessWithoutNullStreams } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import path from 'node:path';
-import fs from 'node:fs';
 import fsPromises from 'node:fs/promises';
 import { app, Menu, Tray, nativeImage, screen, ipcMain, dialog } from 'electron';
 import { appState } from '../state';

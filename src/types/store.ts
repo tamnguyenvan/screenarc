@@ -30,6 +30,7 @@ export interface Preset {
   styles: FrameStyles;
   aspectRatio: AspectRatio;
   isDefault?: boolean;
+  cursorScale?: number; // ADDED
   webcamStyles?: WebcamStyles;
   webcamPosition?: WebcamPosition;
   isWebcamVisible?: boolean;
@@ -125,6 +126,7 @@ export interface EditorState {
   presetSaveStatus: 'idle' | 'saving' | 'saved';
   isPreviewFullScreen: boolean;
   cursorImages: Record<string, CursorImage>;
+  cursorScale: number;
   syncOffset: number;
 
   // webcam
