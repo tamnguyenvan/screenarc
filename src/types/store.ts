@@ -75,8 +75,8 @@ export interface CursorImage {
   height: number;
   xhot: number;
   yhot: number;
-  image: number[]; // CHANGE: Was string, now an array of RGBA bytes.
-  imageData?: ImageData; // Processed ImageData for renderer
+  image: number[];
+  imageData?: ImageData;
 }
 
 export interface WebcamPosition {
@@ -125,6 +125,7 @@ export interface EditorState {
   presetSaveStatus: 'idle' | 'saving' | 'saved';
   isPreviewFullScreen: boolean;
   cursorImages: Record<string, CursorImage>;
+  syncOffset: number;
 
   // webcam
   webcamVideoPath: string | null;

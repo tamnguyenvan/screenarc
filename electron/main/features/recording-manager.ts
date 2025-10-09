@@ -78,6 +78,7 @@ async function startActualRecording(
   appState.recorderWin?.hide();
 
   appState.recordingStartTime = Date.now();
+  appState.ffmpegFirstFrameTime = null; // MODIFIED: Reset sync timestamp
   appState.recordedMouseEvents = [];
   appState.runtimeCursorImageMap = new Map();
   appState.mouseTracker = createMouseTracker();
@@ -114,6 +115,13 @@ async function startActualRecording(
     const message = data.toString();
     log.warn(`[FFMPEG stderr]: ${message}`); // Log as warning instead of info
     ffmpegErrors.push(message);
+
+    // Capture first frame time for synchronization ---
+    if (!appState.ffmpegFirstFrameTime && message.includes('frame=')) {
+      appState.ffmpegFirstFrameTime = Date.now();
+      const syncOffset = appState.ffmpegFirstFrameTime - appState.recordingStartTime;
+      log.info(`[SYNC] FFmpeg first frame detected. Sync offset: ${syncOffset}ms`);
+    }
 
     // Check for known fatal errors that can occur early
     const fatalErrorKeywords = [
@@ -304,9 +312,18 @@ async function cleanupAndSave(): Promise<void> {
     const primaryDisplay = screen.getPrimaryDisplay();
     const recordingGeometry = { x: 0, y: 0, width: primaryDisplay.bounds.width, height: primaryDisplay.bounds.height }; // This needs to be the actual geometry
 
+    // --- Calculate and include syncOffset ---
+    const syncOffset = appState.ffmpegFirstFrameTime
+      ? appState.ffmpegFirstFrameTime - appState.recordingStartTime
+      : 0;
+    if (syncOffset > 500) {
+      log.warn(`[SYNC] High sync offset detected: ${syncOffset}ms. This might indicate system load.`);
+    }
+
     const finalMetadata = {
       screenSize: primaryDisplay.size,
       geometry: recordingGeometry, // TODO: Pass actual geometry here
+      syncOffset, // MODIFIED: Add syncOffset to metadata
       cursorImages: Object.fromEntries(appState.runtimeCursorImageMap || []),
       events: appState.recordedMouseEvents,
     };
@@ -484,7 +501,7 @@ export async function loadVideoFromFile() {
 
     // 2. Create an empty metadata file with the new structure
     // The editor will populate geometry and screenSize from the video itself.
-    await fsPromises.writeFile(metadataPath, '{"events":[], "cursorImages": {}}', 'utf-8');
+    await fsPromises.writeFile(metadataPath, '{"events":[], "cursorImages": {}, "syncOffset": 0}', 'utf-8');
     log.info(`[RecordingManager] Created empty metadata file at: ${metadataPath}`);
 
     const session: RecordingSession = { screenVideoPath, metadataPath, webcamVideoPath: undefined };

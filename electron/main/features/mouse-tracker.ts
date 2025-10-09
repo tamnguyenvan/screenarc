@@ -118,7 +118,6 @@ class LinuxMouseTracker extends EventEmitter implements IMouseTracker {
         }
         
         const cursorImage = Buffer.from(cursorData.cursorImage.slice(8));
-        log.info(`cursor image length: ${cursorImage.length}`)
         const imageKey = hash(cursorImage);
 
         if (!this.cursorImageMap?.has(imageKey) && cursorImage.length > 0) {

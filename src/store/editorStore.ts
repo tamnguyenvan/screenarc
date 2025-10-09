@@ -112,6 +112,7 @@ const initialProjectState = {
   timelineZoom: 1,
   isPreviewFullScreen: false,
   cursorImages: {},
+  syncOffset: 0,
   webcamVideoPath: null,
   webcamVideoUrl: null,
   isWebcamVisible: false,
@@ -260,6 +261,7 @@ export const useEditorStore = create(
           
           const geometry = parsedData.geometry;
           const screenSize = parsedData.screenSize;
+          const syncOffset = parsedData.syncOffset || 0; // Read syncOffset
 
           const processedMetadata = parsedData.events.map((item: MetaDataItem) => ({
             ...item,
@@ -284,6 +286,7 @@ export const useEditorStore = create(
             state.recordingGeometry = geometry || null;
             state.screenSize = screenSize || null;
             state.cursorImages = processedCursorImages;
+            state.syncOffset = syncOffset; // MODIFIED: Set syncOffset in state
           });
 
           const clicks = processedMetadata.filter((item: MetaDataItem) => item.type === 'click' && item.pressed);

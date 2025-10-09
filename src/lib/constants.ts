@@ -41,7 +41,7 @@ export const TIMELINE = {
 // Visual Effects constants
 export const EFFECTS = {
   CLICK_ANIMATION: {
-    DURATION: 0.4, // seconds
+    DURATION: 0.5, // seconds
     MAX_RADIUS: 30, // pixels
     EASING: 'easeOutQuint',
     COLOR: 'rgba(255, 255, 255, 0.8)',

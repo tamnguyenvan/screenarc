@@ -16,6 +16,7 @@ type RenderableState = Pick<
   | 'metadata'
   | 'recordingGeometry'
   | 'cursorImages'
+  | 'syncOffset'
 >;
 
 /**
@@ -152,13 +153,14 @@ export const drawScene = async (
 
   // --- 3. Main video frame transform and drawing ---
   ctx.save();
-  
+
   const { scale, translateX, translateY, transformOrigin } = calculateZoomTransform(
     currentTime,
     state.zoomRegions,
     state.metadata,
     state.videoDimensions,
-    { width: frameContentWidth, height: frameContentHeight }
+    { width: frameContentWidth, height: frameContentHeight },
+    state.syncOffset
   );
   const [originXStr, originYStr] = transformOrigin.split(' ');
   const originXMul = parseFloat(originXStr) / 100;
@@ -194,12 +196,12 @@ export const drawScene = async (
   path.roundRect(0, 0, frameContentWidth, frameContentHeight, borderRadius);
   ctx.clip(path);
   ctx.drawImage(videoElement, 0, 0, frameContentWidth, frameContentHeight);
-  
+
   // Draw border on top of the video content
   if (borderWidth > 0) {
-      ctx.strokeStyle = borderColor;
-      ctx.lineWidth = borderWidth * 2;
-      ctx.stroke(path);
+    ctx.strokeStyle = borderColor;
+    ctx.lineWidth = borderWidth * 2;
+    ctx.stroke(path);
   }
   ctx.restore();
 
@@ -207,16 +209,19 @@ export const drawScene = async (
   const { DURATION, MAX_RADIUS, EASING, COLOR } = EFFECTS.CLICK_ANIMATION;
   const clickAnimationEasing = EASING_MAP[EASING as keyof typeof EASING_MAP] || ((t: number) => t);
 
+  // THIS IS THE FIX: Use the synchronized time for click animations
+  const effectiveTime = currentTime + (state.syncOffset / 1000) - DURATION;
+
   if (state.recordingGeometry) {
     const recentClicks = state.metadata.filter(event =>
       event.type === 'click' &&
       event.pressed &&
-      currentTime >= event.timestamp &&
-      currentTime < event.timestamp + DURATION
+      effectiveTime >= event.timestamp &&
+      effectiveTime < event.timestamp + DURATION
     );
 
     for (const click of recentClicks) {
-      const progress = (currentTime - click.timestamp) / DURATION;
+      const progress = (effectiveTime - click.timestamp) / DURATION;
       const easedProgress = clickAnimationEasing(progress);
 
       const currentRadius = easedProgress * MAX_RADIUS;
@@ -225,7 +230,7 @@ export const drawScene = async (
       // Scale cursor position from original recording geometry to the current frame's content size
       const cursorX = (click.x / state.recordingGeometry.width) * frameContentWidth;
       const cursorY = (click.y / state.recordingGeometry.height) * frameContentHeight;
-      
+
       const colorMatch = COLOR.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/);
       if (colorMatch) {
         const [r, g, b, baseAlpha] = [colorMatch[1], colorMatch[2], colorMatch[3], parseFloat(colorMatch[4] || '1')];
@@ -239,7 +244,7 @@ export const drawScene = async (
   }
 
   // --- 5. Draw Cursor ---
-  const lastEventIndex = findLastMetadataIndex(state.metadata, currentTime);
+  const lastEventIndex = findLastMetadataIndex(state.metadata, effectiveTime);
   if (lastEventIndex > -1 && state.recordingGeometry) {
     const event = state.metadata[lastEventIndex];
     const cursorData = state.cursorImages[event.cursorImageKey];
@@ -248,7 +253,7 @@ export const drawScene = async (
       // Scale cursor position from original recording geometry to the current frame's content size
       const cursorX = (event.x / state.recordingGeometry.width) * frameContentWidth;
       const cursorY = (event.y / state.recordingGeometry.height) * frameContentHeight;
-      
+
       // Draw the cursor image, offset by its hotspot.
       // This happens inside the transformed context, so it will be scaled and panned correctly.
       ctx.drawImage(cursorData.imageData.width > 0 ? await createImageBitmap(cursorData.imageData) : new Image(), Math.round(cursorX - cursorData.xhot), Math.round(cursorY - cursorData.yhot));
@@ -278,7 +283,7 @@ export const drawScene = async (
     } else {
       webcamRadius = maxRadius * (webcamStyles.borderRadius / 50);
     }
-    
+
     const webcamEdgePadding = baseSize * 0.02;
     let webcamX, webcamY;
 
@@ -345,14 +350,14 @@ export const drawScene = async (
     let sx = 0, sy = 0, sWidth = webcamVideo.videoWidth, sHeight = webcamVideo.videoHeight;
 
     if (webcamAR > targetAR) {
-        sWidth = webcamVideo.videoHeight * targetAR;
-        sx = (webcamVideo.videoWidth - sWidth) / 2;
+      sWidth = webcamVideo.videoHeight * targetAR;
+      sx = (webcamVideo.videoWidth - sWidth) / 2;
     } else {
-        sHeight = webcamVideo.videoWidth / targetAR;
-        sy = (webcamVideo.videoHeight - sHeight) / 2;
+      sHeight = webcamVideo.videoWidth / targetAR;
+      sy = (webcamVideo.videoHeight - sHeight) / 2;
     }
     ctx.drawImage(webcamVideo, sx, sy, sWidth, sHeight, webcamX, webcamY, webcamWidth, webcamHeight);
-    
+
     ctx.restore();
   }
 };
