@@ -210,7 +210,7 @@ export function PresetModal({ isOpen, onClose }: PresetModalProps) {
                   </div>
                   <div className="flex items-center gap-2 text-xs text-muted-foreground font-medium">
                     <ShadowIcon className="w-4 h-4" />
-                    <span>{previewPreset.styles.shadow}px</span>
+                    <span>{previewPreset.styles.shadowBlur}px</span>
                   </div>
                   <div className="flex items-center gap-2 text-xs text-muted-foreground font-medium">
                     <BorderThicknessIcon className="w-4 h-4" />
