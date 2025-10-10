@@ -209,7 +209,7 @@ export const drawScene = async (
   const { DURATION, MAX_RADIUS, EASING, COLOR } = EFFECTS.CLICK_ANIMATION;
   const clickAnimationEasing = EASING_MAP[EASING as keyof typeof EASING_MAP] || ((t: number) => t);
 
-  // THIS IS THE FIX: Use the synchronized time for click animations
+  // Use the synchronized time for click animations
   const effectiveTime = currentTime + (state.syncOffset / 1000) - DURATION;
 
   if (state.recordingGeometry) {
@@ -231,9 +231,9 @@ export const drawScene = async (
       const cursorX = (click.x / state.recordingGeometry.width) * frameContentWidth;
       const cursorY = (click.y / state.recordingGeometry.height) * frameContentHeight;
 
-      const colorMatch = COLOR.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/);
-      if (colorMatch) {
-        const [r, g, b, baseAlpha] = [colorMatch[1], colorMatch[2], colorMatch[3], parseFloat(colorMatch[4] || '1')];
+      // Use the pre-parsed color parts instead of running regex on every frame.
+      if (COLOR) {
+        const [r, g, b, baseAlpha] = COLOR;
         ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${baseAlpha * currentOpacity})`;
       }
 

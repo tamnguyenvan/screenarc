@@ -44,7 +44,7 @@ export const EFFECTS = {
     DURATION: 0.5, // seconds
     MAX_RADIUS: 30, // pixels
     EASING: 'easeOutQuint',
-    COLOR: 'rgba(255, 255, 255, 0.8)',
+    COLOR: [255, 255, 255, 0.8],  // [r, g, b, a]
   },
 };
 
