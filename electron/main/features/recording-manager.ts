@@ -1,9 +1,9 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 // Contains core business logic for recording, stopping, and cleanup.
 
 import log from 'electron-log/main';
-import { spawn, ChildProcessWithoutNullStreams } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import path from 'node:path';
-import fs from 'node:fs';
 import fsPromises from 'node:fs/promises';
 import { app, Menu, Tray, nativeImage, screen, ipcMain, dialog } from 'electron';
 import { appState } from '../state';
@@ -17,6 +17,11 @@ import type { RecordingSession } from '../state';
 
 const FFMPEG_PATH = getFFmpegPath();
 
+/**
+ * Validates the generated recording files to ensure they exist and are not empty.
+ * @param session - The recording session containing file paths to validate.
+ * @returns A promise that resolves to true if files are valid, false otherwise.
+ */
 async function validateRecordingFiles(session: RecordingSession): Promise<boolean> {
   log.info('[Validation] Validating recorded files...');
   const filesToValidate = [session.screenVideoPath];
@@ -58,6 +63,14 @@ interface RecordingGeometry {
   height: number;
 }
 
+/**
+ * The core function that spawns FFmpeg and the mouse tracker to begin recording.
+ * @param inputArgs - Platform-specific FFmpeg input arguments.
+ * @param hasWebcam - Flag indicating if webcam recording is enabled.
+ * @param hasMic - Flag indicating if microphone recording is enabled.
+ * @param recordingGeometry - The logical dimensions and position of the recording area.
+ * @param scaleFactor - The display scale factor for coordinate conversion.
+ */
 async function startActualRecording(
   inputArgs: string[],
   hasWebcam: boolean,
@@ -74,26 +87,25 @@ async function startActualRecording(
   const metadataPath = path.join(recordingDir, `${baseName}.json`);
 
   appState.currentRecordingSession = { screenVideoPath, webcamVideoPath, metadataPath };
-
   appState.recorderWin?.hide();
 
+  // Reset state for the new session
   appState.recordingStartTime = Date.now();
-  appState.ffmpegFirstFrameTime = null; // MODIFIED: Reset sync timestamp
+  appState.ffmpegFirstFrameTime = null;
   appState.recordedMouseEvents = [];
   appState.runtimeCursorImageMap = new Map();
   appState.mouseTracker = createMouseTracker();
 
   if (appState.mouseTracker) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     appState.mouseTracker.on('data', (data: any) => {
-      // --- IMPORTANT DISPLAY FIX ---
-      // 1. Native APIs (macOS, Windows) return physical coordinates. Electron and FFmpeg
-      //    work with logical coordinates. We must divide by scaleFactor.
+      // Coordinate Conversion:
+      // 1. Native APIs (macOS, Windows) provide physical pixel coordinates.
+      // 2. Electron and FFmpeg operate on logical (scaled) coordinates.
+      // 3. We must divide by the scaleFactor to normalize the coordinates.
+      // 4. We then make the coordinates relative to the recording area's top-left corner.
       const scaledX = data.x / scaleFactor;
       const scaledY = data.y / scaleFactor;
       
-      // 2. Make coordinates relative to the recording screen.
-      //    Subtract the top-left corner of the recording screen (in logical coordinates).
       const relativeEvent = {
         ...data,
         x: scaledX - recordingGeometry.x,
@@ -109,58 +121,60 @@ async function startActualRecording(
   log.info(`[FFMPEG] Starting FFmpeg with args: ${finalArgs.join(' ')}`);
   appState.ffmpegProcess = spawn(FFMPEG_PATH, finalArgs);
 
-  const ffmpegErrors: string[] = [];
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  // Monitor FFmpeg's stderr for progress, errors, and sync timing
   appState.ffmpegProcess.stderr.on('data', (data: any) => {
     const message = data.toString();
-    log.warn(`[FFMPEG stderr]: ${message}`); // Log as warning instead of info
-    ffmpegErrors.push(message);
+    log.warn(`[FFMPEG stderr]: ${message}`);
 
-    // Capture first frame time for synchronization ---
+    // Capture the timestamp of the first frame for mouse/video synchronization
     if (!appState.ffmpegFirstFrameTime && message.includes('frame=')) {
       appState.ffmpegFirstFrameTime = Date.now();
       const syncOffset = appState.ffmpegFirstFrameTime - appState.recordingStartTime;
       log.info(`[SYNC] FFmpeg first frame detected. Sync offset: ${syncOffset}ms`);
     }
 
-    // Check for known fatal errors that can occur early
-    const fatalErrorKeywords = [
-      'Cannot open display',
-      'Invalid argument',
-      'Device not found',
-      'Unknown input format',
-      'error opening device'
-    ];
+    // Early detection of fatal errors to provide immediate feedback
+    const fatalErrorKeywords = ['Cannot open display', 'Invalid argument', 'Device not found', 'Unknown input format', 'error opening device'];
     if (fatalErrorKeywords.some(keyword => message.toLowerCase().includes(keyword.toLowerCase()))) {
       log.error(`[FFMPEG] Fatal error detected: ${message}`);
       dialog.showErrorBox('Recording Failed', `A critical error occurred while starting the recording process:\n\n${message}\n\nPlease check your device permissions and configurations.`);
-      // Use a small timeout to ensure the process is fully spawned before trying to kill it.
       setTimeout(() => cleanupAndDiscard(), 100);
     }
   });
 
   createTray();
-
   return { canceled: false, ...appState.currentRecordingSession };
 }
 
+/**
+ * Constructs the final FFmpeg command arguments by mapping input streams to output files.
+ */
 function buildFfmpegArgs(inputArgs: string[], hasWebcam: boolean, hasMic: boolean, screenOut: string, webcamOut?: string): string[] {
   const finalArgs = [...inputArgs];
+  // Determine the index of each input stream (mic, webcam, screen)
   const micIndex = hasMic ? 0 : -1;
   const webcamIndex = hasMic ? (hasWebcam ? 1 : -1) : (hasWebcam ? 0 : -1);
   const screenIndex = (hasMic ? 1 : 0) + (hasWebcam ? 1 : 0);
 
-  finalArgs.push('-map', `${screenIndex}:v`);
+  // Map screen video stream
+  finalArgs.push('-map', `${screenIndex}:v`, '-c:v', 'libx264', '-preset', 'ultrafast', '-pix_fmt', 'yuv420p', screenOut);
+  
+  // Map audio stream if present
   if (hasMic) {
     finalArgs.push('-map', `${micIndex}:a`, '-c:a', 'aac', '-b:a', '192k');
   }
-  finalArgs.push('-c:v', 'libx264', '-preset', 'ultrafast', '-pix_fmt', 'yuv420p', screenOut);
-  if (hasWebcam) {
-    finalArgs.push('-map', `${webcamIndex}:v`, '-c:v', 'libx264', '-preset', 'ultrafast', '-pix_fmt', 'yuv420p', webcamOut!);
+  
+  // Map webcam video stream if present
+  if (hasWebcam && webcamOut) {
+    finalArgs.push('-map', `${webcamIndex}:v`, '-c:v', 'libx264', '-preset', 'ultrafast', '-pix_fmt', 'yuv420p', webcamOut);
   }
+
   return finalArgs;
 }
 
+/**
+ * Creates the system tray icon and context menu for controlling an active recording.
+ */
 function createTray() {
   const icon = nativeImage.createFromPath(path.join(VITE_PUBLIC, 'screenarc-appicon-tray.png'));
   appState.tray = new Tray(icon);
@@ -182,8 +196,11 @@ function createTray() {
   appState.tray.setContextMenu(contextMenu);
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export async function startRecording(options: any) { // Type from preload.ts
+/**
+ * Orchestrates the start of a recording based on user options from the renderer.
+ * @param options - The recording configuration selected by the user.
+ */
+export async function startRecording(options: any) {
   const { source, displayId, mic, webcam } = options;
   log.info('[RecordingManager] Received start recording request with options:', options);
 
@@ -192,21 +209,23 @@ export async function startRecording(options: any) { // Type from preload.ts
   let recordingGeometry: RecordingGeometry;
   let scaleFactor = 1;
 
+  // --- Add Microphone and Webcam inputs first ---
   if (mic) {
     switch (process.platform) {
       case 'linux': baseFfmpegArgs.push('-f', 'alsa', '-i', 'default'); break;
-      case 'win32': baseFfmpegArgs.push('-f', 'dshow', '-i', `audio=${mic.deviceLabel}`); break; // Use `audio=` not `audio=`
+      case 'win32': baseFfmpegArgs.push('-f', 'dshow', '-i', `audio=${mic.deviceLabel}`); break;
       case 'darwin': baseFfmpegArgs.push('-f', 'avfoundation', '-i', `:${mic.index}`); break;
     }
   }
   if (webcam) {
     switch (process.platform) {
       case 'linux': baseFfmpegArgs.push('-f', 'v4l2', '-i', `/dev/video${webcam.index}`); break;
-      case 'win32': baseFfmpegArgs.push('-f', 'dshow', '-i', `video=${webcam.deviceLabel}`); break; // Use `video=` not `video=`
+      case 'win32': baseFfmpegArgs.push('-f', 'dshow', '-i', `video=${webcam.deviceLabel}`); break;
       case 'darwin': baseFfmpegArgs.push('-f', 'avfoundation', '-i', `${webcam.index}:none`); break;
     }
   }
 
+  // --- Add Screen input last ---
   if (source === 'fullscreen') {
     const allDisplays = screen.getAllDisplays();
     const targetDisplay = allDisplays.find(d => d.id === displayId) || screen.getPrimaryDisplay();
@@ -223,7 +242,6 @@ export async function startRecording(options: any) { // Type from preload.ts
   } else if (source === 'area') {
     appState.recorderWin?.hide();
     createSelectionWindow();
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const selectedGeometry = await new Promise<any | undefined>((resolve) => {
       ipcMain.once('selection:complete', (_e, geo) => { appState.selectionWin?.close(); resolve(geo); });
       ipcMain.once('selection:cancel', () => { appState.selectionWin?.close(); appState.recorderWin?.show(); resolve(undefined); });
@@ -231,8 +249,6 @@ export async function startRecording(options: any) { // Type from preload.ts
     if (!selectedGeometry) return { canceled: true };
 
     scaleFactor = screen.getPrimaryDisplay().scaleFactor;
-
-    // Ensure width and height are even numbers for FFmpeg compatibility
     const safeWidth = Math.floor(selectedGeometry.width / 2) * 2;
     const safeHeight = Math.floor(selectedGeometry.height / 2) * 2;
     recordingGeometry = { x: selectedGeometry.x, y: selectedGeometry.y, width: safeWidth, height: safeHeight };
@@ -240,18 +256,19 @@ export async function startRecording(options: any) { // Type from preload.ts
     switch (process.platform) {
       case 'linux': baseFfmpegArgs.push('-f', 'x11grab', '-draw_mouse', '0', '-video_size', `${safeWidth}x${safeHeight}`, '-i', `${display}+${selectedGeometry.x},${selectedGeometry.y}`); break;
       case 'win32': baseFfmpegArgs.push('-f', 'gdigrab', '-draw_mouse', '0', '-offset_x', selectedGeometry.x.toString(), '-offset_y', selectedGeometry.y.toString(), '-video_size', `${safeWidth}x${safeHeight}`, '-i', 'desktop'); break;
-      // macOS area recording would require different logic
     }
-  } else { /* window source logic here if re-enabled */
+  } else {
     return { canceled: true };
   }
 
   appState.originalCursorScale = await getCursorScale();
-  
   log.info('[RecordingManager] Starting actual recording with args:', baseFfmpegArgs, 'scaleFactor:', scaleFactor);
   return startActualRecording(baseFfmpegArgs, !!webcam, !!mic, recordingGeometry, scaleFactor);
 }
 
+/**
+ * Handles the graceful stop of a recording, saves files, validates them, and opens the editor.
+ */
 export async function stopRecording() {
   restoreOriginalCursorScale();
   log.info('Stopping recording, preparing to save...');
@@ -270,18 +287,16 @@ export async function stopRecording() {
   }
 
   const isValid = await validateRecordingFiles(session);
-
   if (!isValid) {
     log.error('[StopRecord] Recording validation failed. Discarding files.');
-    await cleanupEditorFiles(session); // Use existing function to delete bad files
+    await cleanupEditorFiles(session);
     appState.currentRecordingSession = null;
     appState.savingWin?.close();
     resetCursorScale();
-    appState.recorderWin?.show(); // Re-open the recorder for the user
-    return; // Abort opening the editor
+    appState.recorderWin?.show();
+    return;
   }
 
-  // If validation passes, proceed as normal
   await new Promise(resolve => setTimeout(resolve, 500));
   appState.savingWin?.close();
   resetCursorScale();
@@ -293,37 +308,38 @@ export async function stopRecording() {
   appState.recorderWin?.close();
 }
 
+/**
+ * Cancels the recording and discards all associated files and processes.
+ */
 export async function cancelRecording() {
   log.info('Cancelling recording and deleting files...');
   await cleanupAndDiscard();
   appState.recorderWin?.show();
 }
 
+/**
+ * Stops trackers, writes metadata, and gracefully shuts down FFmpeg.
+ */
 async function cleanupAndSave(): Promise<void> {
-  // 1. Stop tracker
   if (appState.mouseTracker) {
     appState.mouseTracker.stop();
     appState.mouseTracker = null;
   }
 
-  // 2. Write metadata file
   if (appState.currentRecordingSession) {
-    const metadataPath = appState.currentRecordingSession.metadataPath;
+    const { metadataPath } = appState.currentRecordingSession;
     const primaryDisplay = screen.getPrimaryDisplay();
-    const recordingGeometry = { x: 0, y: 0, width: primaryDisplay.bounds.width, height: primaryDisplay.bounds.height }; // This needs to be the actual geometry
-
-    // --- Calculate and include syncOffset ---
+    
     const syncOffset = appState.ffmpegFirstFrameTime
-      ? appState.ffmpegFirstFrameTime - appState.recordingStartTime
-      : 0;
+      ? appState.ffmpegFirstFrameTime - appState.recordingStartTime : 0;
     if (syncOffset > 500) {
       log.warn(`[SYNC] High sync offset detected: ${syncOffset}ms. This might indicate system load.`);
     }
 
     const finalMetadata = {
       screenSize: primaryDisplay.size,
-      geometry: recordingGeometry, // TODO: Pass actual geometry here
-      syncOffset, // MODIFIED: Add syncOffset to metadata
+      geometry: { width: primaryDisplay.bounds.width, height: primaryDisplay.bounds.height }, // TODO: Pass actual geometry
+      syncOffset,
       cursorImages: Object.fromEntries(appState.runtimeCursorImageMap || []),
       events: appState.recordedMouseEvents,
     };
@@ -336,22 +352,19 @@ async function cleanupAndSave(): Promise<void> {
     }
   }
 
-  // 3. Stop FFmpeg gracefully
   return new Promise((resolve) => {
     if (appState.ffmpegProcess) {
       const ffmpeg = appState.ffmpegProcess;
       appState.ffmpegProcess = null;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       ffmpeg.on('close', (code: any) => {
         log.info(`FFmpeg process exited with code ${code}`);
         resolve();
       });
+      // Send 'q' for graceful shutdown on Windows, SIGINT on others
       if (process.platform === 'win32') {
-        log.info('Sending "q" to FFmpeg for graceful shutdown on Windows...');
         ffmpeg.stdin?.write('q');
         ffmpeg.stdin?.end();
       } else {
-        log.info('Sending SIGINT to FFmpeg for graceful shutdown...');
         ffmpeg.kill('SIGINT');
       }
     } else {
@@ -360,20 +373,20 @@ async function cleanupAndSave(): Promise<void> {
   });
 }
 
+/**
+ * Forcefully terminates all recording processes and deletes any temporary files.
+ */
 export async function cleanupAndDiscard() {
   if (!appState.currentRecordingSession) return;
   log.warn('[Cleanup] Discarding current recording session.');
   const sessionToDiscard = { ...appState.currentRecordingSession };
   appState.currentRecordingSession = null;
 
-  if (appState.ffmpegProcess) {
-    appState.ffmpegProcess.kill('SIGKILL');
-    appState.ffmpegProcess = null;
-  }
-  if (appState.mouseTracker) {
-    appState.mouseTracker.stop();
-    appState.mouseTracker = null;
-  }
+  appState.ffmpegProcess?.kill('SIGKILL');
+  appState.ffmpegProcess = null;
+  
+  appState.mouseTracker?.stop();
+  appState.mouseTracker = null;
   
   appState.recordedMouseEvents = [];
   appState.runtimeCursorImageMap = new Map();
@@ -382,60 +395,49 @@ export async function cleanupAndDiscard() {
   appState.tray?.destroy();
   appState.tray = null;
 
+  // Asynchronously delete files to not block the UI
   setTimeout(async () => {
     await cleanupEditorFiles(sessionToDiscard);
   }, 200);
 }
 
+/**
+ * Scans the recording directory for leftover files from crashed sessions and deletes them.
+ */
 export async function cleanupOrphanedRecordings() {
   log.info('[Cleanup] Starting orphaned recording cleanup...');
   const recordingDir = path.join(process.env.HOME || process.env.USERPROFILE || '.', '.screenarc');
-
-  // 1. Collect all file paths that are currently in use and should NOT be deleted.
   const protectedFiles = new Set<string>();
+
+  // Protect files from the currently active editor or recording session
   if (appState.currentEditorSessionFiles) {
-    protectedFiles.add(appState.currentEditorSessionFiles.screenVideoPath);
-    protectedFiles.add(appState.currentEditorSessionFiles.metadataPath);
-    if (appState.currentEditorSessionFiles.webcamVideoPath) {
-      protectedFiles.add(appState.currentEditorSessionFiles.webcamVideoPath);
-    }
+    Object.values(appState.currentEditorSessionFiles).forEach(file => file && protectedFiles.add(file));
   }
   if (appState.currentRecordingSession) {
-    protectedFiles.add(appState.currentRecordingSession.screenVideoPath);
-    protectedFiles.add(appState.currentRecordingSession.metadataPath);
-    if (appState.currentRecordingSession.webcamVideoPath) {
-      protectedFiles.add(appState.currentRecordingSession.webcamVideoPath);
-    }
+    Object.values(appState.currentRecordingSession).forEach(file => file && protectedFiles.add(file));
   }
 
   try {
     const allFiles = await fsPromises.readdir(recordingDir);
     const filePattern = /^ScreenArc-recording-\d+(-screen\.mp4|-webcam\.mp4|\.json)$/;
-
     const filesToDelete = allFiles
-      .filter(file => filePattern.test(file)) // Only target files matching our naming convention
-      .map(file => path.join(recordingDir, file)) // Get the full path
-      .filter(fullPath => !protectedFiles.has(fullPath)); // Exclude files from the current session
+      .filter(file => filePattern.test(file))
+      .map(file => path.join(recordingDir, file))
+      .filter(fullPath => !protectedFiles.has(fullPath));
 
     if (filesToDelete.length === 0) {
       log.info('[Cleanup] No orphaned files found.');
       return;
     }
-
     log.warn(`[Cleanup] Found ${filesToDelete.length} orphaned files to delete.`);
-
-    let deletedCount = 0;
     for (const filePath of filesToDelete) {
       try {
         await fsPromises.unlink(filePath);
         log.info(`[Cleanup] Deleted orphaned file: ${filePath}`);
-        deletedCount++;
       } catch (unlinkError) {
         log.error(`[Cleanup] Failed to delete orphaned file: ${filePath}`, unlinkError);
       }
     }
-    log.info(`[Cleanup] Successfully deleted ${deletedCount} of ${filesToDelete.length} orphaned files.`);
-
   } catch (error: unknown) {
     if (error instanceof Error && 'code' in error && (error as NodeJS.ErrnoException).code !== 'ENOENT') {
       log.error('[Cleanup] Error during orphaned file cleanup:', error);
@@ -443,7 +445,9 @@ export async function cleanupOrphanedRecordings() {
   }
 }
 
-
+/**
+ * Event handler for application quit, ensuring recordings are cleaned up before exit.
+ */
 export async function onAppQuit(event: Electron.Event) {
   if (appState.currentRecordingSession && !appState.isCleanupInProgress) {
     log.warn('[AppQuit] Active session detected. Cleaning up before exit...');
@@ -460,15 +464,13 @@ export async function onAppQuit(event: Electron.Event) {
   }
 }
 
+/**
+ * Opens a file dialog to allow the user to import an existing video file for editing.
+ */
 export async function loadVideoFromFile() {
   log.info('[RecordingManager] Received load video from file request.');
-
-  // The recorder window should be the parent for the dialog
   const recorderWindow = appState.recorderWin;
-  if (!recorderWindow) {
-    log.error('[RecordingManager] Cannot show open dialog, recorder window is not available.');
-    return { canceled: true };
-  }
+  if (!recorderWindow) return { canceled: true };
 
   const { canceled, filePaths } = await dialog.showOpenDialog(recorderWindow, {
     title: 'Select a video file to edit',
@@ -476,52 +478,36 @@ export async function loadVideoFromFile() {
     filters: [{ name: 'Videos', extensions: ['mp4', 'mov', 'webm', 'mkv'] }],
   });
 
-  if (canceled || filePaths.length === 0) {
-    log.info('[RecordingManager] File selection was cancelled.');
-    return { canceled: true };
-  }
+  if (canceled || filePaths.length === 0) return { canceled: true };
 
   const sourceVideoPath = filePaths[0];
   log.info(`[RecordingManager] User selected video file: ${sourceVideoPath}`);
-
   recorderWindow.hide();
-  createSavingWindow(); // Reuse this for a "Loading..." feel
+  createSavingWindow();
 
   try {
     const recordingDir = path.join(process.env.HOME || process.env.USERPROFILE || '.', '.screenarc');
     await ensureDirectoryExists(recordingDir);
     const baseName = `ScreenArc-recording-${Date.now()}`;
-
     const screenVideoPath = path.join(recordingDir, `${baseName}-screen.mp4`);
     const metadataPath = path.join(recordingDir, `${baseName}.json`);
 
-    // 1. Copy the selected video file to our app's directory
     await fsPromises.copyFile(sourceVideoPath, screenVideoPath);
-    log.info(`[RecordingManager] Copied video to: ${screenVideoPath}`);
-
-    // 2. Create an empty metadata file with the new structure
-    // The editor will populate geometry and screenSize from the video itself.
     await fsPromises.writeFile(metadataPath, '{"events":[], "cursorImages": {}, "syncOffset": 0}', 'utf-8');
-    log.info(`[RecordingManager] Created empty metadata file at: ${metadataPath}`);
 
     const session: RecordingSession = { screenVideoPath, metadataPath, webcamVideoPath: undefined };
-
-    // 3. Validate the new file
     const isValid = await validateRecordingFiles(session);
     if (!isValid) {
-      log.error('[RecordingManager] Loaded video file is invalid. Cleaning up.');
       await cleanupEditorFiles(session);
       appState.savingWin?.close();
       recorderWindow.show();
       return { canceled: true };
     }
 
-    // 4. Proceed to open the editor
-    await new Promise(resolve => setTimeout(resolve, 500)); // Short delay for UX
+    await new Promise(resolve => setTimeout(resolve, 500));
     appState.savingWin?.close();
     createEditorWindow(screenVideoPath, metadataPath, undefined);
     recorderWindow.close();
-
     return { canceled: false, filePath: screenVideoPath };
   } catch (error) {
     log.error('[RecordingManager] Error loading video from file:', error);

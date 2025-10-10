@@ -1,5 +1,5 @@
 import { useEditorStore } from "../../../store/editorStore";
-import type { ZoomRegion } from "../../../types/store";
+import type { ZoomRegion } from "../../../types";
 import { Collapse } from "../../ui/collapse";
 import { LineSquiggle } from "lucide-react";
 import { ZOOM } from "../../../lib/constants";

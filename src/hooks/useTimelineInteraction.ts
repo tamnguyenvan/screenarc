@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, RefObject, MouseEvent as ReactMouseEvent } from 'react';
 import { useEditorStore } from '../store/editorStore';
-import { TimelineRegion, CutRegion } from '../types/store';
+import { TimelineRegion, CutRegion } from '../types';
 import { TIMELINE } from '../lib/constants';
 
 interface UseTimelineInteractionProps {

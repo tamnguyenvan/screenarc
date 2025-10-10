@@ -1,7 +1,7 @@
 // Visual preview component for frame style presets
 import { useMemo, useRef } from "react"
 import { WALLPAPERS } from "../../lib/constants"
-import type { FrameStyles, AspectRatio, WebcamStyles, WebcamPosition } from "../../types/store"
+import type { FrameStyles, AspectRatio, WebcamStyles, WebcamPosition } from "../../types"
 import { Video } from "lucide-react"
 import { cn } from "../../lib/utils"
 

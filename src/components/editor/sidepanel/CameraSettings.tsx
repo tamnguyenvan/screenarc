@@ -21,7 +21,7 @@ import { useShallow } from "zustand/react/shallow"
 import { CornerRadiusIcon } from "../../ui/icons"
 import { Collapse } from "../../ui/collapse"
 import { cn } from "../../../lib/utils"
-import type { WebcamPosition } from "../../../types/store"
+import type { WebcamPosition } from "../../../types"
 
 export function CameraSettings() {
   const { isWebcamVisible, webcamPosition, webcamStyles, setWebcamVisibility, setWebcamPosition, updateWebcamStyle } =

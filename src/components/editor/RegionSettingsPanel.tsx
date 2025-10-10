@@ -1,7 +1,7 @@
 // Settings panel for editing timeline regions (zoom and cut)
 import { useState } from "react"
 import { useEditorStore } from "../../store/editorStore"
-import type { TimelineRegion, ZoomRegion } from "../../types/store"
+import type { TimelineRegion, ZoomRegion } from "../../types"
 import { cn } from "../../lib/utils"
 import { Button } from "../ui/button"
 import { Camera, Scissors, MousePointer, Video, Trash2 } from "lucide-react"

@@ -2,7 +2,7 @@
 import React from "react"
 import { Play, Pause, Scissors, ZoomIn, Trash2, Undo2, Redo2 } from "lucide-react"
 import { useEditorStore } from "../../store/editorStore"
-import type { AspectRatio } from "../../types/store"
+import type { AspectRatio } from "../../types"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select"
 import { Slider } from "../ui/slider"
 import { StepBackIcon, StepForwardIcon, RewindIcon } from "../ui/icons"

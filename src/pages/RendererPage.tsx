@@ -1,7 +1,7 @@
 import log from 'electron-log/renderer';
 import { useEffect, useRef } from 'react';
-import { useEditorStore, EditorActions } from '../store/editorStore';
-import { EditorState } from '../types/store';
+import { useEditorStore } from '../store/editorStore';
+import { EditorState, EditorActions } from '../types';
 import { ExportSettings } from '../components/editor/ExportModal';
 import { RESOLUTIONS } from '../lib/constants';
 import { drawScene } from '../lib/renderer';
