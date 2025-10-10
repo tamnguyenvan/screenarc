@@ -74,10 +74,9 @@ export const calculateZoomTransform = (
   metadata: MetaDataItem[],
   originalVideoDimensions: { width: number; height: number },
   frameContentDimensions: { width: number; height: number },
-  syncOffset: number = 0 // MODIFIED: Added syncOffset parameter
 ): { scale: number; translateX: number; translateY: number; transformOrigin: string } => {
   // --- MODIFICATION START: Use effective time for all calculations ---
-  const effectiveTime = currentTime + (syncOffset / 1000);
+  const effectiveTime = currentTime;
   // --- MODIFICATION END ---
 
   const activeRegion = Object.values(zoomRegions).find(

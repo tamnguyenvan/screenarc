@@ -330,18 +330,27 @@ async function cleanupAndSave(): Promise<void> {
     const { metadataPath } = appState.currentRecordingSession;
     const primaryDisplay = screen.getPrimaryDisplay();
     
+    // Calculate the sync offset: the time between recording start and FFmpeg's first frame.
     const syncOffset = appState.ffmpegFirstFrameTime
       ? appState.ffmpegFirstFrameTime - appState.recordingStartTime : 0;
+    
     if (syncOffset > 500) {
       log.warn(`[SYNC] High sync offset detected: ${syncOffset}ms. This might indicate system load.`);
     }
 
+    // Pre-process all event timestamps to be relative to the video's first frame, not the recording start.
+    // This "bakes in" the synchronization and simplifies all downstream logic.
+    const finalEvents = appState.recordedMouseEvents.map(event => ({
+      ...event,
+      timestamp: Math.max(0, event.timestamp - syncOffset) // Ensure no negative timestamps
+    }));
+
     const finalMetadata = {
       screenSize: primaryDisplay.size,
-      geometry: { width: primaryDisplay.bounds.width, height: primaryDisplay.bounds.height }, // TODO: Pass actual geometry
-      syncOffset,
+      geometry: { width: primaryDisplay.bounds.width, height: primaryDisplay.bounds.height },
+      syncOffset: 0,
       cursorImages: Object.fromEntries(appState.runtimeCursorImageMap || []),
-      events: appState.recordedMouseEvents,
+      events: finalEvents,
     };
 
     try {

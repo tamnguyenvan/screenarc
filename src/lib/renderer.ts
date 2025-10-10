@@ -154,14 +154,16 @@ export const drawScene = async (
   // --- 3. Main video frame transform and drawing ---
   ctx.save();
 
+  // --- START OF FIX: No longer pass syncOffset, use currentTime directly ---
   const { scale, translateX, translateY, transformOrigin } = calculateZoomTransform(
     currentTime,
     state.zoomRegions,
     state.metadata,
     state.videoDimensions,
-    { width: frameContentWidth, height: frameContentHeight },
-    state.syncOffset
+    { width: frameContentWidth, height: frameContentHeight }
   );
+  // --- END OF FIX ---
+
   const [originXStr, originYStr] = transformOrigin.split(' ');
   const originXMul = parseFloat(originXStr) / 100;
   const originYMul = parseFloat(originYStr) / 100;
@@ -209,8 +211,7 @@ export const drawScene = async (
   const { DURATION, MAX_RADIUS, EASING, COLOR } = EFFECTS.CLICK_ANIMATION;
   const clickAnimationEasing = EASING_MAP[EASING as keyof typeof EASING_MAP] || ((t: number) => t);
 
-  // Use the synchronized time for click animations
-  const effectiveTime = currentTime + (state.syncOffset / 1000) - DURATION;
+  const effectiveTime = currentTime - DURATION;
 
   if (state.recordingGeometry) {
     const recentClicks = state.metadata.filter(event =>
@@ -244,7 +245,8 @@ export const drawScene = async (
   }
 
   // --- 5. Draw Cursor ---
-  const lastEventIndex = findLastMetadataIndex(state.metadata, currentTime + (state.syncOffset / 1000));
+  const lastEventIndex = findLastMetadataIndex(state.metadata, currentTime);
+
   if (lastEventIndex > -1 && state.recordingGeometry) {
     const event = state.metadata[lastEventIndex];
     const cursorData = state.cursorImages[event.cursorImageKey];

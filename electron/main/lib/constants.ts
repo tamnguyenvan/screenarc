@@ -16,7 +16,7 @@ process.env.VITE_PUBLIC= VITE_PUBLIC
 export const PRELOAD_SCRIPT = path.join(process.env.APP_ROOT!, 'dist-electron/preload.mjs');
 
 // --- Recording ---
-export const MOUSE_RECORDING_FPS = 100;
+export const MOUSE_RECORDING_FPS = 50;
 
 // --- Export ---
 export type ResolutionKey = '720p' | '1080p' | '2k';
