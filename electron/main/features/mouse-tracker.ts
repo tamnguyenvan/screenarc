@@ -111,6 +111,11 @@ class LinuxMouseTracker extends EventEmitter implements IMouseTracker {
         return;
       }
 
+      if (!this.X) {
+        log.error('[MouseTracker-Linux] X11 client not initialized or closed.');
+        return;
+      }
+
       this.X.QueryPointer(root, (err: any, pointer: any) => {
         if (err) {
           log.error('[MouseTracker-Linux] Error querying pointer:', err);
