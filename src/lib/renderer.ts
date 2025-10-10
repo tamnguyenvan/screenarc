@@ -1,4 +1,4 @@
-import { CursorImage, EditorState } from '../types';
+import { EditorState } from '../types';
 import { calculateZoomTransform } from './transform';
 import { findLastMetadataIndex } from './transform';
 import { EFFECTS } from './constants';
