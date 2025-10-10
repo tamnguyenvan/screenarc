@@ -1,5 +1,6 @@
 import { type ClassValue, clsx } from "clsx"
 import { twMerge } from "tailwind-merge"
+import { CursorImage, CursorImageBitmap } from "../types";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -95,4 +96,29 @@ export const calculateRulerInterval = (pixelsPerSecond: number): { major: number
 
   // Fallback if no subdivision is readable (very zoomed out)
   return { major, minor: major / 2 };
+};
+
+export const prepareCursorBitmaps = async (cursorImages: Record<string, CursorImage>): Promise<Map<string, CursorImageBitmap>> => {
+  const bitmapMap = new Map<string, CursorImageBitmap>();
+  const promises = [];
+
+  for (const key in cursorImages) {
+    const cursor = cursorImages[key];
+    if (cursor.image && cursor.width > 0 && cursor.height > 0) {
+      const promise = (async () => {
+        try {
+          const buffer = new Uint8ClampedArray(cursor.image);
+          const imageData = new ImageData(buffer, cursor.width, cursor.height);
+          const bitmap = await createImageBitmap(imageData);
+          bitmapMap.set(key, { ...cursor, image: bitmap });
+        } catch (e) {
+          // 
+        }
+      })();
+      promises.push(promise);
+    }
+  }
+
+  await Promise.all(promises);
+  return bitmapMap;
 };

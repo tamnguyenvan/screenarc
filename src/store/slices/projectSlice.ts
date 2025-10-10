@@ -1,7 +1,8 @@
 import type { ProjectState, ProjectActions, Slice, RecordingGeometry, VideoDimensions } from '../../types';
-import type { MetaDataItem, ZoomRegion } from '../../types';
+import type { MetaDataItem, ZoomRegion, CursorImageBitmap } from '../../types';
 import { ZOOM } from '../../lib/constants';
 import { initialFrameState, recalculateCanvasDimensions } from './frameSlice';
+import { prepareCursorBitmaps } from '../../lib/utils';
 
 export const initialProjectState: ProjectState = {
   videoPath: null,
@@ -14,6 +15,7 @@ export const initialProjectState: ProjectState = {
   metadata: [],
   duration: 0,
   cursorImages: {},
+  cursorBitmapsToRender: new Map<string, CursorImageBitmap>(),
   syncOffset: 0,
 };
 
@@ -112,6 +114,8 @@ export const createProjectSlice: Slice<ProjectState, ProjectActions> = (set, get
         ...item,
         timestamp: item.timestamp / 1000,
       }));
+
+      const cursorBitmaps = await prepareCursorBitmaps(parsedData.cursorImages);
       
       const newZoomRegions = generateAutoZoomRegions(processedMetadata, parsedData.geometry, get().videoDimensions);
 
@@ -120,6 +124,7 @@ export const createProjectSlice: Slice<ProjectState, ProjectActions> = (set, get
         state.recordingGeometry = parsedData.geometry || null;
         state.screenSize = parsedData.screenSize || null;
         state.cursorImages = parsedData.cursorImages || {};
+        state.cursorBitmapsToRender = cursorBitmaps || {};
         state.syncOffset = parsedData.syncOffset || 0;
         state.zoomRegions = newZoomRegions;
         recalculateCanvasDimensions(state);

@@ -16,6 +16,7 @@ type RenderableState = Pick<
   | 'metadata'
   | 'recordingGeometry'
   | 'cursorImages'
+  | 'cursorBitmapsToRender'
   | 'syncOffset'
 >;
 
@@ -249,18 +250,16 @@ export const drawScene = async (
 
   if (lastEventIndex > -1 && state.recordingGeometry) {
     const event = state.metadata[lastEventIndex];
-    const cursorData = state.cursorImages[event.cursorImageKey];
+    const cursorData = state.cursorBitmapsToRender.get(event.cursorImageKey);
 
     // Improved cursor drawing logic
-    const buffer = new Uint8ClampedArray(cursorData.image);
-    const imageData = new ImageData(buffer, cursorData.width, cursorData.height);
-    if (cursorData && imageData && imageData.width > 0) {
+    if (cursorData && cursorData.image && cursorData.width > 0) {
       // Scale cursor position from original recording geometry to the current frame's content size
       const cursorX = (event.x / state.recordingGeometry.width) * frameContentWidth;
       const cursorY = (event.y / state.recordingGeometry.height) * frameContentHeight;
 
       // Create a bitmap for efficient drawing.
-      const bitmap = await createImageBitmap(imageData);
+      const bitmap = await createImageBitmap(cursorData.image);
       
       // Draw the cursor image, offset by its hotspot.
       // This happens inside the transformed context, so it will be scaled and panned correctly.

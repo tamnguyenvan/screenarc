@@ -1,10 +1,11 @@
 import log from 'electron-log/renderer';
 import { useEffect, useRef } from 'react';
 import { useEditorStore } from '../store/editorStore';
-import { EditorState, EditorActions } from '../types';
+import { EditorState, EditorActions, CursorImage } from '../types';
 import { ExportSettings } from '../components/editor/ExportModal';
 import { RESOLUTIONS } from '../lib/constants';
 import { drawScene } from '../lib/renderer';
+import { prepareCursorBitmaps } from '../lib/utils';
 
 type RenderStartPayload = {
   projectState: Omit<EditorState, keyof EditorActions>;
@@ -30,7 +31,6 @@ const loadBackgroundImage = (background: EditorState['frameStyles']['background'
     img.src = finalUrl;
   });
 };
-
 
 export function RendererPage() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -65,7 +65,11 @@ export function RendererPage() {
         useEditorStore.setState(projectState);
 
         // Pre-load the background image before starting the frame loop
-        const bgImage = await loadBackgroundImage(projectState.frameStyles.background);
+        const [bgImage, cursorImageBitmaps] = await Promise.all([
+          loadBackgroundImage(projectState.frameStyles.background),
+          prepareCursorBitmaps(projectState.cursorImages)
+        ]);
+        const projectStateWithCursorBitmaps = { ...projectState, cursorBitmapsToRender: cursorImageBitmaps };
 
         const loadVideo = (videoElement: HTMLVideoElement, source: string, path: string): Promise<void> =>
           new Promise((resolve, reject) => {
@@ -94,12 +98,12 @@ export function RendererPage() {
             videoElement.load();
           });
 
-        const loadPromises: Promise<void>[] = [loadVideo(video, 'Main video', projectState.videoPath!)];
-        if (projectState.webcamVideoPath && webcamVideo) { loadPromises.push(loadVideo(webcamVideo, 'Webcam video', projectState.webcamVideoPath)); }
+        const loadPromises: Promise<void>[] = [loadVideo(video, 'Main video', projectStateWithCursorBitmaps.videoPath!)];
+        if (projectStateWithCursorBitmaps.webcamVideoPath && webcamVideo) { loadPromises.push(loadVideo(webcamVideo, 'Webcam video', projectStateWithCursorBitmaps.webcamVideoPath)); }
         await Promise.all(loadPromises);
 
         log.info('[RendererPage] Starting frame-by-frame rendering...');
-        const totalDuration = projectState.duration;
+        const totalDuration = projectStateWithCursorBitmaps.duration;
         const totalFrames = Math.floor(totalDuration * fps);
         let framesSent = 0;
 
@@ -107,7 +111,7 @@ export function RendererPage() {
           const currentTime = i / fps;
 
           // Add logic to check cut/trim region
-          const isInCutRegion = Object.values(projectState.cutRegions).some(
+          const isInCutRegion = Object.values(projectStateWithCursorBitmaps.cutRegions).some(
             (r) => currentTime >= r.startTime && currentTime < (r.startTime + r.duration)
           );
           if (isInCutRegion) continue; // Skip this frame
@@ -120,7 +124,7 @@ export function RendererPage() {
             requestAnimationFrame(() => resolve());
           });
 
-          await drawScene(ctx, projectState, video, webcamVideo, currentTime, outputWidth, outputHeight, bgImage);
+          await drawScene(ctx, projectStateWithCursorBitmaps, video, webcamVideo, currentTime, outputWidth, outputHeight, bgImage);
 
           const imageData = ctx.getImageData(0, 0, outputWidth, outputHeight);
           const frameBuffer = Buffer.from(imageData.data.buffer);

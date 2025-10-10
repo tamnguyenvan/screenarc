@@ -70,12 +70,18 @@ export interface MetaDataItem {
   cursorImageKey: string;
 }
 
-export interface CursorImage {
+export interface CursorImageBase {
   width: number;
   height: number;
   xhot: number;
   yhot: number;
+}
+export interface CursorImage extends CursorImageBase {
   image: number[];
+}
+
+export interface CursorImageBitmap extends CursorImageBase {
+  image: ImageBitmap;
 }
 
 export interface WebcamPosition {
@@ -111,6 +117,7 @@ export interface ProjectState {
   metadata: MetaDataItem[];
   duration: number;
   cursorImages: Record<string, CursorImage>;
+  cursorBitmapsToRender: Map<string, CursorImageBitmap>;
   syncOffset: number;
 }
 export interface ProjectActions {
