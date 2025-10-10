@@ -1,5 +1,5 @@
 import type { ProjectState, ProjectActions, Slice, RecordingGeometry, VideoDimensions } from '../../types';
-import type { MetaDataItem, CursorImage, ZoomRegion } from '../../types';
+import type { MetaDataItem, ZoomRegion } from '../../types';
 import { ZOOM } from '../../lib/constants';
 import { initialFrameState, recalculateCanvasDimensions } from './frameSlice';
 
@@ -82,7 +82,7 @@ export const createProjectSlice: Slice<ProjectState, ProjectActions> = (set, get
     const videoUrl = `media://${videoPath}`;
     const webcamVideoUrl = webcamVideoPath ? `media://${webcamVideoPath}` : null;
     
-    // resetProjectState(); // Clear previous project data first
+    get().resetProjectState(); // Clear previous project data first
     
     // Apply the active or default preset to the new project
     const activePresetId = get().activePresetId;
@@ -112,17 +112,6 @@ export const createProjectSlice: Slice<ProjectState, ProjectActions> = (set, get
         ...item,
         timestamp: item.timestamp / 1000,
       }));
-
-      const processedCursorImages: Record<string, CursorImage> = {};
-      for (const key in parsedData.cursorImages) {
-        const data = parsedData.cursorImages[key];
-        if (data.width > 0 && data.height > 0 && data.image.length > 0) {
-          const buffer = new Uint8ClampedArray(data.image);
-          processedCursorImages[key] = { ...data, imageData: new ImageData(buffer, data.width, data.height) };
-        } else {
-          processedCursorImages[key] = { ...data, imageData: undefined };
-        }
-      }
       
       const newZoomRegions = generateAutoZoomRegions(processedMetadata, parsedData.geometry, get().videoDimensions);
 
@@ -130,7 +119,7 @@ export const createProjectSlice: Slice<ProjectState, ProjectActions> = (set, get
         state.metadata = processedMetadata;
         state.recordingGeometry = parsedData.geometry || null;
         state.screenSize = parsedData.screenSize || null;
-        state.cursorImages = processedCursorImages;
+        state.cursorImages = parsedData.cursorImages || {};
         state.syncOffset = parsedData.syncOffset || 0;
         state.zoomRegions = newZoomRegions;
         recalculateCanvasDimensions(state);
@@ -152,7 +141,6 @@ export const createProjectSlice: Slice<ProjectState, ProjectActions> = (set, get
   }),
   setDuration: (duration) => set(state => {
     state.duration = duration;
-    // Clamp any regions that might now extend beyond the new duration
     Object.values({ ...state.zoomRegions, ...state.cutRegions }).forEach(region => {
       if (region.startTime + region.duration > duration) {
         region.duration = Math.max(0.1, duration - region.startTime);
@@ -162,7 +150,6 @@ export const createProjectSlice: Slice<ProjectState, ProjectActions> = (set, get
   resetProjectState: () => {
     set(state => {
       Object.assign(state, initialProjectState);
-      // Also reset related slices to their initial project-specific state
       state.zoomRegions = {};
       state.cutRegions = {};
       state.selectedRegionId = null;

@@ -1,4 +1,4 @@
-import { EditorState } from '../types';
+import { CursorImage, EditorState } from '../types';
 import { calculateZoomTransform } from './transform';
 import { findLastMetadataIndex } from './transform';
 import { EFFECTS } from './constants';
@@ -121,7 +121,7 @@ export const drawScene = async (
   currentTime: number,
   outputWidth: number,
   outputHeight: number,
-  preloadedBgImage: HTMLImageElement | null
+  preloadedBgImage: HTMLImageElement | null,
 ): Promise<void> => {
   if (!state.videoDimensions.width || !state.videoDimensions.height) return;
 
@@ -244,19 +244,29 @@ export const drawScene = async (
   }
 
   // --- 5. Draw Cursor ---
-  const lastEventIndex = findLastMetadataIndex(state.metadata, effectiveTime);
+  const lastEventIndex = findLastMetadataIndex(state.metadata, currentTime + (state.syncOffset / 1000));
   if (lastEventIndex > -1 && state.recordingGeometry) {
     const event = state.metadata[lastEventIndex];
     const cursorData = state.cursorImages[event.cursorImageKey];
 
-    if (cursorData && cursorData.imageData) {
+    // Improved cursor drawing logic
+    const buffer = new Uint8ClampedArray(cursorData.image);
+    const imageData = new ImageData(buffer, cursorData.width, cursorData.height);
+    if (cursorData && imageData && imageData.width > 0) {
       // Scale cursor position from original recording geometry to the current frame's content size
       const cursorX = (event.x / state.recordingGeometry.width) * frameContentWidth;
       const cursorY = (event.y / state.recordingGeometry.height) * frameContentHeight;
 
+      // Create a bitmap for efficient drawing.
+      const bitmap = await createImageBitmap(imageData);
+      
       // Draw the cursor image, offset by its hotspot.
       // This happens inside the transformed context, so it will be scaled and panned correctly.
-      ctx.drawImage(cursorData.imageData.width > 0 ? await createImageBitmap(cursorData.imageData) : new Image(), Math.round(cursorX - cursorData.xhot), Math.round(cursorY - cursorData.yhot));
+      ctx.drawImage(
+        bitmap,
+        Math.round(cursorX - cursorData.xhot),
+        Math.round(cursorY - cursorData.yhot)
+      );
     }
   }
 

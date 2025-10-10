@@ -47,6 +47,9 @@ export const useExportProcess = () => {
       webcamPosition: fullState.webcamPosition,
       webcamStyles: fullState.webcamStyles,
       isWebcamVisible: fullState.isWebcamVisible,
+      recordingGeometry: fullState.recordingGeometry,
+      cursorImages: fullState.cursorImages,
+      syncOffset: fullState.syncOffset,
     };
 
     setResult(null);

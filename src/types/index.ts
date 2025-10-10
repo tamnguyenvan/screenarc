@@ -76,7 +76,6 @@ export interface CursorImage {
   xhot: number;
   yhot: number;
   image: number[];
-  imageData?: ImageData;
 }
 
 export interface WebcamPosition {
