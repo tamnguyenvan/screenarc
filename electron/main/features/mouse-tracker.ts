@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import log from 'electron-log/main';
 import { EventEmitter } from 'node:events';
 import { dialog } from 'electron';

@@ -1,4 +1,7 @@
-import type { ProjectState, ProjectActions, Slice, RecordingGeometry, VideoDimensions, CursorTheme, CursorImageBitmap } from '../../types';
+import type {
+  ProjectState, ProjectActions, Slice, RecordingGeometry,
+  VideoDimensions, CursorTheme, CursorImageBitmap
+} from '../../types';
 import type { MetaDataItem, ZoomRegion, CursorFrame } from '../../types';
 import { ZOOM } from '../../lib/constants';
 import { initialFrameState, recalculateCanvasDimensions } from './frameSlice';
