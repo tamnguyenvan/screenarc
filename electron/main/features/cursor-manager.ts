@@ -62,10 +62,11 @@ export async function getCursorScale(): Promise<number> {
 
 export function setCursorScale(scale: number) {
   switch (process.platform) {
-    case 'win32': {
-      // On Windows, we no longer change the system cursor size.
-      // This function is now a no-op for Windows.
-      // The cursor size is handled virtually in the editor.
+    case 'win32':
+    case 'darwin': {
+      // On Windows and macOS, we no longer change the system cursor size.
+      // This function is now a no-op.
+      // The cursor size is handled virtually in the editor (post-processing).
       break;
     }
     case 'linux': {

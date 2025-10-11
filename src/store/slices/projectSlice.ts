@@ -122,6 +122,43 @@ async function prepareWindowsCursorBitmaps(theme: CursorTheme, scale: number): P
   return bitmapMap;
 }
 
+async function prepareMacOSCursorBitmaps(theme: CursorTheme, scale: number): Promise<Map<string, CursorImageBitmap>> {
+  const bitmapMap = new Map<string, CursorImageBitmap>();
+  const cursorSet = theme[scale];
+  if (!cursorSet) {
+    console.warn(`[prepareMacOSCursorBitmaps] No cursor set found for scale ${scale}x`);
+    return bitmapMap;
+  }
+
+  const processingPromises: Promise<void>[] = [];
+
+  for (const cursorThemeName in cursorSet) {
+    const frames = cursorSet[cursorThemeName];
+    
+    processingPromises.push(
+      (async () => {
+        for (let i = 0; i < frames.length; i++) {
+          const frame = frames[i] as CursorFrame;
+          if (frame.rgba && frame.width > 0 && frame.height > 0) {
+            try {
+              const buffer = new Uint8ClampedArray(Object.values(frame.rgba));
+              const imageData = new ImageData(buffer, frame.width, frame.height);
+              const bitmap = await createImageBitmap(imageData);
+              const key = `${cursorThemeName}`; // On macOS, use the name directly
+              bitmapMap.set(key, { ...frame, imageBitmap: bitmap });
+            } catch (e) {
+              console.error(`Failed to create bitmap for ${cursorThemeName}`, e);
+            }
+          }
+        }
+      })()
+    );
+  }
+  
+  await Promise.all(processingPromises);
+  return bitmapMap;
+}
+
 
 export const createProjectSlice: Slice<ProjectState, ProjectActions> = (set, get) => ({
   ...initialProjectState,
@@ -161,7 +198,7 @@ export const createProjectSlice: Slice<ProjectState, ProjectActions> = (set, get
       
       const newZoomRegions = generateAutoZoomRegions(processedMetadata, parsedData.geometry, get().videoDimensions);
       
-      const platform = (await window.electronAPI.getPlatform()) || 'win32';
+      const platform = parsedData.platform || (await window.electronAPI.getPlatform());
       set(state => {
         state.platform = platform;
         state.metadata = processedMetadata;
@@ -173,19 +210,26 @@ export const createProjectSlice: Slice<ProjectState, ProjectActions> = (set, get
       });
 
       if (platform === 'win32') {
-        // Load cursor theme and prepare cursor bitmaps to for renderer
         const cursorTheme = await window.electronAPI.loadCursorTheme();
         if (cursorTheme) {
-            // Load the saved scale from settings, or default to 2x.
             const scale = await window.electronAPI.getSetting<number>('recorder.cursorScale') || 2;
             const bitmaps = await prepareWindowsCursorBitmaps(cursorTheme, scale);
-
             set(state => {
               state.cursorTheme = cursorTheme;
               state.cursorBitmapsToRender = bitmaps;
             });
         }
-      } else {
+      } else if (platform === 'darwin') {
+        const cursorTheme = await window.electronAPI.loadCursorTheme();
+        if (cursorTheme) {
+            const scale = await window.electronAPI.getSetting<number>('recorder.cursorScale') || 2;
+            const bitmaps = await prepareMacOSCursorBitmaps(cursorTheme, scale);
+            set(state => {
+              state.cursorTheme = cursorTheme;
+              state.cursorBitmapsToRender = bitmaps;
+            });
+        }
+      } else { // Linux
         const bitmaps = await prepareCursorBitmaps(parsedData.cursorImages);
         set(state => {
           state.cursorImages = parsedData.cursorImages || {};
@@ -226,20 +270,20 @@ export const createProjectSlice: Slice<ProjectState, ProjectActions> = (set, get
       state.isPlaying = false;
     });
   },
-  setWindowsCursorScale: async (scale) => {
-    const theme = get().cursorTheme;
-    if (!theme) return;
+  setPostProcessingCursorScale: async (scale) => {
+    const { platform, cursorTheme } = get();
+    if (!cursorTheme || (platform !== 'win32' && platform !== 'darwin')) return;
     
-    // Set loading state if needed
-    set(state => {
-      state.cursorBitmapsToRender = new Map(); // Clear old bitmaps
-    });
-    
-    // Persist setting
+    set(state => { state.cursorBitmapsToRender = new Map(); });
     window.electronAPI.setSetting('recorder.cursorScale', scale);
     
-    // Regenerate bitmaps
-    const bitmaps = await prepareWindowsCursorBitmaps(theme, scale);
+    let bitmaps: Map<string, CursorImageBitmap>;
+    if (platform === 'win32') {
+      bitmaps = await prepareWindowsCursorBitmaps(cursorTheme, scale);
+    } else { // darwin
+      bitmaps = await prepareMacOSCursorBitmaps(cursorTheme, scale);
+    }
+    
     set(state => { state.cursorBitmapsToRender = bitmaps; });
   },
 });

@@ -5,8 +5,9 @@ import { dialog } from 'electron';
 import { createRequire } from 'node:module';
 import { createHash } from 'node:crypto';
 import { MOUSE_RECORDING_FPS } from '../lib/constants';
-import { MOUSE_BUTTONS, MACOS_API } from '../lib/system-constants';
+import { MOUSE_BUTTONS } from '../lib/system-constants';
 import * as winCursorManager from '../lib/win-cursor-manager';
+import * as macosCursorManager from '../lib/macos-cursor-manager';
 import { MetaDataItem } from '../types';
 
 
@@ -16,7 +17,7 @@ const hash = (buffer: Buffer) => createHash('sha1').update(buffer).digest('hex')
 // --- Dynamic Imports for Platform-Specific Modules ---
 let X11Module: any;
 let mouseEvents: any;
-let ApplicationServices: any;
+let iohook: any;
 
 export function initializeMouseTrackerDependencies() {
   if (process.platform === 'linux') {
@@ -40,14 +41,11 @@ export function initializeMouseTrackerDependencies() {
 
   if (process.platform === 'darwin') {
     try {
-      ApplicationServices = require('ffi-rs');
-      ApplicationServices.open({
-        library: "ApplicationServices",
-        path: "/System/Library/Frameworks/ApplicationServices.framework/ApplicationServices",
-      });
-      log.info('[MouseTracker] Successfully loaded ApplicationServices for macOS.');
+      iohook = require('iohook-macos');
+      macosCursorManager.initializeMacOSCursorManager();
+      log.info('[MouseTracker] Successfully loaded iohook-macos and initialized macos-cursor-manager for macOS.');
     } catch (e) {
-      log.error('[MouseTracker] Failed to load ApplicationServices. Mouse tracking on macOS will be disabled.', e);
+      log.error('[MouseTracker] Failed to load macOS-specific modules. Mouse tracking on macOS will be disabled.', e);
     }
   }
 }
@@ -233,90 +231,76 @@ class WindowsMouseTracker extends EventEmitter implements IMouseTracker {
 }
 
 
-class MacosMouseTracker extends EventEmitter implements IMouseTracker {
-  private intervalId: NodeJS.Timeout | null = null;
-  private lastButtonState = { left: false, right: false, middle: false };
-  private cursorImageMap: Map<string, any> | null = null;
+class MacOSMouseTracker extends EventEmitter implements IMouseTracker {
+  private pollIntervalId: NodeJS.Timeout | null = null;
+  private currentCursorName = 'arrow';
 
-  async start(cursorImageMap: Map<string, any>) {
-    this.cursorImageMap = cursorImageMap;
-    // macOS cursor capture is complex (requires CoreGraphics) and not part of the request.
-    // We will send a placeholder key.
-    if (!this.cursorImageMap.has('macos_default_arrow')) {
-        this.cursorImageMap.set('macos_default_arrow', { width: 0, height: 0, xhot: 0, yhot: 0, image: [] });
-    }
-    
-    if (!ApplicationServices) {
-      log.error("[MouseTracker-macOS] Cannot start, ApplicationServices module not loaded.");
+  async start() {
+    if (!iohook) {
+      log.error('[MouseTracker-macOS] Cannot start, iohook-macos module not loaded.');
       return;
     }
-    this.intervalId = setInterval(this.pollMouseState, 1000 / MOUSE_RECORDING_FPS);
+    
+    // Check accessibility permissions
+    const permissions = iohook.checkAccessibilityPermissions();
+    if (!permissions.hasPermissions) {
+        log.warn('[MouseTracker-macOS] Accessibility permissions not granted. Requesting...');
+        dialog.showErrorBox(
+          'Permissions Required', 
+          'ScreenArc needs Accessibility permissions to track mouse clicks. Please grant access in System Settings > Privacy & Security > Accessibility.'
+        );
+        iohook.requestAccessibilityPermissions();
+        return; // Stop if permissions are not granted
+    }
+
+    iohook.on('mousemove', this.handleMouseEvent('move'));
+    iohook.on('mousedown', this.handleMouseEvent('click', true));
+    iohook.on('mouseup', this.handleMouseEvent('click', false));
+
+    iohook.startMonitoring();
+
+    this.pollIntervalId = setInterval(() => this.pollCursorState(), 1000 / MOUSE_RECORDING_FPS);
     log.info('[MouseTracker-macOS] Started.');
   }
 
   stop() {
-    if (this.intervalId) {
-      clearInterval(this.intervalId);
-      this.intervalId = null;
+    if (this.pollIntervalId) clearInterval(this.pollIntervalId);
+    if (iohook) {
+      iohook.removeAllListeners();
+      iohook.stopMonitoring();
     }
     log.info('[MouseTracker-macOS] Stopped.');
   }
+  
+  private handleMouseEvent = (type: 'move' | 'click', isPressed?: boolean) => (event: any) => {
+    const data: MetaDataItem = {
+      timestamp: Date.now(),
+      x: event.x,
+      y: event.y,
+      type,
+      cursorImageKey: this.currentCursorName
+    };
+    if (type === 'click') {
+      data.button = this.mapButton(event.button);
+      data.pressed = isPressed;
+    }
+    this.emit('data', data);
+  };
+  
+  private pollCursorState = () => {
+    this.currentCursorName = macosCursorManager.getCurrentCursorName();
+  };
 
-  private pollMouseState = async () => {
-    try {
-      const event = await ApplicationServices.load({
-        library: "ApplicationServices",
-        funcName: "CGEventCreate",
-        retType: ApplicationServices.DataType.External,
-        paramsType: [ApplicationServices.DataType.External],
-        paramsValue: [null],
-      });
-
-      const location = await ApplicationServices.load({
-        library: "ApplicationServices",
-        funcName: "CGEventGetLocation",
-        retType: ApplicationServices.DataType.DoubleArray,
-        paramsType: [ApplicationServices.DataType.External],
-        paramsValue: [event],
-      });
-
-      if (!Array.isArray(location) || location.length < 2) return;
-      
-      const pos = { x: location[0], y: location[1] };
-      const timestamp = Date.now();
-      const eventData: any = { timestamp, ...pos, cursorImageKey: 'macos_default_arrow' };
-      
-      this.emit('data', { ...eventData, type: 'move' });
-
-      // Check button states
-      const leftPressed = await this.isButtonPressed(MOUSE_BUTTONS.MACOS.LEFT);
-      const rightPressed = await this.isButtonPressed(MOUSE_BUTTONS.MACOS.RIGHT);
-
-      if (leftPressed !== this.lastButtonState.left) {
-        this.emit('data', { ...eventData, type: 'click', button: 'left', pressed: leftPressed });
-        this.lastButtonState.left = leftPressed;
-      }
-      if (rightPressed !== this.lastButtonState.right) {
-        this.emit('data', { ...eventData, type: 'click', button: 'right', pressed: rightPressed });
-        this.lastButtonState.right = rightPressed;
-      }
-
-    } catch (error) {
-      log.error('[MouseTracker-macOS] Error polling mouse state:', error);
-      this.stop();
+  private mapButton = (code: number) => {
+    switch (code) {
+      case MOUSE_BUTTONS.MACOS.LEFT: return 'left';
+      case MOUSE_BUTTONS.MACOS.RIGHT: return 'right';
+      case MOUSE_BUTTONS.MACOS.MIDDLE: return 'middle';
+      default: return 'unknown';
     }
   };
-
-  private isButtonPressed = (button: number): Promise<boolean> => {
-    return ApplicationServices.load({
-      library: "ApplicationServices",
-      funcName: "CGEventSourceButtonState",
-      retType: ApplicationServices.DataType.Boolean,
-      paramsType: [ApplicationServices.DataType.I32, ApplicationServices.DataType.I32],
-      paramsValue: [MACOS_API.kCGEventSourceStateHIDSystemState, button],
-    });
-  };
 }
+
 
 // --- Factory Function ---
 export function createMouseTracker(): IMouseTracker | null {
@@ -335,11 +319,11 @@ export function createMouseTracker(): IMouseTracker | null {
       return new WindowsMouseTracker();
     
     case 'darwin':
-      if (!ApplicationServices) {
+       if (!iohook) {
         dialog.showErrorBox('Dependency Missing', 'Could not load the required module for mouse tracking on macOS.');
         return null;
       }
-      return new MacosMouseTracker();
+      return new MacOSMouseTracker();
     default:
       log.warn(`Mouse tracking not supported on platform: ${process.platform}`);
       return null;

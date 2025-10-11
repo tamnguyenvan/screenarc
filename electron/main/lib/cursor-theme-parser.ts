@@ -1,7 +1,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import log from 'electron-log/main';
-import { AniParser, CursorParser } from './win-cursor-parser';
+import { AniParser, CursorParser } from './cursor-file-parser';
 
 export interface CursorFrame {
   width: number;

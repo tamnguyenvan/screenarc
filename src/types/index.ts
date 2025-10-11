@@ -141,7 +141,7 @@ export interface ProjectActions {
   setVideoDimensions: (dims: { width: number; height: number }) => void;
   setDuration: (duration: number) => void;
   resetProjectState: () => void;
-  setWindowsCursorScale: (scale: number) => Promise<void>;
+  setPostProcessingCursorScale: (scale: number) => Promise<void>;
 }
 
 export interface PlaybackState {

@@ -21,9 +21,9 @@ export const MOUSE_BUTTONS = {
     RIGHT: 1024,
   },
   MACOS: {
-    LEFT: 0,
-    RIGHT: 1,
-    MIDDLE: 2,
+    LEFT: 1,
+    RIGHT: 2,
+    MIDDLE: 3,
   },
 };
 

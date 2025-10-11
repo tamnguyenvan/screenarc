@@ -4,24 +4,24 @@ import { cn } from "../../../lib/utils"
 import { useEffect, useState } from "react"
 import { useEditorStore } from "../../../store/editorStore"
 
-const WINDOWS_SCALES = [
+const POST_PROCESSING_SCALES = [
   { value: 2, label: "2x" },
   { value: 1.5, label: "1.5x" },
   { value: 1, label: "1x" },
 ]
 
 export function CursorSettings() {
-  const { platform, setWindowsCursorScale } = useEditorStore((state) => ({
+  const { platform, setPostProcessingCursorScale } = useEditorStore((state) => ({
     platform: state.platform,
-    setWindowsCursorScale: state.setWindowsCursorScale,
+    setPostProcessingCursorScale: state.setPostProcessingCursorScale,
   }));
   const [cursorScale, setCursorScale] = useState<number>(2); // Default to 2x
 
   useEffect(() => {
-    if (platform === 'win32') {
+    if (platform === 'win32' || platform === 'darwin') {
       // Load initial scale from settings when component mounts
       window.electronAPI.getSetting<number>('recorder.cursorScale').then(savedScale => {
-        if (savedScale && WINDOWS_SCALES.some(s => s.value === savedScale)) {
+        if (savedScale && POST_PROCESSING_SCALES.some(s => s.value === savedScale)) {
           setCursorScale(savedScale);
         }
       });
@@ -30,13 +30,13 @@ export function CursorSettings() {
 
   const handleCursorScaleChange = (value: number) => {
     setCursorScale(value);
-    setWindowsCursorScale(value);
+    setPostProcessingCursorScale(value);
   };
 
-  if (platform !== "win32") {
+  if (platform !== "win32" && platform !== "darwin") {
     return (
       <div className="p-6 text-center text-sm text-muted-foreground">
-        <p>Cursor scaling is only available on Windows in the editor.</p>
+        <p>Cursor scaling is only available on Windows and macOS in the editor.</p>
       </div>
     )
   }
@@ -66,7 +66,7 @@ export function CursorSettings() {
           <div className="space-y-3">
             <label className="text-sm font-medium text-sidebar-foreground">Scale</label>
             <div className="grid grid-cols-3 gap-1 p-1 bg-muted/50 rounded-lg">
-              {WINDOWS_SCALES.map((scale) => (
+              {POST_PROCESSING_SCALES.map((scale) => (
                 <button
                   key={scale.value}
                   onClick={() => handleCursorScaleChange(scale.value)}
