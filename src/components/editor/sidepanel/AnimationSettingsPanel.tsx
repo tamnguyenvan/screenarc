@@ -127,38 +127,31 @@ export function AnimationSettingsPanel() {
                 onChange={setZoomLevel}
               />
             </div>
-          </div>
-        </Collapse>
 
-        {/* Apply Collapse */}
-        <Collapse
-          title="Apply to All"
-          description="Apply these animation settings globally."
-          icon={<Wand2 />}
-          defaultOpen={true}
-        >
-          <div className="pt-2">
-            <Button
-              onClick={handleApplyToAll}
-              disabled={applyStatus !== "idle"}
-              className={cn(
-                "w-full h-11 font-semibold transition-all duration-300",
-                applyStatus === "applied" &&
+            {/* Apply Collapse */}
+            <div className="space-y-3">
+              <Button
+                onClick={handleApplyToAll}
+                disabled={applyStatus !== "idle"}
+                className={cn(
+                  "w-full h-11 font-semibold transition-all duration-300",
+                  applyStatus === "applied" &&
                   "bg-green-500 hover:bg-green-500/90",
-              )}
-            >
-              {applyStatus === "idle" ? (
-                <>
-                  <Wand2 className="w-4 h-4 mr-2" />
-                  Apply to All Zoom Regions
-                </>
-              ) : (
-                <>
-                  <Check className="w-5 h-5 mr-2" />
-                  Applied!
-                </>
-              )}
-            </Button>
+                )}
+              >
+                {applyStatus === "idle" ? (
+                  <>
+                    <Wand2 className="w-4 h-4 mr-2" />
+                    Apply to All Zoom Regions
+                  </>
+                ) : (
+                  <>
+                    <Check className="w-5 h-5 mr-2" />
+                    Applied!
+                  </>
+                )}
+              </Button>
+            </div>
           </div>
         </Collapse>
       </div>
