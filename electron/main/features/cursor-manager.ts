@@ -1,19 +1,13 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-// Contains logic to read and change cursor size on different platforms.
-
 import log from 'electron-log/main';
 import { exec } from 'node:child_process';
 import { createRequire } from 'node:module';
 import { appState } from '../state';
 import { getLinuxDE } from '../lib/utils';
-import { WIN_API } from '../lib/system-constants';
 
 const require = createRequire(import.meta.url);
 
 const LINUX_SCALES = [1, 1.5, 2];
 const LINUX_BASE_SIZE = 24;
-const WINDOWS_SCALES = [1, 2, 3];
-const WINDOWS_BASE_SIZE = 32;
 
 // --- Dynamic Imports ---
 let WinAPI: any | undefined;
@@ -38,22 +32,10 @@ export function initializeCursorDependencies() {
 export async function getCursorScale(): Promise<number> {
   switch (process.platform) {
     case 'win32':
-      // Check if Winreg was loaded successfully
-      if (!Winreg) return 1;
-      try {
-        const regKey = new Winreg({ hive: Winreg.HKCU, key: '\\Control Panel\\Cursors' });
-        const item = await new Promise<{ value: string }>((resolve, reject) => {
-          regKey.get('CursorBaseSize', (err: any, item: any) => err ? reject(err) : resolve(item));
-        });
-        const size = parseInt(item.value, 16);
-        if (!isNaN(size)) {
-          // Convert size back to scale based on Windows base size of 32
-          return Math.round((size / 32));
-        }
-      } catch (error) {
-        log.error('[CursorManager] Failed to get cursor size from Windows Registry:', error);
-      }
-      return 1; // Default scale is 1x
+      // This is now only used for pre-recording detection if needed,
+      // but the editor will use its own internal setting.
+      // We can keep it for potential future features but it's not critical for the new flow.
+      return 1;
 
     case 'linux': {
       const de = getLinuxDE();
@@ -81,33 +63,9 @@ export async function getCursorScale(): Promise<number> {
 export function setCursorScale(scale: number) {
   switch (process.platform) {
     case 'win32': {
-      if (!Winreg || !WinAPI) return;
-      if (!WINDOWS_SCALES.includes(scale)) return;
-
-      const size = Math.floor(scale * WINDOWS_BASE_SIZE); // Calculate size from scale
-
-      // Open user32.dll
-      WinAPI.open({ library: 'user32', path: 'user32.dll' });
-
-      // Set cursor size
-      const nullPointer = WinAPI.createPointer({ paramsType: [WinAPI.DataType.I32], paramsValue: [0] });
-      WinAPI.load({
-        library: 'user32',
-        funcName: 'SystemParametersInfoW',
-        retType: WinAPI.DataType.Boolean,
-        paramsType: [WinAPI.DataType.U64, WinAPI.DataType.U64, WinAPI.DataType.External, WinAPI.DataType.U64],
-        paramsValue: [WIN_API.SPI_SETCURSORS, 0, WinAPI.unwrapPointer(nullPointer)[0], WIN_API.SPIF_UPDATEINIFILE | WIN_API.SPIF_SENDCHANGE]
-      });
-
-      // Reload cursor theme
-      const sizePointer = WinAPI.createPointer({ paramsType: [WinAPI.DataType.I32], paramsValue: [size] });
-      WinAPI.load({
-        library: 'user32',
-        funcName: 'SystemParametersInfoW',
-        retType: WinAPI.DataType.Boolean,
-        paramsType: [WinAPI.DataType.U64, WinAPI.DataType.U64, WinAPI.DataType.External, WinAPI.DataType.U64],
-        paramsValue: [WIN_API.SPI_SETCURSORSIZE_UNDOCUMENTED, 0, WinAPI.unwrapPointer(sizePointer)[0], WIN_API.SPIF_UPDATEINIFILE]
-      });
+      // On Windows, we no longer change the system cursor size.
+      // This function is now a no-op for Windows.
+      // The cursor size is handled virtually in the editor.
       break;
     }
     case 'linux': {

@@ -3,8 +3,11 @@
 import { IpcMainEvent, IpcMainInvokeEvent, screen, dialog } from 'electron';
 import { exec } from 'node:child_process';
 import log from 'electron-log/main';
-import { getFFmpegPath } from '../../lib/utils';
+import { getFFmpegPath, getBinaryPath } from '../../lib/utils';
 import { getCursorScale, setCursorScale } from '../../features/cursor-manager';
+import { loadCursorThemeFromFile } from '../../lib/cursor-theme-parser';
+import { mapCpackNameToIDC } from '../../lib/win-cursor-manager';
+import { CursorTheme } from '../../types';
 
 export function getDisplays() {
   const primaryDisplay = screen.getPrimaryDisplay();
@@ -83,4 +86,21 @@ export async function getDshowDevices(): Promise<{ video: { name: string, altern
       resolve({ video, audio });
     });
   });
+}
+
+
+export async function loadCursorTheme(_event: IpcMainInvokeEvent): Promise<CursorTheme | null> {
+  log.info('[IPC] Received request to parse cursor.theme');
+  try {
+    const cpackPath = getBinaryPath('cursor.theme');
+    const cursorTheme = await loadCursorThemeFromFile(cpackPath);
+    return cursorTheme;
+  } catch (error) {
+    log.error('[IPC] Failed to parse cursor theme file:', error);
+    return null;
+  }
+}
+
+export function handleMapCpackNameToIDC(_event: IpcMainInvokeEvent, name: string) {
+  return mapCpackNameToIDC(name);
 }

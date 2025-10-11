@@ -1,5 +1,5 @@
 import { EASING_MAP } from './easing';
-import { ZoomRegion, MetaDataItem } from '../types/store';
+import { ZoomRegion, MetaDataItem } from '../types';
 
 // --- HELPER FUNCTIONS ---
 

@@ -110,7 +110,7 @@ export const prepareCursorBitmaps = async (cursorImages: Record<string, CursorIm
           const buffer = new Uint8ClampedArray(cursor.image);
           const imageData = new ImageData(buffer, cursor.width, cursor.height);
           const bitmap = await createImageBitmap(imageData);
-          bitmapMap.set(key, { ...cursor, image: bitmap });
+          bitmapMap.set(key, { ...cursor, imageBitmap: bitmap });
         } catch (e) {
           // 
         }

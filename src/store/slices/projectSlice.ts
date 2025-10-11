@@ -1,5 +1,5 @@
-import type { ProjectState, ProjectActions, Slice, RecordingGeometry, VideoDimensions } from '../../types';
-import type { MetaDataItem, ZoomRegion, CursorImageBitmap } from '../../types';
+import type { ProjectState, ProjectActions, Slice, RecordingGeometry, VideoDimensions, CursorTheme, CursorImageBitmap } from '../../types';
+import type { MetaDataItem, ZoomRegion, CursorFrame } from '../../types';
 import { ZOOM } from '../../lib/constants';
 import { initialFrameState, recalculateCanvasDimensions } from './frameSlice';
 import { prepareCursorBitmaps } from '../../lib/utils';
@@ -17,6 +17,8 @@ export const initialProjectState: ProjectState = {
   cursorImages: {},
   cursorBitmapsToRender: new Map<string, CursorImageBitmap>(),
   syncOffset: 0,
+  platform: null,
+  cursorTheme: null,
 };
 
 /**
@@ -78,6 +80,46 @@ function generateAutoZoomRegions(
   }, {} as Record<string, ZoomRegion>);
 }
 
+async function prepareWindowsCursorBitmaps(theme: CursorTheme, scale: number): Promise<Map<string, CursorImageBitmap>> {
+  const bitmapMap = new Map<string, CursorImageBitmap>();
+  const cursorSet = theme[scale];
+  if (!cursorSet) {
+    console.warn(`[prepareWindowsCursorBitmaps] No cursor set found for scale ${scale}x`);
+    return bitmapMap;
+  }
+
+  const processingPromises: Promise<void>[] = [];
+
+  for (const cursorThemeName in cursorSet) {
+    const frames = cursorSet[cursorThemeName];
+    
+    processingPromises.push(
+      (async () => {
+        const idcName = await window.electronAPI.mapCpackNameToIDC(cursorThemeName);
+        for (let i = 0; i < frames.length; i++) {
+          const frame = frames[i] as CursorFrame; // Cast to fix Buffer type issue
+          if (frame.rgba && frame.width > 0 && frame.height > 0) {
+            try {
+              // The data from main process is an object, not a Buffer. Convert it.
+              const buffer = new Uint8ClampedArray(Object.values(frame.rgba));
+              const imageData = new ImageData(buffer, frame.width, frame.height);
+              const bitmap = await createImageBitmap(imageData);
+              const key = `${idcName}-${i}`;
+              bitmapMap.set(key, { ...frame, imageBitmap: bitmap });
+            } catch (e) {
+              console.error(`Failed to create bitmap for ${idcName}-${i}`, e);
+            }
+          }
+        }
+      })()
+    );
+  }
+  
+  await Promise.all(processingPromises);
+  return bitmapMap;
+}
+
+
 export const createProjectSlice: Slice<ProjectState, ProjectActions> = (set, get) => ({
   ...initialProjectState,
   loadProject: async ({ videoPath, metadataPath, webcamVideoPath }) => {
@@ -86,7 +128,6 @@ export const createProjectSlice: Slice<ProjectState, ProjectActions> = (set, get
     
     get().resetProjectState(); // Clear previous project data first
     
-    // Apply the active or default preset to the new project
     const activePresetId = get().activePresetId;
     const presets = get().presets;
     const presetToApply = (activePresetId && presets[activePresetId]) || Object.values(presets).find(p => p.isDefault);
@@ -114,22 +155,40 @@ export const createProjectSlice: Slice<ProjectState, ProjectActions> = (set, get
         ...item,
         timestamp: item.timestamp / 1000,
       }));
-
-      const cursorBitmaps = await prepareCursorBitmaps(parsedData.cursorImages);
       
       const newZoomRegions = generateAutoZoomRegions(processedMetadata, parsedData.geometry, get().videoDimensions);
-
+      
+      const platform = (await window.electronAPI.getPlatform()) || 'win32';
       set(state => {
+        state.platform = platform;
         state.metadata = processedMetadata;
         state.recordingGeometry = parsedData.geometry || null;
         state.screenSize = parsedData.screenSize || null;
-        state.cursorImages = parsedData.cursorImages || {};
-        state.cursorBitmapsToRender = cursorBitmaps || {};
         state.syncOffset = parsedData.syncOffset || 0;
         state.zoomRegions = newZoomRegions;
         recalculateCanvasDimensions(state);
       });
 
+      if (platform === 'win32') {
+        // Load cursor theme and prepare cursor bitmaps to for renderer
+        const cursorTheme = await window.electronAPI.loadCursorTheme();
+        if (cursorTheme) {
+            // Load the saved scale from settings, or default to 2x.
+            const scale = await window.electronAPI.getSetting<number>('recorder.cursorScale') || 2;
+            const bitmaps = await prepareWindowsCursorBitmaps(cursorTheme, scale);
+
+            set(state => {
+              state.cursorTheme = cursorTheme;
+              state.cursorBitmapsToRender = bitmaps;
+            });
+        }
+      } else {
+        const bitmaps = await prepareCursorBitmaps(parsedData.cursorImages);
+        set(state => {
+          state.cursorImages = parsedData.cursorImages || {};
+          state.cursorBitmapsToRender = bitmaps;
+        });
+      }
     } catch (error) {
       console.error("Failed to process metadata file:", error);
     }
@@ -163,5 +222,21 @@ export const createProjectSlice: Slice<ProjectState, ProjectActions> = (set, get
       state.currentTime = 0;
       state.isPlaying = false;
     });
+  },
+  setWindowsCursorScale: async (scale) => {
+    const theme = get().cursorTheme;
+    if (!theme) return;
+    
+    // Set loading state if needed
+    set(state => {
+      state.cursorBitmapsToRender = new Map(); // Clear old bitmaps
+    });
+    
+    // Persist setting
+    window.electronAPI.setSetting('recorder.cursorScale', scale);
+    
+    // Regenerate bitmaps
+    const bitmaps = await prepareWindowsCursorBitmaps(theme, scale);
+    set(state => { state.cursorBitmapsToRender = bitmaps; });
   },
 });

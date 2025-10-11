@@ -1,16 +1,17 @@
 import { useEditorStore } from '../../store/editorStore';
 import { RegionSettingsPanel } from './RegionSettingsPanel';
-import { AudioLines, Webcam, PanelsTopLeft, LineSquiggle } from 'lucide-react';
+import { AudioLines, Webcam, PanelsTopLeft, LineSquiggle, MousePointer } from 'lucide-react';
 import { BackgroundSettings } from './sidepanel/BackgroundSettings';
 import { FrameEffectsSettings } from './sidepanel/FrameEffectsSettings';
 import { CameraSettings } from './sidepanel/CameraSettings';
+import { CursorSettings } from './sidepanel/CursorSettings';
 import { AnimationSettingsPanel } from './sidepanel/AnimationSettingsPanel';
 import { useShallow } from 'zustand/react/shallow';
 import { useEffect, useState, useMemo } from 'react';
 import { cn } from '../../lib/utils';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip';
 
-type SidePanelTab = 'general' | 'camera' | 'audio' | 'animation' | 'settings';
+type SidePanelTab = 'general' | 'camera' | 'cursor' | 'audio' | 'animation' | 'settings';
 
 interface TabButtonProps {
   label: string;
@@ -106,12 +107,13 @@ export function SidePanel() {
   const [activeTab, setActiveTab] = useState<SidePanelTab>('general');
 
   // Get necessary states from the store
-  const { selectedRegionId, zoomRegions, cutRegions, webcamVideoUrl, setSelectedRegionId } = useEditorStore(
+  const { selectedRegionId, zoomRegions, cutRegions, webcamVideoUrl, platform, setSelectedRegionId } = useEditorStore(
     useShallow(state => ({
       selectedRegionId: state.selectedRegionId,
       zoomRegions: state.zoomRegions,
       cutRegions: state.cutRegions,
       webcamVideoUrl: state.webcamVideoUrl,
+      platform: state.platform,
       setSelectedRegionId: state.setSelectedRegionId,
     }))
   );
@@ -149,6 +151,8 @@ export function SidePanel() {
           : <FrameSettingsPanel />;
       case 'camera':
         return <CameraSettings />;
+      case 'cursor':
+        return <CursorSettings />;
       case 'audio':
         return <AudioSettingsPanel />;
       case 'animation':
@@ -180,6 +184,13 @@ export function SidePanel() {
             isActive={activeTab === 'camera'}
             onClick={() => setActiveTab('camera')}
             disabled={!webcamVideoUrl}
+          />
+          <TabButton
+            label="Cursor"
+            icon={<MousePointer className="w-5 h-5" />}
+            isActive={activeTab === 'cursor'}
+            onClick={() => setActiveTab('cursor')}
+            disabled={platform !== 'win32'}
           />
           <TabButton
             label="Audio"

@@ -35,6 +35,7 @@ export const useExportProcess = () => {
   const handleStartExport = useCallback(async (settings: ExportSettings, outputPath: string) => {
     const fullState = useEditorStore.getState();
     const plainState = {
+      platform: fullState.platform,
       videoPath: fullState.videoPath,
       metadata: fullState.metadata,
       videoDimensions: fullState.videoDimensions,

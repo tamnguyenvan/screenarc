@@ -24,6 +24,9 @@ export function registerIpcHandlers() {
   ipcMain.handle('dialog:showSaveDialog', desktopHandlers.showSaveDialog);
   ipcMain.handle('video:get-frame', desktopHandlers.getVideoFrame);
 
+  ipcMain.handle('desktop:load-cursor-theme', desktopHandlers.loadCursorTheme);
+  ipcMain.handle('desktop:map-cpack-name', desktopHandlers.handleMapCpackNameToIDC);
+
   // Recording
   ipcMain.handle('recording:start', recordingHandlers.handleStartRecording);
   ipcMain.handle('recording:load-from-file', recordingHandlers.handleLoadVideoFromFile);

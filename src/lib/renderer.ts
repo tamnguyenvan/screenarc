@@ -1,4 +1,4 @@
-import { EditorState } from '../types';
+import { CursorFrame, EditorState } from '../types';
 import { calculateZoomTransform } from './transform';
 import { findLastMetadataIndex } from './transform';
 import { EFFECTS } from './constants';
@@ -6,6 +6,7 @@ import { EASING_MAP } from './easing';
 
 type RenderableState = Pick<
   EditorState,
+  | 'platform'
   | 'frameStyles'
   | 'videoDimensions'
   | 'aspectRatio'
@@ -18,6 +19,7 @@ type RenderableState = Pick<
   | 'cursorImages'
   | 'cursorBitmapsToRender'
   | 'syncOffset'
+  | 'cursorTheme'
 >;
 
 /**
@@ -250,21 +252,14 @@ export const drawScene = async (
 
   if (lastEventIndex > -1 && state.recordingGeometry) {
     const event = state.metadata[lastEventIndex];
-    const cursorData = state.cursorBitmapsToRender.get(event.cursorImageKey);
+    const cursorData = state.cursorBitmapsToRender.get(event.cursorImageKey!);
 
-    // Improved cursor drawing logic
-    if (cursorData && cursorData.image && cursorData.width > 0) {
-      // Scale cursor position from original recording geometry to the current frame's content size
+    if (cursorData && cursorData.imageBitmap && cursorData.width > 0) {
       const cursorX = (event.x / state.recordingGeometry.width) * frameContentWidth;
       const cursorY = (event.y / state.recordingGeometry.height) * frameContentHeight;
-
-      // Create a bitmap for efficient drawing.
-      const bitmap = await createImageBitmap(cursorData.image);
       
-      // Draw the cursor image, offset by its hotspot.
-      // This happens inside the transformed context, so it will be scaled and panned correctly.
       ctx.drawImage(
-        bitmap,
+        cursorData.imageBitmap,
         Math.round(cursorX - cursorData.xhot),
         Math.round(cursorY - cursorData.yhot)
       );

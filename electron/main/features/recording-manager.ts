@@ -261,7 +261,10 @@ export async function startRecording(options: any) {
     return { canceled: true };
   }
 
-  appState.originalCursorScale = await getCursorScale();
+  // Only get/store original cursor scale on Linux
+  if (process.platform === 'linux') {
+    appState.originalCursorScale = await getCursorScale();
+  }
   log.info('[RecordingManager] Starting actual recording with args:', baseFfmpegArgs, 'scaleFactor:', scaleFactor);
   return startActualRecording(baseFfmpegArgs, !!webcam, !!mic, recordingGeometry, scaleFactor);
 }
@@ -346,6 +349,7 @@ async function cleanupAndSave(): Promise<void> {
     }));
 
     const finalMetadata = {
+      platform: process.platform,
       screenSize: primaryDisplay.size,
       geometry: { width: primaryDisplay.bounds.width, height: primaryDisplay.bounds.height },
       syncOffset: 0,
@@ -502,7 +506,12 @@ export async function loadVideoFromFile() {
     const metadataPath = path.join(recordingDir, `${baseName}.json`);
 
     await fsPromises.copyFile(sourceVideoPath, screenVideoPath);
-    await fsPromises.writeFile(metadataPath, '{"events":[], "cursorImages": {}, "syncOffset": 0}', 'utf-8');
+    await fsPromises.writeFile(metadataPath, JSON.stringify({
+      platform: process.platform,
+      events: [],
+      cursorImages: {},
+      syncOffset: 0
+    }), 'utf-8');
 
     const session: RecordingSession = { screenVideoPath, metadataPath, webcamVideoPath: undefined };
     const isValid = await validateRecordingFiles(session);

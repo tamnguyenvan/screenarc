@@ -168,6 +168,8 @@ export const electronAPI = {
   getSetting: <T = any>(key: string): Promise<T> => ipcRenderer.invoke('settings:get', key),
   setSetting: (key: string, value: unknown): void => ipcRenderer.send('settings:set', key, value),
   getPath: (name: 'home' | 'userData' | 'desktop'): Promise<string> => ipcRenderer.invoke('app:getPath', name),
+  loadCursorTheme: (): Promise<any | null> => ipcRenderer.invoke('desktop:load-cursor-theme'),
+  mapCpackNameToIDC: (name: string): Promise<string> => ipcRenderer.invoke('desktop:map-cpack-name', name),
 
   // --- Window Controls ---
   minimizeWindow: () => ipcRenderer.send('window:minimize'),

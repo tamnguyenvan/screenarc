@@ -49,8 +49,13 @@ export function RecorderPage() {
 
         setSelectedWebcamId(savedWebcamId || 'none');
         setSelectedMicId(savedMicId || 'none');
-        setCursorScale(savedCursorScale ?? 1);
-        window.electronAPI.setCursorScale(savedCursorScale ?? 1);
+        
+        // Only set cursor scale from settings for Linux
+        if (platform === 'linux') {
+          const scale = savedCursorScale ?? 1;
+          setCursorScale(scale);
+          window.electronAPI.setCursorScale(scale);
+        }
 
         setDisplays(fetchedDisplays);
         const primary = fetchedDisplays.find(d => d.isPrimary) || fetchedDisplays[0];
@@ -61,7 +66,7 @@ export function RecorderPage() {
       }
     };
     initialize();
-  }, []);
+  }, [platform]); // Depend on platform to ensure correct logic is applied
 
   // Effect to validate saved settings against available devices after initialization
   useEffect(() => {
@@ -73,7 +78,7 @@ export function RecorderPage() {
     if (mics.length > 0 && !mics.some(m => m.id === selectedMicId)) {
       setSelectedMicId('none');
     }
-    if (platform && !cursorScales.some(s => s.value === cursorScale)) {
+    if (platform === 'linux' && !cursorScales.some(s => s.value === cursorScale)) {
       setCursorScale(1);
       window.electronAPI.setCursorScale(1);
     }
@@ -240,16 +245,19 @@ export function RecorderPage() {
 
             <div className="w-px h-8 bg-border/50"></div>
 
-            {/* Cursor Scale */}
-            <div className="flex items-center gap-1.5" style={{ WebkitAppRegion: 'no-drag' }}>
-              <MousePointer size={14} className="text-muted-foreground/60" />
-              <Select value={String(cursorScale)} onValueChange={handleCursorScaleChange}>
-                <SelectTrigger variant="minimal" className="w-[52px] h-9 text-xs" aria-label="Select cursor scale"><SelectValue /></SelectTrigger>
-                <SelectContent align="end">{cursorScales.map(s => <SelectItem key={s.value} value={String(s.value)}>{s.label}</SelectItem>)}</SelectContent>
-              </Select>
-            </div>
-
-            <div className="w-px h-8 bg-border/50"></div>
+            {/* Cursor Scale (Linux Only) */}
+            {platform === 'linux' && (
+              <>
+                <div className="flex items-center gap-1.5" style={{ WebkitAppRegion: 'no-drag' }}>
+                  <MousePointer size={14} className="text-muted-foreground/60" />
+                  <Select value={String(cursorScale)} onValueChange={handleCursorScaleChange}>
+                    <SelectTrigger variant="minimal" className="w-[52px] h-9 text-xs" aria-label="Select cursor scale"><SelectValue /></SelectTrigger>
+                    <SelectContent align="end">{cursorScales.map(s => <SelectItem key={s.value} value={String(s.value)}>{s.label}</SelectItem>)}</SelectContent>
+                  </Select>
+                </div>
+                <div className="w-px h-8 bg-border/50"></div>
+              </>
+            )}
 
             {/* Action Buttons */}
             <div className="flex items-center gap-2" style={{ WebkitAppRegion: 'no-drag' }}>

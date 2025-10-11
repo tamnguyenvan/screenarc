@@ -1,6 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-// Contains logic to track mouse on different platforms.
-
 import log from 'electron-log/main';
 import { EventEmitter } from 'node:events';
 import { dialog } from 'electron';
@@ -9,7 +6,7 @@ import { createHash } from 'node:crypto';
 import { MOUSE_RECORDING_FPS } from '../lib/constants';
 import { MOUSE_BUTTONS, MACOS_API } from '../lib/system-constants';
 import * as winCursorManager from '../lib/win-cursor-manager';
-import { getCursorScale } from './cursor-manager';
+import { MetaDataItem } from '../types';
 
 
 const require = createRequire(import.meta.url);
@@ -33,9 +30,10 @@ export function initializeMouseTrackerDependencies() {
   if (process.platform === 'win32') {
     try {
       mouseEvents = require('global-mouse-events');
-      log.info('[MouseTracker] Successfully loaded global-mouse-events for Windows.');
+      winCursorManager.initializeWinCursorManager();
+      log.info('[MouseTracker] Successfully loaded global-mouse-events and initialized win-cursor-manager for Windows.');
     } catch (e) {
-      log.error('[MouseTracker] Failed to load global-mouse-events. Mouse tracking on Windows will be disabled.', e);
+      log.error('[MouseTracker] Failed to load Windows-specific modules. Mouse tracking on Windows will be disabled.', e);
     }
   }
 
@@ -176,24 +174,18 @@ class LinuxMouseTracker extends EventEmitter implements IMouseTracker {
 
 class WindowsMouseTracker extends EventEmitter implements IMouseTracker {
   private pollIntervalId: NodeJS.Timeout | null = null;
-  private cursorImageMap: Map<string, any> | null = null;
   
   private currentCursorName = '';
   private currentAniFrame = 0;
-  private latestCursorImageKey = 'default';
 
-  async start(cursorImageMap: Map<string, any>) {
-    this.cursorImageMap = cursorImageMap;
-    const scale = await getCursorScale();
-    await winCursorManager.loadCursorStylesFromRegistry(Math.round(scale));
-
+  async start() {
     // Listen for position/click events
     mouseEvents.on('mousemove', this.handleMouseEvent('move'));
     mouseEvents.on('mousedown', this.handleMouseEvent('click', true));
     mouseEvents.on('mouseup', this.handleMouseEvent('click', false));
 
     // Poll for cursor shape changes
-    this.pollIntervalId = setInterval(() => this.pollCursorState(scale), 1000 / 30); // 30 FPS polling for shape
+    this.pollIntervalId = setInterval(() => this.pollCursorState(), 1000 / MOUSE_RECORDING_FPS); // 30 FPS polling for shape
 
     log.info('[MouseTracker-Windows] Started.');
   }
@@ -205,12 +197,12 @@ class WindowsMouseTracker extends EventEmitter implements IMouseTracker {
   }
   
   private handleMouseEvent = (type: 'move' | 'click', isPressed?: boolean) => (event: any) => {
-    const data: any = {
+    const data: MetaDataItem = {
       timestamp: Date.now(),
       x: event.x,
       y: event.y,
       type,
-      cursorImageKey: this.latestCursorImageKey
+      cursorImageKey: `${this.currentCursorName}-${this.currentAniFrame}`
     };
     if (type === 'click') {
       data.button = this.mapButton(event.button);
@@ -219,37 +211,13 @@ class WindowsMouseTracker extends EventEmitter implements IMouseTracker {
     this.emit('data', data);
   };
   
-  private pollCursorState = (scale: number) => {
+  private pollCursorState = () => {
     const name = winCursorManager.getCurrentCursorName();
     if (name !== this.currentCursorName) {
       this.currentCursorName = name;
-      this.currentAniFrame = 0;
-    }
-
-    const cursorData = winCursorManager.getCursorData(name, Math.round(scale));
-    if (!cursorData || cursorData.length === 0) {
-      this.latestCursorImageKey = 'default'; // Fallback
-      return;
-    }
-    
-    const isAnimated = cursorData.length > 1;
-    const frame = cursorData[this.currentAniFrame];
-    
-    if (isAnimated) {
-      // Simple frame cycling. A more accurate implementation would use frame.delay.
-      this.currentAniFrame = (this.currentAniFrame + 1) % cursorData.length;
-    }
-
-    this.latestCursorImageKey = frame.hash;
-
-    if (!this.cursorImageMap?.has(frame.hash)) {
-      this.cursorImageMap?.set(frame.hash, {
-        width: frame.width,
-        height: frame.height,
-        xhot: frame.xhot,
-        yhot: frame.yhot,
-        image: Array.from(frame.rgba), // CHANGE: Store as an array of numbers
-      });
+      this.currentAniFrame = 0; // Reset frame animation when cursor shape changes
+    } else {
+      // this.currentAniFrame += 1; // Increment frame for animations
     }
   };
 

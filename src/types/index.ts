@@ -67,7 +67,17 @@ export interface MetaDataItem {
   type: 'click' | 'move' | 'scroll';
   button?: string;
   pressed?: boolean;
-  cursorImageKey: string;
+  cursorImageKey?: string;
+}
+
+export interface CursorFrame {
+  width: number;
+  height: number;
+  xhot: number;
+  yhot: number;
+  delay: number;
+  rgba: Buffer;
+  hash: string;
 }
 
 export interface CursorImageBase {
@@ -76,12 +86,13 @@ export interface CursorImageBase {
   xhot: number;
   yhot: number;
 }
+
 export interface CursorImage extends CursorImageBase {
   image: number[];
 }
 
 export interface CursorImageBitmap extends CursorImageBase {
-  image: ImageBitmap;
+  imageBitmap: ImageBitmap;
 }
 
 export interface WebcamPosition {
@@ -102,6 +113,7 @@ export type Dimensions = { width: number, height: number };
 export type RecordingGeometry = { x: number, y: number, width: number, height: number };
 export type VideoDimensions = Dimensions;
 export type ScreenSize = Dimensions;
+export type CursorTheme = Record<number, Record<string, CursorFrame[]>>;
 
 
 // --- Slice State & Actions Types ---
@@ -119,12 +131,16 @@ export interface ProjectState {
   cursorImages: Record<string, CursorImage>;
   cursorBitmapsToRender: Map<string, CursorImageBitmap>;
   syncOffset: number;
+  platform: NodeJS.Platform | null;
+  cursorTheme: CursorTheme | null;
 }
+
 export interface ProjectActions {
   loadProject: (paths: { videoPath: string; metadataPath: string; webcamVideoPath?: string }) => Promise<void>;
   setVideoDimensions: (dims: { width: number; height: number }) => void;
   setDuration: (duration: number) => void;
   resetProjectState: () => void;
+  setWindowsCursorScale: (scale: number) => Promise<void>;
 }
 
 export interface PlaybackState {
