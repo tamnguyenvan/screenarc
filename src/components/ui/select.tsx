@@ -46,11 +46,13 @@ const SelectTrigger = React.forwardRef<
           // Active/open state
           "data-[state=open]:border-primary/50 data-[state=open]:ring-1 data-[state=open]:ring-primary/30 data-[state=open]:bg-background/60",
 
+          "gap-2", // Add gap for spacing between text and icon
           className
         )}
         {...props}
       >
-        {children}
+        {/* MODIFICATION: Added a wrapper span to handle truncation */}
+        <span className="flex-1 min-w-0 truncate text-left">{children}</span>
         <SelectPrimitive.Icon asChild>
           {/* ChevronDown nhỏ hơn và subtle hơn */}
           <ChevronDown className="h-3 w-3 opacity-40 shrink-0 transition-transform duration-200 data-[state=open]:rotate-180" />
@@ -59,7 +61,7 @@ const SelectTrigger = React.forwardRef<
     );
   }
 
-  // Default variant giữ nguyên như cũ
+  // Default variant
   return (
     <div className="space-y-2">
       {label && (
@@ -82,12 +84,14 @@ const SelectTrigger = React.forwardRef<
           "transition-all duration-200",
           "hover:border-border/80 hover:bg-input/70",
           "data-[state=open]:border-primary/50 data-[state=open]:ring-2 data-[state=open]:ring-primary/50",
+          "gap-2", // Add gap for spacing
           error && "border-destructive focus:border-destructive focus:ring-destructive/50",
           className
         )}
         {...props}
       >
-        {children}
+        {/* MODIFICATION: Added a wrapper span to handle truncation */}
+        <span className="flex-1 min-w-0 truncate text-left">{children}</span>
         <SelectPrimitive.Icon asChild>
           <ChevronDown className="h-4 w-4 opacity-50 transition-transform duration-200 data-[state=open]:rotate-180" />
         </SelectPrimitive.Icon>

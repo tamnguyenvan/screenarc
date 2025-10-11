@@ -49,7 +49,7 @@ export function RecorderPage() {
 
         setSelectedWebcamId(savedWebcamId || 'none');
         setSelectedMicId(savedMicId || 'none');
-        
+
         // Only set cursor scale from settings for Linux
         if (platform === 'linux') {
           const scale = savedCursorScale ?? 1;
@@ -233,10 +233,10 @@ export function RecorderPage() {
               <Select value={selectedMicId} onValueChange={handleSelectionChange(setSelectedMicId, 'recorder.selectedMicId')}>
                 <SelectTrigger variant="minimal" className="w-auto min-w-[120px] max-w-[150px] h-9" aria-label="Select microphone">
                   <SelectValue asChild>
-                     <div className="flex items-center gap-1.5 text-xs">
-                        {selectedMicId !== 'none' ? <Mic size={14} className="text-primary" /> : <MicOff size={14} className="text-muted-foreground/60" />}
-                        <span className={cn("truncate", selectedMicId === 'none' && "text-muted-foreground")}>{mics.find(m => m.id === selectedMicId)?.name || 'No microphone'}</span>
-                     </div>
+                    <div className="flex items-center gap-1.5 text-xs">
+                      {selectedMicId !== 'none' ? <Mic size={14} className="text-primary" /> : <MicOff size={14} className="text-muted-foreground/60" />}
+                      <span className={cn("truncate", selectedMicId === 'none' && "text-muted-foreground")}>{mics.find(m => m.id === selectedMicId)?.name || 'No microphone'}</span>
+                    </div>
                   </SelectValue>
                 </SelectTrigger>
                 <SelectContent><SelectItem value="none">No microphone</SelectItem>{mics.map(m => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}</SelectContent>
@@ -251,7 +251,7 @@ export function RecorderPage() {
                 <div className="flex items-center gap-1.5" style={{ WebkitAppRegion: 'no-drag' }}>
                   <MousePointer size={14} className="text-muted-foreground/60" />
                   <Select value={String(cursorScale)} onValueChange={handleCursorScaleChange}>
-                    <SelectTrigger variant="minimal" className="w-[52px] h-9 text-xs" aria-label="Select cursor scale"><SelectValue /></SelectTrigger>
+                    <SelectTrigger variant="minimal" className="w-[56px] h-9 text-xs" aria-label="Select cursor scale"><SelectValue /></SelectTrigger>
                     <SelectContent align="end">{cursorScales.map(s => <SelectItem key={s.value} value={String(s.value)}>{s.label}</SelectItem>)}</SelectContent>
                   </Select>
                 </div>
@@ -261,8 +261,23 @@ export function RecorderPage() {
 
             {/* Action Buttons */}
             <div className="flex items-center gap-2" style={{ WebkitAppRegion: 'no-drag' }}>
-              <Button onClick={handleStart} title="Record" disabled={isInitializing || actionInProgress !== 'none'} size="icon" className="h-10 w-10 rounded-full shadow-lg"><Video size={18} /></Button>
-              <Button onClick={handleLoadVideo} title="Load from video" disabled={isInitializing || actionInProgress !== 'none'} variant="secondary" size="icon" className="h-10 w-10 rounded-full shadow-lg"><FolderOpen size={18} /></Button>
+              <Button
+                onClick={handleStart}
+                title="Record"
+                disabled={isInitializing || actionInProgress !== 'none'}
+                size="icon"
+                className="h-10 w-10 rounded-full shadow-lg">
+                <Video size={18} />
+              </Button>
+              <Button
+                onClick={handleLoadVideo}
+                title="Load from video"
+                disabled={isInitializing || actionInProgress !== 'none'}
+                variant="secondary"
+                size="icon"
+                className="h-10 w-10 rounded-full shadow-lg">
+                <FolderOpen size={18} />
+              </Button>
               {(actionInProgress !== 'none' || isInitializing) && <Loader2 size={20} className="animate-spin text-primary" />}
             </div>
           </div>
