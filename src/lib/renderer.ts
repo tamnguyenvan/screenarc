@@ -342,12 +342,6 @@ export const drawScene = async (
       ctx.restore();
     }
 
-    // Draw webcam video with border radius
-    ctx.save();
-    const webcamPath = new Path2D();
-    webcamPath.roundRect(webcamX, webcamY, webcamWidth, webcamHeight, webcamRadius);
-    ctx.clip(webcamPath);
-
     // Crop webcam source to prevent distortion
     const webcamVideo = webcamVideoElement;
     const webcamAR = webcamVideo.videoWidth / webcamVideo.videoHeight;
@@ -362,7 +356,26 @@ export const drawScene = async (
       sHeight = webcamVideo.videoWidth / targetAR;
       sy = (webcamVideo.videoHeight - sHeight) / 2;
     }
-    ctx.drawImage(webcamVideo, sx, sy, sWidth, sHeight, webcamX, webcamY, webcamWidth, webcamHeight);
+    
+    // Draw webcam video with border radius
+    ctx.save();
+
+    // Apply flip transformation if necessary
+    if (webcamStyles.isFlipped) {
+      ctx.translate(outputWidth, 0); // Move context origin to the right edge of the canvas
+      ctx.scale(-1, 1); // Flip the context horizontally
+    }
+    
+    // Calculate the actual drawing X-coordinate, mirroring it if flipped
+    const drawX = webcamStyles.isFlipped ? (outputWidth - webcamX - webcamWidth) : webcamX;
+
+    // Create a clipping path at the correct drawing location
+    const webcamPath = new Path2D();
+    webcamPath.roundRect(drawX, webcamY, webcamWidth, webcamHeight, webcamRadius);
+    ctx.clip(webcamPath);
+    
+    // Draw the cropped webcam video into the clipped path
+    ctx.drawImage(webcamVideo, sx, sy, sWidth, sHeight, drawX, webcamY, webcamWidth, webcamHeight);
 
     ctx.restore();
   }

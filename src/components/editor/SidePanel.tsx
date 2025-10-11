@@ -151,12 +151,12 @@ export function SidePanel() {
           : <FrameSettingsPanel />;
       case 'camera':
         return <CameraSettings />;
-      case 'cursor':
-        return <CursorSettings />;
       case 'audio':
         return <AudioSettingsPanel />;
       case 'animation':
         return <AnimationSettingsPanel />;
+      case 'cursor':
+        return <CursorSettings />;
       default:
         return <FrameSettingsPanel />;
     }
@@ -186,13 +186,6 @@ export function SidePanel() {
             disabled={!webcamVideoUrl}
           />
           <TabButton
-            label="Cursor"
-            icon={<MousePointer className="w-5 h-5" />}
-            isActive={activeTab === 'cursor'}
-            onClick={() => setActiveTab('cursor')}
-            disabled={platform !== 'win32'}
-          />
-          <TabButton
             label="Audio"
             icon={<AudioLines className="w-5 h-5" />}
             isActive={activeTab === 'audio'}
@@ -203,6 +196,13 @@ export function SidePanel() {
             icon={<LineSquiggle className="w-5 h-5" />}
             isActive={activeTab === 'animation'}
             onClick={() => setActiveTab('animation')}
+          />
+          <TabButton
+            label="Cursor"
+            icon={<MousePointer className="w-5 h-5" />}
+            isActive={activeTab === 'cursor'}
+            onClick={() => setActiveTab('cursor')}
+            disabled={platform !== 'win32'}
           />
         </div>
       </div>

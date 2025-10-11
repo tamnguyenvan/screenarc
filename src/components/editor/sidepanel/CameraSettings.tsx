@@ -18,7 +18,7 @@ import { Slider } from "../../ui/slider"
 import { ColorPicker } from "../../ui/color-picker"
 import { rgbaToHexAlpha, hexToRgb } from "../../../lib/utils"
 import { useShallow } from "zustand/react/shallow"
-import { CornerRadiusIcon } from "../../ui/icons"
+import { CornerRadiusIcon, FlipHorizontalIcon } from "../../ui/icons"
 import { Collapse } from "../../ui/collapse"
 import { cn } from "../../../lib/utils"
 import type { WebcamPosition } from "../../../types"
@@ -111,7 +111,7 @@ export function CameraSettings() {
         
         <Collapse
           title="Style"
-          description="Change the webcam's shape"
+          description="Change shape and orientation"
           icon={<ImageIcon />}
           defaultOpen={true}
         >
@@ -142,6 +142,22 @@ export function CameraSettings() {
                 {!isCircle && (<span className="text-xs font-semibold text-primary tabular-nums">{webcamStyles.borderRadius}%</span>)}
               </label>
               <Slider min={0} max={50} step={1} value={isCircle ? 50 : webcamStyles.borderRadius} onChange={(value) => updateWebcamStyle({ borderRadius: value })} disabled={isCircle} />
+            </div>
+
+            {/* Flip Horizontal Control */}
+            <div className="space-y-3">
+              <label className="flex items-center justify-between text-sm font-medium text-sidebar-foreground">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-5 h-5 flex items-center justify-center text-primary">
+                    <FlipHorizontalIcon className="w-4 h-4" />
+                  </div>
+                  <span>Flip Horizontal</span>
+                </div>
+                <Switch
+                  checked={webcamStyles.isFlipped}
+                  onCheckedChange={(isChecked) => updateWebcamStyle({ isFlipped: isChecked })}
+                />
+              </label>
             </div>
           </div>
         </Collapse>

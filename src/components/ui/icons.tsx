@@ -1,4 +1,3 @@
-
 interface IconProps extends React.SVGProps<SVGSVGElement> {
   size?: number | string;
   className?: string;
@@ -170,5 +169,24 @@ export const StepForwardIcon = (props: IconProps) => (
     {...props}
   >
     <path d="M200,32a8,8,0,0,0-8,8v69.23L72.43,34.45A15.95,15.95,0,0,0,48,47.88V208.12a16,16,0,0,0,24.43,13.43L192,146.77V216a8,8,0,0,0,16,0V40A8,8,0,0,0,200,32ZM64,207.93V48.05l127.84,80Z" />
+  </svg>
+);
+
+export const FlipHorizontalIcon = (props: IconProps) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width={props.size}
+    height={props.size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth={2}
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    {...props}
+  >
+    <path d="M8 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h3" />
+    <path d="M16 3h3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-3" />
+    <path d="M12 22V2" />
   </svg>
 );

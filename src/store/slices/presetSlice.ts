@@ -55,6 +55,10 @@ export const createPresetSlice: Slice<PresetState, PresetActions> = (set, get) =
           p.webcamStyles.borderRadius = 50;
           wasModified = true;
         }
+        if (p.webcamStyles && p.webcamStyles.isFlipped === undefined) {
+          p.webcamStyles.isFlipped = false;
+          wasModified = true;
+        }
       });
 
       if (wasModified) {
@@ -190,9 +194,3 @@ export const createPresetSlice: Slice<PresetState, PresetActions> = (set, get) =
     get()._persistPresets(get().presets);
   },
 });
-
-// Import useEditorStore late to avoid circular dependency
-// let useEditorStore: any;
-// setTimeout(() => {
-//   useEditorStore = require('../editorStore').useEditorStore;
-// }, 0);

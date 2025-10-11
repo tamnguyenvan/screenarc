@@ -74,6 +74,10 @@ export function PresetPreview({
       filter: `drop-shadow(${webcamStyles.shadowOffsetX}px ${webcamStyles.shadowOffsetY}px ${webcamStyles.shadowBlur}px ${webcamStyles.shadowColor})`,
     };
 
+    if (webcamStyles.isFlipped) {
+      cssStyles.transform = 'scaleX(-1)';
+    }
+
     switch (webcamStyles.shape) {
       case 'rectangle':
         cssStyles.aspectRatio = '16 / 9';

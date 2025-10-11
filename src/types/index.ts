@@ -107,6 +107,7 @@ export interface WebcamStyles {
   shadowOffsetX: number;
   shadowOffsetY: number;
   shadowColor: string;
+  isFlipped: boolean;
 }
 
 export type Dimensions = { width: number, height: number };

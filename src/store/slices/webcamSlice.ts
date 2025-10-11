@@ -13,7 +13,8 @@ export const initialWebcamState: WebcamState = {
     shadowBlur: 20,
     shadowOffsetX: 0,
     shadowOffsetY: 10,
-    shadowColor: 'rgba(0, 0, 0, 0.4)'
+    shadowColor: 'rgba(0, 0, 0, 0.4)',
+    isFlipped: false,
   },
 };
 
