@@ -1,3 +1,10 @@
+## [1.4.1](https://github.com/tamnguyenvan/screenarc/compare/v1.4.0...v1.4.1) (2026-07-22)
+
+
+### Bug Fixes
+
+* overwrite stale recording outputs ([fc40c6a](https://github.com/tamnguyenvan/screenarc/commit/fc40c6af1da4de44f55a718b97b843ecd4ac9bd5))
+
 # [1.4.0](https://github.com/tamnguyenvan/screenarc/compare/v1.3.0...v1.4.0) (2026-04-26)
 
 
