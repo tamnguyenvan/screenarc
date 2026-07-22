@@ -17,6 +17,7 @@ import type { RecordingSession, RecordingGeometry } from '../state'
 import { SystemAudioWriter } from './system-audio-writer'
 import { ScreenVideoWriter } from './screen-video-writer'
 import { buildMuxArgs, buildMacMuxArgs } from './build-mux-args'
+import { buildFfmpegArgs } from './build-recording-args'
 
 const FFMPEG_PATH = getFFmpegPath()
 const SYSTEM_AUDIO_STOP_TIMEOUT_MS = 5000
@@ -365,59 +366,6 @@ async function startActualRecording(
 
   createTray()
   return { canceled: false, ...appState.currentRecordingSession }
-}
-
-/**
- * Constructs the final FFmpeg command arguments by mapping input streams to output files.
- */
-function buildFfmpegArgs(
-  inputArgs: string[],
-  hasWebcam: boolean,
-  hasMic: boolean,
-  screenOut: string,
-  webcamOut?: string,
-): string[] {
-  const finalArgs = [...inputArgs]
-  // Determine the index of each input stream (mic, webcam, screen)
-  const micIndex = hasMic ? 0 : -1
-  const webcamIndex = hasMic ? (hasWebcam ? 1 : -1) : hasWebcam ? 0 : -1
-  const screenIndex = (hasMic ? 1 : 0) + (hasWebcam ? 1 : 0)
-
-  // Map screen video stream
-  finalArgs.push(
-    '-map',
-    `${screenIndex}:v`,
-    '-c:v',
-    'libx264',
-    '-preset',
-    'ultrafast',
-    '-pix_fmt',
-    'yuv420p',
-    screenOut,
-  )
-
-  // Map audio stream if present - must specify output file (screenOut)
-  // Fix for #130: Audio was being routed to webcam file instead of screen file
-  if (hasMic) {
-    finalArgs.push('-map', `${micIndex}:a`, '-c:a', 'aac', '-b:a', '192k', screenOut)
-  }
-
-  // Map webcam video stream if present (video only, no audio)
-  if (hasWebcam && webcamOut) {
-    finalArgs.push(
-      '-map',
-      `${webcamIndex}:v`,
-      '-c:v',
-      'libx264',
-      '-preset',
-      'ultrafast',
-      '-pix_fmt',
-      'yuv420p',
-      webcamOut,
-    )
-  }
-
-  return finalArgs
 }
 
 /**
