@@ -1,3 +1,9 @@
+## [1.17.6](https://github.com/getwithashish/DemoThat/compare/v1.17.5...v1.17.6) (2026-11-01)
+
+### Bug Fixes
+
+* **wayland:** validate single-instance lock before relaunch ([#28](https://github.com/getwithashish/DemoThat/issues/28)) ([8f0649f](https://github.com/getwithashish/DemoThat/commit/8f0649f282e7706dd53ba6843cb907a5e09b1b3b))
+
 ## [1.17.5](https://github.com/getwithashish/DemoThat/compare/v1.17.4...v1.17.5) (2026-11-01)
 
 ### Bug Fixes
