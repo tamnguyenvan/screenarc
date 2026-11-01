@@ -67,6 +67,8 @@ export function RecorderPage() {
   const [recordingState, setRecordingState] = useState<RecordingState>('idle')
   const [isRecording, setIsRecording] = useState(false)
   const [actionInProgress, setActionInProgress] = useState<ActionInProgress>('none')
+  /** Set by the cursor helper when clicks could not be recorded (evdev permission). */
+  const [clicksUnavailableMessage, setClicksUnavailableMessage] = useState<string | null>(null)
   const [source, setSource] = useState<RecordingSource>('fullscreen')
   const [displays, setDisplays] = useState<DisplayInfo[]>([])
   const [selectedDisplayId, setSelectedDisplayId] = useState<string>('')
@@ -273,12 +275,20 @@ export function RecorderPage() {
       startHandlerRef.current()
     })
 
+    // The cursor helper captured, but could not read button events from the
+    // input devices (no evdev access). The message tells the user the fix.
+    const cleanupClicksOff = window.electronAPI.onCursorClicksOff?.((message) => {
+      console.info('[Recorder] cursor clicks unavailable:', message)
+      setClicksUnavailableMessage(message)
+    })
+
     return () => {
       cleanupStarted()
       cleanupFinished()
       cleanupStopSystemAudio?.()
       cleanupStopScreenCapture?.()
       cleanupTriggerStart()
+      cleanupClicksOff?.()
     }
   }, [reloadDevices, setActionState, stopSystemAudio, stopScreenCapture])
 
@@ -878,6 +888,13 @@ export function RecorderPage() {
             <div className="mx-auto mt-2 flex max-w-[720px] items-start gap-2 rounded-ctl border border-line bg-panel px-3 py-2 text-xs text-muted">
               <InfoCircle size={14} strokeWidth={ICON_STROKE} className="mt-px shrink-0 text-accent" />
               <span>{capture.notice}</span>
+            </div>
+          )}
+
+          {clicksUnavailableMessage && (
+            <div className="mx-auto mt-2 flex max-w-[720px] items-start gap-2 rounded-ctl border border-danger/40 bg-danger/10 px-3 py-2 text-xs text-danger">
+              <InfoCircle size={14} strokeWidth={ICON_STROKE} className="mt-px shrink-0 text-danger" />
+              <span>{clicksUnavailableMessage}</span>
             </div>
           )}
 

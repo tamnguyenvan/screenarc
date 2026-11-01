@@ -861,6 +861,21 @@ export async function startRecording(options: any) {
       `[RecordingManager] Capturing through the cursor helper: ${video.width}x${video.height} ` +
         `${session.info.format} @ ${session.info.fps}fps, clicks ${session.info.clicks ? 'on' : 'off'}.`,
     )
+    if (!session.info.clicks) {
+      // The helper captures the pointer position but could not read button
+      // events from the input devices. Tell the recorder now, while the window
+      // is still open, so the user does not discover missing clicks in the
+      // editor. Reading evdev needs a udev uaccess rule (or input-group
+      // membership); the exact rule is in the helper's own error hint.
+      appState.recorderWin?.webContents.send(
+        'recorder:cursor-clicks-off',
+        'Mouse clicks could not be recorded: the app has no read access to your pointer devices. ' +
+          'Create /etc/udev/rules.d/70-demothat-mouse.rules with ' +
+          'KERNEL=="event*", SUBSYSTEM=="input", ENV{ID_INPUT_MOUSE}=="1", ENV{ID_INPUT_KEYBOARD}!="1", TAG+="uaccess" ' +
+          '(repeat for ID_INPUT_TOUCHPAD), then run sudo udevadm control --reload-rules && sudo udevadm trigger ' +
+          '--subsystem-match=input. Or add your user to the input group and log back in.',
+      )
+    }
   }
   // With the helper capturing, FFmpeg is fed raw frames on a pipe instead: the
   // renderer's browser capture is not used at all (two capture paths would mean two

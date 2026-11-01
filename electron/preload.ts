@@ -204,6 +204,18 @@ export const electronAPI = {
     }
   },
 
+  /**
+   * The cursor helper captured, but could not read button events from the input
+   * devices (a udev/input-group permission gap). The message explains the fix.
+   */
+  onCursorClicksOff: (callback: (message: string) => void) => {
+    const listener = (_event: IpcRendererEvent, message: string) => callback(message)
+    ipcRenderer.on('recorder:cursor-clicks-off', listener)
+    return () => {
+      ipcRenderer.removeListener('recorder:cursor-clicks-off', listener)
+    }
+  },
+
   onRecordingFinished: (callback: (result: RecordingResult) => void) => {
     const listener = (_event: IpcRendererEvent, result: RecordingResult) => callback(result)
     ipcRenderer.on('recording-finished', listener)
