@@ -355,6 +355,15 @@ export async function startExport(event: IpcMainInvokeEvent, request: ExportRequ
   // FFmpeg can die (bad args, disk full, permissions) while frames are still
   // streaming in; unblock the renderer so it stops instead of piling frames up.
   ffmpeg.stdin?.on('error', (error) => {
+    // EPIPE means FFmpeg closed stdin after reaching `-t` (the export length)
+    // and finished the pass. That is the normal end of a successful export, not
+    // a failure: the renderer's own write error path already stops the frame
+    // loop. Reporting it as an abort made every successful export log
+    // "FFmpeg stdin error: write EPIPE ... Aborting export".
+    if ((error as NodeJS.ErrnoException).code === 'EPIPE') {
+      log.info('[ExportManager] FFmpeg closed stdin after the export length; render loop will stop.')
+      return
+    }
     log.error('[ExportManager] FFmpeg stdin error:', error)
     abortExport('stdin error')
   })
@@ -437,7 +446,9 @@ export async function startExport(event: IpcMainInvokeEvent, request: ExportRequ
 
   ffmpeg.on('close', (code) => {
     ffmpegClosed = true
-    abortExport(`FFmpeg exited with code ${code}`)
+    // A zero exit is a completed pass (the EPIPE-abort case above is handled
+    // separately), so do not mark the export aborted on the normal path.
+    if (code !== 0) abortExport(`FFmpeg exited with code ${code}`)
     log.info(`[ExportManager] FFmpeg process exited with code ${code}.`)
     if (appState.renderWorker && !appState.renderWorker.isDestroyed()) {
       appState.renderWorker.close()
