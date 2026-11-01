@@ -55,6 +55,27 @@ describe('buildFfmpegArgs', () => {
     expect(args).not.toContain('-vf')
   })
 
+  test('encodes screen and webcam with the clean-source quality settings', () => {
+    const args = buildFfmpegArgs(
+      ['-f', 'v4l2', '-i', '/dev/video0', '-f', 'x11grab', '-i', ':0.0'],
+      true,
+      false,
+      'screen.mp4',
+      'webcam.mp4',
+    )
+
+    // CRF 18 with deblocking + adaptive quantization; the default ultrafast
+    // profile (CRF 23, aq=0, deblock off) leaves noise the 4x upscale amplifies.
+    for (const output of ['screen.mp4', 'webcam.mp4']) {
+      const outputIndex = args.lastIndexOf(output)
+      const encodeArgs = args.slice(0, outputIndex)
+      expect(encodeArgs).toContain('-crf')
+      expect(encodeArgs[encodeArgs.indexOf('-crf') + 1]).toBe('18')
+      expect(encodeArgs).toContain('-x264-params')
+      expect(encodeArgs[encodeArgs.indexOf('-x264-params') + 1]).toBe('aq-mode=1:deblock=1:1:1')
+    }
+  })
+
   test('applies the screen crop without touching the webcam output', () => {
     const args = buildFfmpegArgs(
       ['-f', 'v4l2', '-i', '/dev/video0', '-f', 'rawvideo', '-i', '-'],

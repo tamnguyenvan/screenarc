@@ -31,11 +31,16 @@ export function buildFfmpegArgs(
     finalArgs.push('-map', `${micIndex}:a`)
   }
 
-  finalArgs.push('-c:v', 'libx264', '-preset', 'ultrafast', '-pix_fmt', 'yuv420p')
+  finalArgs.push('-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '18', '-pix_fmt', 'yuv420p')
   if (screenFilter) {
     // Output-scoped, so it applies to the screen file and not to the webcam's.
     finalArgs.push('-vf', screenFilter)
   }
+  // ultrafast defaults to CRF 23 with deblocking and adaptive quantization off
+  // (aq=0), which leaves visible block/mosquito noise on screen content; that
+  // noise is what the 4x upscale amplifies into "grain". CRF 18 plus deblock
+  // and aq costs almost no encode time at this preset.
+  finalArgs.push('-x264-params', 'aq-mode=1:deblock=1:1:1')
   // +faststart relocates the moov box to the front of the file. The preview's
   // media element reads metadata from the first bytes; without it, Chromium
   // must range-request the file tail, which the browser can only do reliably
@@ -54,6 +59,10 @@ export function buildFfmpegArgs(
       'libx264',
       '-preset',
       'ultrafast',
+      '-crf',
+      '18',
+      '-x264-params',
+      'aq-mode=1:deblock=1:1:1',
       '-pix_fmt',
       'yuv420p',
       webcamOut,
