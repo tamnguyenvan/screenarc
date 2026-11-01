@@ -141,6 +141,69 @@ npm run dev                               # no .env.development.local → local 
 
 `DEMOTHAT_FORCE_PRO=1` unlocks Pro features without a key for development. Server-side behaviour is out of scope for this repo; `scripts/mock-api-server.mjs` is the reference for what the app expects.
 
+## 🛠️ Troubleshooting
+
+### Screen recording on Linux (xdg-desktop-portal)
+
+**Symptom** — screen capturing fails on a Wayland Linux desktop. You see a "could not access the screen" / "your desktop did not hand over the screen" error, or the screen-sharing dialog never appears while recording.
+
+**Diagnosis** — the app asks for the screen through `xdg-desktop-portal`'s `ScreenCast` interface. When that interface is missing, Chromium logs messages like:
+
+```
+ERROR:screen_capture_portal_interface.cc: Failed to request session: GDBus.Error:
+  No such interface "org.freedesktop.portal.ScreenCast" on object at path /org/freedesktop/portal/desktop
+```
+
+Check whether the portal is actually providing the backend you need:
+
+```bash
+journalctl --user --since "5 min ago" | grep -i portal
+echo "$XDG_SESSION_TYPE $XDG_CURRENT_DESKTOP"
+ls /usr/share/xdg-desktop-portal/portals/
+```
+
+Bad output — the desktop is **only** falling back to `gtk.portal` for every interface (FileChooser, Print, Notification, ...), with no `ScreenCast` or `Screenshot` entry. That means no `portals.conf` matched your desktop, so the portal fell back to GTK — and the GTK backend does not provide screen capture.
+
+**Fix** — make sure the portal backend for your desktop is installed and running:
+
+```bash
+# GNOME:    sudo apt install xdg-desktop-portal-gnome
+# KDE:      sudo apt install xdg-desktop-portal-kde
+# Sway/wlr: sudo apt install xdg-desktop-portal-wlr
+# Hyprland: sudo apt install xdg-desktop-portal-hyprland
+```
+
+Make sure PipeWire and WirePlumber are installed and running (the portal captures through PipeWire):
+
+```bash
+systemctl --user status pipewire wireplumber
+```
+
+If it still falls back to GTK, pin the backends explicitly. Create `~/.config/xdg-desktop-portal/portals.conf`:
+
+```ini
+[preferred]
+default=gtk
+org.freedesktop.impl.portal.ScreenCast=gnome
+org.freedesktop.impl.portal.Screenshot=gnome
+```
+
+(Replace `gnome` with `kde`, `wlr`, or `hyprland` to match your desktop.)
+
+Then restart the portal:
+
+```bash
+systemctl --user restart xdg-desktop-portal
+```
+
+**Verify** — re-run the journalctl check, filtered to the portal, and confirm a `ScreenCast` backend line appears and its service starts:
+
+```bash
+journalctl --user --since "5 min ago" | grep -iE "portal|screencast"
+```
+
+**Note** — on X11 this is not needed: tools such as FFmpeg's `x11grab`, SimpleScreenRecorder, or OBS's X11 capture work without the portal.
+
 ## 🤝 Contributing
 
 1. Fork the repo and create a descriptive branch: `feature/your-feature` or `fix/issue-number`.
