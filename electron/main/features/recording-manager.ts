@@ -450,7 +450,15 @@ async function startActualRecording(
         log.error(`[FFMPEG] Fatal error detected: ${message}`)
         dialog.showErrorBox(
           'Recording Failed',
-          `A critical error occurred while starting the recording process:\n\n${message}\n\nPlease check your device permissions and configurations.`,
+          'DemoThat could not start the recording.\n\n' +
+            `The video encoder reported: ${message
+              .trim()
+              .split('\n')[0]
+              .replace(/^\[[a-z0-9 @.]+\]\s*/i, '')}\n\n` +
+            'Please check:\n' +
+            '• Your webcam or microphone is not in use by another app\n' +
+            '• Your screen-capture permission is granted\n' +
+            '• No other recording program is running',
         )
         setTimeout(() => cleanupAndDiscard(), 100)
       }
@@ -946,8 +954,24 @@ export async function stopRecording() {
   }
 
   // Step 1: Wait for FFmpeg and tracker to finish
-  await cleanupAndSave()
+  const stoppedGracefully = await cleanupAndSave()
   log.info('[StopRecord] FFmpeg process finished and file is finalized (or never spawned).')
+  if (!stoppedGracefully) {
+    // The screen renders but a live input (webcam/mic) kept encoding; the file
+    // after SIGKILL may be truncated, so tell the user plainly rather than
+    // pretending the save succeeded and loading a broken video into the editor.
+    log.error('[StopRecord] FFmpeg had to be force-killed; the recording may be incomplete.')
+    appState.savingWin?.close()
+    dialog.showErrorBox(
+      'Recording Could Not Be Saved',
+      'The recording stopped, but the video encoder did not finish writing the files.\n\n' +
+        'This usually happens when a webcam or microphone stream keeps the capture running.\n' +
+        'Please try recording again, and if the problem repeats, disable the webcam or ' +
+        'microphone in the recording options.',
+    )
+    appState.recorderWin?.show()
+    return
+  }
 
   // Step 1b: Wait for the renderer to finish forwarding the tail chunk, then
   // flush and finalize the renderer-side files (no-op when not used).
@@ -1072,13 +1096,18 @@ async function muxSystemAudio(session: RecordingSession): Promise<void> {
 
   const screenHasAudio = session.hasMicAudio ? await screenFileHasAudioStream(session.screenVideoPath) : false
   const tempOutput = session.screenVideoPath.replace(/\.mp4$/, '.muxed.mp4')
+  // Bound the apad-padded audio mux. Prefer the screen file's own duration;
+  // if that probe fails (e.g. a truncated capture), the system-audio file was
+  // recorded in lockstep and is the same length — without a -t the infinite
+  // apad pad makes this mux run forever.
+  const durationSec =
+    (await probeVideoDurationSec(session.screenVideoPath)) ?? (await probeVideoDurationSec(session.systemAudioPath))
   const args = buildMuxArgs({
     screenInput: session.screenVideoPath,
     systemAudioInput: session.systemAudioPath,
     output: tempOutput,
     hasMicAudio: screenHasAudio,
-    // Bounds the apad-padded audio mux: without -t the encode never ends.
-    durationSec: await probeVideoDurationSec(session.screenVideoPath),
+    durationSec,
   })
 
   log.info(`[Mux] Running ffmpeg ${args.join(' ')}`)
@@ -1087,11 +1116,20 @@ async function muxSystemAudio(session: RecordingSession): Promise<void> {
     await new Promise<void>((resolve, reject) => {
       const proc = spawn(FFMPEG_PATH, args)
       let stderr = ''
+      // A stalled mux must not hold the Saving dialog open forever.
+      const timer = setTimeout(() => {
+        proc.kill('SIGKILL')
+        reject(new Error(`ffmpeg mux did not finish in time: ${stderr.slice(-500)}`))
+      }, 60_000)
+      proc.on('error', (err) => {
+        clearTimeout(timer)
+        reject(err)
+      })
       proc.stderr.on('data', (d) => {
         stderr += d.toString()
       })
-      proc.on('error', reject)
       proc.on('close', (code) => {
+        clearTimeout(timer)
         if (code === 0) resolve()
         else reject(new Error(`ffmpeg mux exited ${code}: ${stderr.slice(-500)}`))
       })
@@ -1204,14 +1242,21 @@ async function muxMacScreenWebm(session: RecordingSession): Promise<void> {
   await new Promise<void>((resolve, reject) => {
     const proc = spawn(FFMPEG_PATH, args)
     let stderr = ''
+    // A stalled mux must not hold the Saving dialog open forever.
+    const timer = setTimeout(() => {
+      proc.kill('SIGKILL')
+      reject(new Error(`ffmpeg mac mux did not finish in time: ${stderr.slice(-500)}`))
+    }, 60_000)
     proc.stderr.on('data', (d) => {
       stderr += d.toString()
     })
     proc.on('error', (err) => {
+      clearTimeout(timer)
       log.error('[MacMux] ffmpeg spawn error:', err)
       reject(err)
     })
     proc.on('close', (code) => {
+      clearTimeout(timer)
       if (code === 0) {
         log.info('[MacMux] ffmpeg mux exited 0 — final mp4 is ready.')
         resolve()
@@ -1264,13 +1309,18 @@ export async function cancelRecording() {
 /**
  * Stops trackers, writes metadata, and gracefully shuts down FFmpeg.
  */
-async function cleanupAndSave(): Promise<void> {
+async function cleanupAndSave(): Promise<boolean> {
   if (appState.mouseTracker) {
     appState.mouseTracker.stop()
     appState.mouseTracker = null
   }
 
-  return new Promise((resolve) => {
+  // Grace: the time FFmpeg gets to close after SIGINT before we force it. The
+  // screen input EOFs when the helper stops, but a live webcam or mic input
+  // keeps the process running; SIGINT is the polite stop, SIGKILL the escape.
+  const FFMPEG_STOP_TIMEOUT_MS = 5000
+
+  return new Promise<boolean>((resolve) => {
     if (appState.ffmpegProcess) {
       const ffmpeg = appState.ffmpegProcess
       appState.ffmpegProcess = null
@@ -1278,22 +1328,42 @@ async function cleanupAndSave(): Promise<void> {
       // exitCode is set and the 'close' event will never fire again.
       if (ffmpeg.exitCode !== null || ffmpeg.killed) {
         log.info(`FFmpeg process already exited with code ${ffmpeg.exitCode}`)
-        resolve()
+        resolve(true)
         return
       }
-      ffmpeg.on('close', (code: any) => {
-        log.info(`FFmpeg process exited with code ${code}`)
-        resolve()
-      })
-      // Send 'q' for graceful shutdown on Windows, SIGINT on others
+      let graceful = true
+      const finished = () => {
+        clearTimeout(escalation)
+        log.info('FFmpeg process closed.')
+        resolve(graceful)
+      }
+      const escalation = setTimeout(() => {
+        // A live input (webcam, mic) can keep FFmpeg encoding for ever; the
+        // Saving window must not wait on it.
+        log.warn('[FFMPEG] Did not exit after SIGINT; killing it.')
+        graceful = false
+        ffmpeg.kill('SIGKILL')
+      }, FFMPEG_STOP_TIMEOUT_MS)
+      ffmpeg.on('close', finished)
       if (process.platform === 'win32') {
-        ffmpeg.stdin?.write('q')
-        ffmpeg.stdin?.end()
+        try {
+          ffmpeg.stdin?.write('q')
+        } catch {
+          // stdin already closed or unavailable
+        }
       } else {
+        // Linux/wayland screen frames arrive on stdin (the helper's pipe): end
+        // it so that input reaches EOF even if the helper's stream closed
+        // without propagating end, then signal for a graceful finish.
+        try {
+          ffmpeg.stdin?.end()
+        } catch {
+          // stdin already closed or unavailable
+        }
         ffmpeg.kill('SIGINT')
       }
     } else {
-      resolve()
+      resolve(true)
     }
   })
 }
