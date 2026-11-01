@@ -72,7 +72,7 @@ describe('buildFfmpegArgs', () => {
       expect(encodeArgs).toContain('-crf')
       expect(encodeArgs[encodeArgs.indexOf('-crf') + 1]).toBe('18')
       expect(encodeArgs).toContain('-x264-params')
-      expect(encodeArgs[encodeArgs.indexOf('-x264-params') + 1]).toBe('aq-mode=1:deblock=1:1:1')
+      expect(encodeArgs[encodeArgs.indexOf('-x264-params') + 1]).toBe('aq-mode=1:deblock=1,1')
     }
   })
 
