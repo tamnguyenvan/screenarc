@@ -4,6 +4,12 @@
 
 * **recorder:** tell the user when a Wayland recording captured no clicks ([#31](https://github.com/getwithashish/DemoThat/issues/31)) ([f138dba](https://github.com/getwithashish/DemoThat/commit/f138dba1aebf16da24e677dea634776c103d0152))
 
+## [1.17.7](https://github.com/getwithashish/DemoThat/compare/v1.17.6...v1.17.7) (2026-11-01)
+
+### Bug Fixes
+
+* **recorder:** tell the user when a Wayland recording captured no clicks ([#31](https://github.com/getwithashish/DemoThat/issues/31)) ([f138dba](https://github.com/getwithashish/DemoThat/commit/f138dba1aebf16da24e677dea634776c103d0152))
+
 ## [1.17.6](https://github.com/getwithashish/DemoThat/compare/v1.17.5...v1.17.6) (2026-11-01)
 
 ### Bug Fixes
