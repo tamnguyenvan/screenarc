@@ -1,3 +1,10 @@
+## [1.17.5](https://github.com/getwithashish/DemoThat/compare/v1.17.4...v1.17.5) (2026-11-01)
+
+### Bug Fixes
+
+* **export:** stop treating the end-of-pass EPIPE as a failed export ([#27](https://github.com/getwithashish/DemoThat/issues/27)) ([4274088](https://github.com/getwithashish/DemoThat/commit/42740883d2112ad4bdba8d839d676e9f5aa66919))
+* **recording:** encode captures at CRF 18 with deblocking and AQ ([#25](https://github.com/getwithashish/DemoThat/issues/25)) ([36b9292](https://github.com/getwithashish/DemoThat/commit/36b92924c1f8b800a7f42f97aca33e590501fec3))
+
 ## [1.17.4](https://github.com/getwithashish/DemoThat/compare/v1.17.3...v1.17.4) (2026-10-29)
 
 ### Bug Fixes
