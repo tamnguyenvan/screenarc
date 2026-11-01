@@ -1,3 +1,9 @@
+## [1.17.8](https://github.com/getwithashish/DemoThat/compare/v1.17.7...v1.17.8) (2026-11-01)
+
+### Bug Fixes
+
+* **recording:** correct x264 deblock syntax for webcam encode ([#34](https://github.com/getwithashish/DemoThat/issues/34)) ([07ccb62](https://github.com/getwithashish/DemoThat/commit/07ccb625cd1cf20130e798cf372822cdba5c85fd))
+
 ## [1.17.7](https://github.com/getwithashish/DemoThat/compare/v1.17.6...v1.17.7) (2026-11-01)
 
 ### Bug Fixes
