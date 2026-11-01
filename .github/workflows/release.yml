@@ -85,9 +85,13 @@ jobs:
           node-version: 22
           cache: 'npm'
 
-      - name: Install Linux dependencies (Xvfb)
+      - name: Install Linux dependencies (Xvfb + cursor helper build deps)
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y xvfb rpm elfutils
+        run: sudo apt-get update && sudo apt-get install -y xvfb rpm elfutils libpipewire-0.3-dev libclang-dev
+
+      - name: Install Rust (cursor helper)
+        if: runner.os == 'Linux'
+        uses: dtolnay/rust-toolchain@stable
 
       - name: Start Xvfb
         if: runner.os == 'Linux'
@@ -135,6 +139,10 @@ jobs:
           # Required: bakes the production API base URL from a repository secret.
           # The build refuses to proceed if it is unset (see vite.config.ts).
           DEMOTHAT_DEFAULT_API_BASE_URL: ${{ secrets.DEMOTHAT_PRODUCTION_API_BASE_URL }}
+          # The Wayland cursor helper is Linux-only, and a release without it ships
+          # silent dead clicks (browser capture, pointer baked in). Make its absence
+          # a hard failure instead of the warning-only default.
+          DEMOTHAT_REQUIRE_CURSOR_HELPER: '1'
         run: |
           if [ "${{ runner.os }}" == "Linux" ]; then
             npm run dist:linux
