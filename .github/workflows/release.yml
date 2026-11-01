@@ -92,10 +92,11 @@ jobs:
           sudo apt-get install -y software-properties-common xvfb rpm elfutils libclang-dev
           # The pinned pipewire/libspa crates (0.8.x) need spa headers >= 1.0 —
           # spa_video_info_raw gets its `flags` field there. Jammy's 0.3.48
-          # predates it, so fetch newer headers from the official PipeWire PPA.
+          # predates it, so fetch newer headers from the PipeWire team's
+          # pipewire-debian PPA (1.0.7 for jammy, verified on Launchpad).
           # The helper links the ABI-stable libpipewire-0.3.so.0, so a binary
           # built against 1.x headers runs on 0.3.x machines too.
-          sudo add-apt-repository -y ppa:pipewire-devel/pipewire
+          sudo add-apt-repository -y ppa:pipewire-debian/pipewire-upstream
           sudo apt-get update
           sudo apt-get install -y libpipewire-0.3-dev libspa-0.2-dev
 
