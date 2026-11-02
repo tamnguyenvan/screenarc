@@ -30,6 +30,7 @@ use std::os::fd::{AsRawFd, BorrowedFd, OwnedFd, RawFd};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::mpsc::{Receiver, TryRecvError};
 use std::sync::{Arc, Mutex};
+use std::time::Duration;
 
 /// `spa_meta_type::SPA_META_Cursor` — the fifth entry of the enum, which bindgen
 /// does not emit for us.
@@ -147,6 +148,10 @@ struct UserData {
     main_loop: pw::main_loop::MainLoop,
     cursor_is_metadata: bool,
     clicks_available: bool,
+    /// Wall clock of the last frame actually written to the video pipe, used to
+    /// throttle the deliver rate to the rate declared to FFmpeg. Started in the
+    /// past so the first frame is always written.
+    last_frame_written: std::time::Instant,
     /// The bitmap the current samples refer to, sent to the app once. `None` until
     /// the compositor hands one over.
     cursor_image_key: Option<String>,
@@ -282,9 +287,15 @@ unsafe fn read_cursor_meta(buffer: *mut spa::sys::spa_buffer) -> Option<CursorMe
         }
         let hot_x = (*cursor).hotspot.x;
         let hot_y = (*cursor).hotspot.y;
+        // The SPA cursor meta's `position` is the pointer's TIP on screen (the
+        // point the user aimed at); `hotspot` only says where that tip sits
+        // inside the *bitmap*, for drawing. The X11 tracker reports the same
+        // tip, so samples must not add the hotspot: the editor already places
+        // the bitmap using the hotspot, and adding it here would push the drawn
+        // pointer that many pixels down-right from where the user clicked.
         return Some(CursorMeta {
-            x: f64::from((*cursor).position.x + hot_x),
-            y: f64::from((*cursor).position.y + hot_y),
+            x: f64::from((*cursor).position.x),
+            y: f64::from((*cursor).position.y),
             id: (*cursor).id,
             hot_x,
             hot_y,
@@ -442,6 +453,7 @@ pub fn run(
         clicks_available,
         fps: 0,
         requested_fps,
+        last_frame_written: std::time::Instant::now(),
     };
 
     let listener = pw_stream
@@ -500,6 +512,10 @@ pub fn run(
             }
 
             let spa_buffer = unsafe { (*raw).buffer };
+
+            // The pointer's position is read from EVERY buffer, even ones whose
+            // pixels are dropped by the rate throttle below — a sample emitted
+            // later must already carry the newest position.
             if let Some(meta) = unsafe { read_cursor_meta(spa_buffer) } {
                 {
                     let mut cursor = data.cursor.lock().unwrap();
@@ -551,8 +567,26 @@ pub fn run(
                 }
             }
 
-            write_frame(data, spa_buffer);
-            data.stats.frames.fetch_add(1, Ordering::Relaxed);
+            // Pace the pipe to the rate declared to FFmpeg. FFmpeg stamps every
+            // raw frame it receives at 1/fps of video time, so delivering at any
+            // other rate makes video time drift from wall time, and the samples
+            // (wall-stamped) then drift from the pixels — the drawn pointer
+            // trails or leads the real one. A 60Hz compositor delivering 60fps
+            // into a `-r 30` pipe used to make the recording run at 2x speed
+            // with the cursor off. Frames over the rate are dropped; their
+            // cursor meta was already read above, so the next sample carries
+            // the freshest position.
+            let us_per_frame = 1_000_000u64 / u64::from(data.fps.max(1));
+            let due = data.last_frame_written.elapsed() >= Duration::from_micros(us_per_frame);
+            if due {
+                write_frame(data, spa_buffer);
+                data.stats.frames.fetch_add(1, Ordering::Relaxed);
+                data.last_frame_written = std::time::Instant::now();
+            } else {
+                data.stats.dropped.fetch_add(1, Ordering::Relaxed);
+            }
+            // Moves and clicks are drained on every buffer, stamped with wall
+            // time — which is now the same as video time.
             data.emit_cursor_and_clicks();
 
             // Hand the buffer back: the compositor reuses these.
@@ -937,8 +971,8 @@ mod tests {
         let meta = unsafe { read_cursor_meta(&mut buffer) }.expect("a cursor meta");
         assert_eq!(
             (meta.x, meta.y),
-            (103.0, 204.0),
-            "position + hotspot is the tip"
+            (100.0, 200.0),
+            "the SPA position IS the tip; the hotspot must not be added to it"
         );
         assert_eq!(meta.id, 7);
         assert_eq!((meta.hot_x, meta.hot_y), (3, 4));
@@ -967,7 +1001,7 @@ mod tests {
         let (_region, _metas, mut buffer) = buffer_with_cursor_meta(0, false);
         let meta = unsafe { read_cursor_meta(&mut buffer) }.expect("a cursor meta");
         assert!(meta.bitmap.is_none());
-        assert_eq!((meta.x, meta.y), (103.0, 204.0));
+        assert_eq!((meta.x, meta.y), (100.0, 200.0));
     }
 
     #[test]

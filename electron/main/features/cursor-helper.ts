@@ -112,7 +112,12 @@ export function isCursorHelperAvailable(): boolean {
 
 /** The JSON the helper is started with. Kept pure so the shape is testable. */
 export function helperConfig(videoFd: number, fps: number): string {
-  return JSON.stringify({ videoFd, fps, clickIdleTimeoutMs: 2000 })
+  // The click reader self-exits after this idle gap so a helper that outlives
+  // its recording cannot poll forever — but a live recording can easily pause
+  // for a few seconds (reading, thinking, waiting), so 2s would kill every
+  // click after the first pause. The app stops the helper explicitly at stop,
+  // so this is only a leak guard: 10 minutes.
+  return JSON.stringify({ videoFd, fps, clickIdleTimeoutMs: 600_000 })
 }
 
 /** Anything implausible is replaced by the rate the app asked for. */
