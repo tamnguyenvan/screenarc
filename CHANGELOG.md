@@ -1,3 +1,9 @@
+## [1.17.15](https://github.com/getwithashish/DemoThat/compare/v1.17.14...v1.17.15) (2026-11-02)
+
+### Bug Fixes
+
+* **export:** render the cloud intermediate at the size FFmpeg declares ([#41](https://github.com/getwithashish/DemoThat/issues/41)) ([167bd71](https://github.com/getwithashish/DemoThat/commit/167bd71419ea418280617502052bcc032dbc7f52))
+
 ## [1.17.14](https://github.com/getwithashish/DemoThat/compare/v1.17.13...v1.17.14) (2026-11-02)
 
 ### Bug Fixes
