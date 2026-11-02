@@ -1,3 +1,9 @@
+## [1.17.16](https://github.com/getwithashish/DemoThat/compare/v1.17.15...v1.17.16) (2026-11-02)
+
+### Bug Fixes
+
+* **recording:** keep helper video-timed flag intact and restore X11 webcam args ([#42](https://github.com/getwithashish/DemoThat/issues/42)) ([61b7b45](https://github.com/getwithashish/DemoThat/commit/61b7b458bbde2c1ede787bb89c6e30b79af4e1e2))
+
 ## [1.17.15](https://github.com/getwithashish/DemoThat/compare/v1.17.14...v1.17.15) (2026-11-02)
 
 ### Bug Fixes
