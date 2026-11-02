@@ -1,3 +1,9 @@
+## [1.17.11](https://github.com/getwithashish/DemoThat/compare/v1.17.10...v1.17.11) (2026-11-02)
+
+### Bug Fixes
+
+* **recording:** feed the webcam through a pipe so stopping finalizes both files ([#37](https://github.com/getwithashish/DemoThat/issues/37)) ([dbdd5bd](https://github.com/getwithashish/DemoThat/commit/dbdd5bd7463eeb08af82d03403341bfee1aabdae))
+
 ## [1.17.10](https://github.com/getwithashish/DemoThat/compare/v1.17.9...v1.17.10) (2026-11-02)
 
 ### Bug Fixes
