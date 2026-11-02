@@ -957,20 +957,29 @@ export async function stopRecording() {
   const stoppedGracefully = await cleanupAndSave()
   log.info('[StopRecord] FFmpeg process finished and file is finalized (or never spawned).')
   if (!stoppedGracefully) {
-    // The screen renders but a live input (webcam/mic) kept encoding; the file
-    // after SIGKILL may be truncated, so tell the user plainly rather than
-    // pretending the save succeeded and loading a broken video into the editor.
-    log.error('[StopRecord] FFmpeg had to be force-killed; the recording may be incomplete.')
-    appState.savingWin?.close()
-    dialog.showErrorBox(
-      'Recording Could Not Be Saved',
-      'The recording stopped, but the video encoder did not finish writing the files.\n\n' +
-        'This usually happens when a webcam or microphone stream keeps the capture running.\n' +
-        'Please try recording again, and if the problem repeats, disable the webcam or ' +
-        'microphone in the recording options.',
-    )
-    appState.recorderWin?.show()
-    return
+    // The screen input EOFs first, so screen.mp4 is complete; only the live
+    // webcam input keeps FFmpeg alive and its file is truncated by the forced
+    // kill (no moov box, unplayable). Keep the screen recording, drop the
+    // webcam layer, and tell the user plainly.
+    const session = appState.currentRecordingSession
+    log.error('[StopRecord] FFmpeg had to be force-killed; dropping the truncated webcam file.', {
+      screenVideoPath: session?.screenVideoPath,
+      webcamVideoPath: session?.webcamVideoPath,
+    })
+    if (session?.webcamVideoPath) {
+      await fsPromises.unlink(session.webcamVideoPath).catch(() => {})
+      session.webcamVideoPath = undefined
+    }
+    dialog.showMessageBox({
+      type: 'warning',
+      title: 'Recording Saved Without Webcam',
+      message: 'Your screen recording was saved, but the webcam video could not be finished.',
+      detail:
+        'A live webcam stream keeps the video encoder running, so the webcam file was cut short and removed.\n\n' +
+        'The screen recording is complete and has been opened in the editor.',
+      buttons: ['Open Editor'],
+      defaultId: 0,
+    })
   }
 
   // Step 1b: Wait for the renderer to finish forwarding the tail chunk, then
@@ -1318,7 +1327,10 @@ async function cleanupAndSave(): Promise<boolean> {
   // Grace: the time FFmpeg gets to close after SIGINT before we force it. The
   // screen input EOFs when the helper stops, but a live webcam or mic input
   // keeps the process running; SIGINT is the polite stop, SIGKILL the escape.
-  const FFMPEG_STOP_TIMEOUT_MS = 5000
+  // A real v4l2 webcam blocks SIGINT entirely (observed on KDE Wayland), so
+  // keep the grace short — 3s is enough for a polite close on inputs that
+  // honor it, and the screen file is already finalized by then.
+  const FFMPEG_STOP_TIMEOUT_MS = 3000
 
   return new Promise<boolean>((resolve) => {
     if (appState.ffmpegProcess) {
