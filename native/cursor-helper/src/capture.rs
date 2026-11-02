@@ -615,6 +615,49 @@ pub fn run(
         .context("could not parse the buffer parameter we just built")?;
     pods.push(buffers_pod);
 
+    // Opt into the cursor metadata. The SPA_META_Cursor meta only appears on
+    // buffers when the stream advertises it via ParamMeta — and it is the whole
+    // point of this helper: the pointer's position (and bitmap) arrive on the
+    // video buffers, not in the pixels. kwin reads this advert before deciding
+    // whether to attach the meta to output screencasts, so without this pod the
+    // helper silently records no cursor at all on KDE (its own detector fires
+    // "no cursor metadata from the compositor" after 60 frames and the pointer
+    // is lost entirely). The size range mirrors kpipewire's reference reader.
+    let mut meta_buffer = vec![0u8; 1024];
+    let mut meta_pods: Vec<&Pod> = Vec::new();
+    let meta_object = Object {
+        type_: spa::sys::SPA_TYPE_OBJECT_ParamMeta,
+        id: spa::param::ParamType::Meta.as_raw(),
+        properties: vec![
+            Property::new(
+                spa::sys::SPA_PARAM_META_type,
+                Value::Id(Id(spa::sys::SPA_META_Cursor)),
+            ),
+            Property::new(
+                spa::sys::SPA_PARAM_META_size,
+                // struct spa_meta_cursor + bitmap struct + pixels, as the
+                // reference reader sizes it: a cursor that cannot change shape.
+                Value::Choice(spa::pod::ChoiceValue::Int(spa::utils::Choice(
+                    spa::utils::ChoiceFlags::empty(),
+                    spa::utils::ChoiceEnum::Range {
+                        default: 32 * 32 * 4 + 120,
+                        min: 1 * 1 * 4 + 120,
+                        max: 1024 * 1024 * 4 + 120,
+                    },
+                ))),
+            ),
+        ],
+    };
+    let (_, meta_len) = PodSerializer::serialize(
+        std::io::Cursor::new(&mut meta_buffer),
+        &Value::Object(meta_object),
+    )
+    .context("could not build the cursor metadata parameter")?;
+    let meta_pod = Pod::from_bytes(&meta_buffer[..meta_len as usize])
+        .context("could not parse the cursor metadata parameter we just built")?;
+    meta_pods.push(meta_pod);
+    pods.append(&mut meta_pods);
+
     pw_stream
         .connect(
             spa::utils::Direction::Input,

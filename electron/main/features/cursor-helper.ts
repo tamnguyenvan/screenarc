@@ -285,6 +285,26 @@ export async function startCursorHelper(options: {
       resolve(session)
     }
 
+    /**
+     * The desktop accepted metadata cursor mode (so no rejection retry ever ran),
+     * but its buffers never carry the pointer's position a couple of seconds
+     * later — kwin 5.27 does exactly this. The recording has already been handed
+     * over to the helper at this point in the flow, but the promise is still
+     * pending, so the desktop can be downgraded to embedded like Sway: the
+     * pointer then rides in the pixels and stops being invisible.
+     */
+    const fallBackToEmbedded = () => {
+      log.info('[CursorHelper] Desktop accepts metadata mode but never sends the pointer; falling back.')
+      options.onEmbeddedOnly?.()
+      child.kill('SIGTERM')
+      cleanup()
+      finish(null)
+    }
+
+    // The verdict needs this message verbatim: the helper emits it after ~60
+    // frames with no cursor meta while in metadata mode.
+    const SILENT_METADATA_WARNING = 'no cursor metadata from the compositor'
+
     const timeout = setTimeout(() => {
       log.warn(`[CursorHelper] No capture after ${options.timeoutMs ?? START_TIMEOUT_MS}ms; falling back.`)
       child.kill('SIGKILL')
@@ -292,15 +312,48 @@ export async function startCursorHelper(options: {
       finish(null)
     }, options.timeoutMs ?? START_TIMEOUT_MS)
 
+    // Verdict before handover: only resolve the session with genuine proof the
+    // desktop sends cursor data — the FIRST cursor sample. kwin 5.27 accepts
+    // metadata mode but sends nothing; resolving on startInfo alone would hand
+    // FFmpeg a cursor-less capture. Fall back instead on the helper's 60-frame
+    // silence warning. While the verdict is pending the helper is writing
+    // frames to fd 3 and nobody is draining it: the pipe stalls after ~64KB and
+    // the helper's capture loop (and with it the silence counter) blocks. So
+    // discard frames during the wait and let real piping start at resolution.
+    let receivedVerdict = false
+    const video = child.stdio[3] as unknown as Readable
+    video.resume()
+
+    const buildSession = (): CursorHelperSession => ({
+      info: startInfo as HelperStartInfo,
+      video,
+      stop: () => stopChild(child),
+    })
+
     const parser = createEventParser({
       onStart: (info) => {
         startInfo = info
       },
-      onSample: options.onSample,
+      onSample: (sample) => {
+        // Frame data proves the meta actually flows; a session that will
+        // deliver the pointer is one the app can commit to.
+        if (startInfo && startInfo.cursorMode === 'metadata' && !settled && !receivedVerdict) {
+          receivedVerdict = true
+          video.pause()
+          finish(buildSession())
+        }
+        options.onSample(sample)
+      },
       onShape: options.onShape,
       onWarning: (message) => {
         log.warn(`[CursorHelper] ${message}`)
         options.onWarning?.(message)
+        // The desktop accepted metadata mode but never puts the pointer in the
+        // buffers it sends. The helper tried for ~60 frames and gave up, so this
+        // is a desktop that can only record the cursor baked into the pixels.
+        if (startInfo && startInfo.cursorMode === 'metadata' && message.includes(SILENT_METADATA_WARNING)) {
+          fallBackToEmbedded()
+        }
       },
       onError: (message) => {
         log.warn(`[CursorHelper] ${message}`)
@@ -328,8 +381,12 @@ export async function startCursorHelper(options: {
     child.on('exit', (code, signal) => {
       clearTimeout(timeout)
       cleanup()
-      if (!startInfo) {
-        log.warn(`[CursorHelper] Exited before capturing (code=${code}, signal=${signal}). ${stderr.slice(-400)}`)
+      // If the session was never handed over (picked the screen but the helper
+      // died before producing a first cursor sample or the silence verdict),
+      // resolve so the caller falls back to the browser capture instead of
+      // waiting forever.
+      if (!settled) {
+        log.warn(`[CursorHelper] Exited before handover (code=${code}, signal=${signal}). ${stderr.slice(-400)}`)
         finish(null)
         return
       }
@@ -341,10 +398,17 @@ export async function startCursorHelper(options: {
     // arguments need, and it is only known once the compositor has answered.
     const poll = setInterval(() => {
       if (!startInfo) return
+      const isEmbedded = startInfo.cursorMode !== 'metadata'
+      if (!isEmbedded && !receivedVerdict && !settled) {
+        // Metadata mode: the verdict (first cursor sample, or the 60-frame
+        // silence warning) settles the promise later; keep the interval and the
+        // 120s timeout armed so nothing can hang.
+        return
+      }
       clearInterval(poll)
       clearTimeout(timeout)
 
-      if (startInfo.cursorMode !== 'metadata') {
+      if (isEmbedded) {
         // The compositor records the pointer into the pixels. That is what the
         // browser path does too, and the browser path is the one in production, so
         // hand the recording back to it rather than taking over for no gain.
@@ -360,11 +424,15 @@ export async function startCursorHelper(options: {
         `[CursorHelper] Capturing ${startInfo.width}x${startInfo.height} ${startInfo.format}, ` +
           `clicks ${startInfo.clicks ? 'on' : 'off'}.`,
       )
-      finish({
-        info: startInfo,
-        video: child.stdio[3] as unknown as Readable,
-        stop: () => stopChild(child),
-      })
+      // The onSample handler usually resolved already; this covers the path where
+      // a verdict arrived between polls.
+      if (!settled) {
+        finish({
+          info: startInfo,
+          video: child.stdio[3] as unknown as Readable,
+          stop: () => stopChild(child),
+        })
+      }
     }, 20)
   })
 }
