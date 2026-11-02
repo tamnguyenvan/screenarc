@@ -1,3 +1,9 @@
+## [1.17.9](https://github.com/getwithashish/DemoThat/compare/v1.17.8...v1.17.9) (2026-11-02)
+
+### Bug Fixes
+
+* **recording:** bound the FFmpeg stop and mux waits so Saving cannot hang ([#35](https://github.com/getwithashish/DemoThat/issues/35)) ([e12b689](https://github.com/getwithashish/DemoThat/commit/e12b6891b4dbbd53a8889160827cde000934875d))
+
 ## [1.17.8](https://github.com/getwithashish/DemoThat/compare/v1.17.7...v1.17.8) (2026-11-01)
 
 ### Bug Fixes
