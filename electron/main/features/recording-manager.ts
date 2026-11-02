@@ -2,7 +2,7 @@
 // Contains core business logic for recording, stopping, and cleanup.
 
 import log from 'electron-log/main'
-import { spawn } from 'node:child_process'
+import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process'
 import path from 'node:path'
 import fsPromises from 'node:fs/promises'
 import {
@@ -44,6 +44,15 @@ import { applyCleanDemoMode, restoreCleanDemoMode } from './clean-demo-mode'
 
 const FFMPEG_PATH = getFFmpegPath()
 const SYSTEM_AUDIO_STOP_TIMEOUT_MS = 5000
+
+/** Substrings in FFmpeg stderr that mean the capture cannot start at all. Shared by the recording encoder and the webcam feeder. */
+const fatalErrorKeywords = [
+  'Cannot open display',
+  'Invalid argument',
+  'Device not found',
+  'Unknown input format',
+  'error opening device',
+]
 const SCREEN_CAPTURE_STOP_TIMEOUT_MS = 5000
 
 // Module-scoped writers used by the renderer-streamed capture paths. They
@@ -422,8 +431,75 @@ async function startActualRecording(
     const finalArgs = useRendererScreenCapture
       ? buildMacFfmpegArgs(inputArgs, hasMic, hasWebcam, micAudioPath, webcamVideoPath)
       : buildFfmpegArgs(inputArgs, hasWebcam, hasMic, screenVideoPath, webcamVideoPath, screenFilter)
+    // A live v4l2 webcam inside the recording FFmpeg never ends on its own and
+    // swallows SIGINT (observed on KDE Wayland), so stopping the recording used
+    // to force-kill the encoder before it wrote the mp4 container trailer —
+    // both the screen and webcam files came out with no moov atom (black
+    // preview). Move the camera into a tiny feeder that writes to a pipe: when
+    // the feeder stops, the pipe EOFs just like the screen pipe, and the main
+    // encoder finishes normally and finalizes both files.
+    let webcamFeeder: ChildProcessWithoutNullStreams | null = null
+    const v4l2At = finalArgs.findIndex((arg, i) => arg === '-f' && finalArgs[i + 1] === 'v4l2')
+    if (v4l2At !== -1) {
+      const device = finalArgs[v4l2At + 3]
+      finalArgs.splice(v4l2At, 4, '-f', 'matroska', '-i', 'pipe:3')
+      webcamFeeder = spawn(FFMPEG_PATH, [
+        '-hide_banner',
+        '-loglevel',
+        'error',
+        '-y',
+        '-f',
+        'v4l2',
+        '-i',
+        device,
+        '-c:v',
+        'libx264',
+        '-preset',
+        'ultrafast',
+        '-crf',
+        '18',
+        '-pix_fmt',
+        'yuv420p',
+        '-f',
+        'matroska',
+        'pipe:',
+      ])
+      appState.webcamFeeder = webcamFeeder
+      // A feeder that dies is a lost webcam, not a failed recording — but its
+      // fatal errors should surface with the same guidance as the encoder's.
+      webcamFeeder.stderr.on('data', (data: any) => {
+        const message = data.toString()
+        log.warn(`[WebcamFeeder stderr]: ${message}`)
+        if (fatalErrorKeywords.some((keyword) => message.toLowerCase().includes(keyword.toLowerCase()))) {
+          log.error(`[WebcamFeeder] Fatal error detected: ${message}`)
+          dialog.showErrorBox(
+            'Recording Failed',
+            'DemoThat could not access the webcam.\n\n' +
+              `The camera reported: ${message
+                .trim()
+                .split('\n')[0]
+                .replace(/^\[[a-z0-9 @.]+\]\s*/i, '')}\n\n` +
+              'Please check:\n' +
+              '• The webcam is not in use by another app\n' +
+              '• The webcam is plugged in and enabled',
+          )
+          setTimeout(() => cleanupAndDiscard(), 100)
+        }
+      })
+      log.info(`[RecordingManager] Webcam moved to a feeder process (${device} → pipe).`)
+    }
+
     log.info(`[FFMPEG] Starting FFmpeg with args: ${finalArgs.join(' ')}`)
-    appState.ffmpegProcess = spawn(FFMPEG_PATH, finalArgs)
+    // stdio[3] is the webcam feeder's pipe; without it the child gets no fd 3
+    // and `-i pipe:3` would fail.
+    appState.ffmpegProcess = spawn(
+      FFMPEG_PATH,
+      finalArgs,
+      webcamFeeder ? { stdio: ['pipe', 'pipe', 'pipe', 'pipe'] } : undefined,
+    )
+    if (webcamFeeder) {
+      webcamFeeder.stdout.pipe(appState.ffmpegProcess.stdio[3] as unknown as NodeJS.WritableStream)
+    }
 
     // Wayland: the frames come from the helper's descriptor rather than from a
     // display grab. Closing this pipe — which the helper does when it stops — is
@@ -438,14 +514,8 @@ async function startActualRecording(
       const message = data.toString()
       log.warn(`[FFMPEG stderr]: ${message}`)
 
-      // Early detection of fatal errors to provide immediate feedback
-      const fatalErrorKeywords = [
-        'Cannot open display',
-        'Invalid argument',
-        'Device not found',
-        'Unknown input format',
-        'error opening device',
-      ]
+      // Early detection of fatal errors to provide immediate feedback (shared
+      // keyword list is module-scoped, so the webcam feeder checks it too).
       if (fatalErrorKeywords.some((keyword) => message.toLowerCase().includes(keyword.toLowerCase()))) {
         log.error(`[FFMPEG] Fatal error detected: ${message}`)
         dialog.showErrorBox(
@@ -1324,6 +1394,15 @@ async function cleanupAndSave(): Promise<boolean> {
     appState.mouseTracker = null
   }
 
+  // Webcam frames arrive on a pipe from the feeder; EOF on that pipe is what
+  // ends the webcam input, so stop the feeder BEFORE we wait for FFmpeg. The
+  // screen input already EOF'd with the helper (or with stdin.end() below).
+  if (appState.webcamFeeder) {
+    log.info('[StopRecord] Stopping webcam feeder (its pipe EOF ends the webcam input).')
+    appState.webcamFeeder.kill('SIGTERM')
+    appState.webcamFeeder = null
+  }
+
   // Grace: the time FFmpeg gets to close after SIGINT before we force it. The
   // screen input EOFs when the helper stops, but a live webcam or mic input
   // keeps the process running; SIGINT is the polite stop, SIGKILL the escape.
@@ -1446,6 +1525,9 @@ export async function cleanupAndDiscard() {
 
   appState.ffmpegProcess?.kill('SIGKILL')
   appState.ffmpegProcess = null
+
+  appState.webcamFeeder?.kill('SIGKILL')
+  appState.webcamFeeder = null
 
   // Tell the renderer to stop its MediaRecorder(s); even if it ignores us,
   // aborting the writers means subsequent IPC chunks are no-ops.

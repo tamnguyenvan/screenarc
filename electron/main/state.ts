@@ -64,6 +64,14 @@ interface AppState {
   // Processes & Streams
   ffmpegProcess: ChildProcessWithoutNullStreams | null
   mouseTracker: IMouseTracker | null
+  /**
+   * Feeds the webcam into the recording FFmpeg over a pipe. Keeping the camera
+   * device in a separate process lets the main FFmpeg finalize cleanly: when
+   * this feeder is stopped its pipe EOFs, so the webcam input ends like the
+   * screen input does — the encoder finishes normally and writes the mp4
+   * container trailer, instead of being SIGKILLed mid-file.
+   */
+  webcamFeeder: ChildProcessWithoutNullStreams | null
 
   // In-memory recording data
   recordedMouseEvents: any[]
@@ -97,6 +105,7 @@ export const appState: AppState = {
   selectionWin: null,
   tray: null,
   ffmpegProcess: null,
+  webcamFeeder: null,
   mouseTracker: null,
   recordedMouseEvents: [],
   runtimeCursorImageMap: new Map(),
