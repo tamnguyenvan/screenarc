@@ -1,3 +1,9 @@
+## [1.17.10](https://github.com/getwithashish/DemoThat/compare/v1.17.9...v1.17.10) (2026-11-02)
+
+### Bug Fixes
+
+* **recording:** keep the screen file when FFmpeg is force-killed on webcam stop ([#36](https://github.com/getwithashish/DemoThat/issues/36)) ([7d5ee7e](https://github.com/getwithashish/DemoThat/commit/7d5ee7e47bdd2e0a06cc2c75b76e9948599eacd7))
+
 ## [1.17.9](https://github.com/getwithashish/DemoThat/compare/v1.17.8...v1.17.9) (2026-11-02)
 
 ### Bug Fixes
