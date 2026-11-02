@@ -397,7 +397,6 @@ async function startActualRecording(
   appState.recordingStartTime = Date.now()
   appState.recordedMouseEvents = []
   appState.runtimeCursorImageMap = new Map()
-  appState.cursorSamplesAreVideoTimed = false
   // Wayland: no global pointer coordinates exist to read. Electron's
   // screen.getCursorScreenPoint() is unsupported there, and the X11 tracker
   // would only see Xwayland's stale copy of the pointer — worse than nothing,
@@ -439,8 +438,14 @@ async function startActualRecording(
     // preview). Move the camera into a tiny feeder that writes to a pipe: when
     // the feeder stops, the pipe EOFs just like the screen pipe, and the main
     // encoder finishes normally and finalizes both files.
+    //
+    // Wayland only: on X11 the webcam input worked with the plain v4l2 args
+    // (SIGINT stops x11grab and the encoder together), so rewriting them there
+    // would change a working platform for no gain.
     let webcamFeeder: ChildProcessWithoutNullStreams | null = null
-    const v4l2At = finalArgs.findIndex((arg, i) => arg === '-f' && finalArgs[i + 1] === 'v4l2')
+    const v4l2At = requiresPortalCapture()
+      ? finalArgs.findIndex((arg, i) => arg === '-f' && finalArgs[i + 1] === 'v4l2')
+      : -1
     if (v4l2At !== -1) {
       const device = finalArgs[v4l2At + 3]
       finalArgs.splice(v4l2At, 4, '-f', 'matroska', '-i', 'pipe:3')
@@ -689,6 +694,13 @@ export async function startRecording(options: any) {
   const baseFfmpegArgs: string[] = []
   let recordingGeometry: RecordingGeometry
   let pendingCrop: RecordingSession['pendingCrop']
+  // Each recording starts afresh: the helper sets this true when its session is
+  // taken (startRecording above), and it must survive into the metadata writer,
+  // so it is reset here at the recording entry — NOT inside startActualRecording,
+  // which runs after the helper is chosen and was clobbering the flag, making the
+  // writer shift already-video-timed helper samples by the file birth time (every
+  // timestamp clamped to 0 → a cursor that never moves).
+  appState.cursorSamplesAreVideoTimed = false
 
   // --- Add Microphone and Webcam inputs first ---
   if (mic) {
