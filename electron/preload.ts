@@ -85,6 +85,8 @@ type CompletePayload = {
 type RenderStartPayload = {
   projectState: any
   exportSettings: any
+  renderWidth?: number
+  renderHeight?: number
 }
 
 type WindowSource = {

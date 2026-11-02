@@ -13,6 +13,8 @@ import type { VideoClip } from '../types'
 type RenderStartPayload = {
   projectState: Omit<EditorState, keyof EditorActions>
   exportSettings: ExportSettings
+  renderWidth?: number
+  renderHeight?: number
 }
 
 // These are needed to regenerate bitmaps within the renderer worker context.
@@ -112,7 +114,8 @@ export function RendererPage() {
   useEffect(() => {
     log.info('[RendererPage] Component mounted. Setting up listeners.')
 
-    const cleanup = window.electronAPI.onRenderStart(async ({ projectState, exportSettings }: RenderStartPayload) => {
+    const cleanup = window.electronAPI.onRenderStart(async (payload: RenderStartPayload) => {
+      const { projectState, exportSettings, renderWidth, renderHeight } = payload
       const canvas = canvasRef.current
       const video = videoRef.current
       const webcamVideo = webcamVideoRef.current
@@ -126,7 +129,14 @@ export function RendererPage() {
         // Never allocate a canvas at the full target size (an 8K RGBA frame is
         // ~132 MB). Draw at the render cap; FFmpeg scales up to the target.
         const target = exportDimensions(resolution, projectState.aspectRatio)
-        const { width: outputWidth, height: outputHeight } = applyRenderCap(target.width, target.height)
+        // The main process picks the render size (the source resolution for a
+        // cloud intermediate, the capped target otherwise) and declares it to
+        // FFmpeg's raw input. The canvas must match exactly, or the piped frames
+        // are read at the wrong size and the intermediate comes out corrupted.
+        const { width: outputWidth, height: outputHeight } =
+          renderWidth && renderHeight
+            ? { width: renderWidth, height: renderHeight }
+            : applyRenderCap(target.width, target.height)
 
         canvas.width = outputWidth
         canvas.height = outputHeight

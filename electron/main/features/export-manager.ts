@@ -557,7 +557,12 @@ export async function startExport(event: IpcMainInvokeEvent, request: ExportRequ
   ipcMain.once('render:ready', () => {
     log.info('[ExportManager] Worker ready. Sending project state.')
     if (appState.renderWorker && !appState.renderWorker.isDestroyed()) {
-      appState.renderWorker.webContents.send('render:start', { projectState, exportSettings })
+      appState.renderWorker.webContents.send('render:start', {
+        projectState,
+        exportSettings,
+        renderWidth,
+        renderHeight,
+      })
     }
   })
 }
