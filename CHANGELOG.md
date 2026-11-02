@@ -1,3 +1,9 @@
+## [1.17.13](https://github.com/getwithashish/DemoThat/compare/v1.17.12...v1.17.13) (2026-11-02)
+
+### Bug Fixes
+
+* **wayland:** sync cursor samples to video time and keep clicks alive ([#39](https://github.com/getwithashish/DemoThat/issues/39)) ([6f10eab](https://github.com/getwithashish/DemoThat/commit/6f10eab74d517015e29782528fe1d78c8d1af253))
+
 ## [1.17.12](https://github.com/getwithashish/DemoThat/compare/v1.17.11...v1.17.12) (2026-11-02)
 
 ### Bug Fixes
