@@ -1,3 +1,9 @@
+## [1.17.14](https://github.com/getwithashish/DemoThat/compare/v1.17.13...v1.17.14) (2026-11-02)
+
+### Bug Fixes
+
+* **wayland:** stamp cursor samples on the video clock and stop dropping frames ([#40](https://github.com/getwithashish/DemoThat/issues/40)) ([bffc034](https://github.com/getwithashish/DemoThat/commit/bffc034907752a77f0a0b81d916714985e1621de))
+
 ## [1.17.13](https://github.com/getwithashish/DemoThat/compare/v1.17.12...v1.17.13) (2026-11-02)
 
 ### Bug Fixes
