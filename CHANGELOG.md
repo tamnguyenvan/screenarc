@@ -1,3 +1,9 @@
+## [1.17.12](https://github.com/getwithashish/DemoThat/compare/v1.17.11...v1.17.12) (2026-11-02)
+
+### Bug Fixes
+
+* **wayland:** request the SPA cursor meta and verify desktops actually send it ([#38](https://github.com/getwithashish/DemoThat/issues/38)) ([0960837](https://github.com/getwithashish/DemoThat/commit/0960837bb26ee31d3af5b16cbe9304dfe23b5241))
+
 ## [1.17.11](https://github.com/getwithashish/DemoThat/compare/v1.17.10...v1.17.11) (2026-11-02)
 
 ### Bug Fixes
