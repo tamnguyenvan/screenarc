@@ -397,6 +397,7 @@ async function startActualRecording(
   appState.recordingStartTime = Date.now()
   appState.recordedMouseEvents = []
   appState.runtimeCursorImageMap = new Map()
+  appState.cursorSamplesAreVideoTimed = false
   // Wayland: no global pointer coordinates exist to read. Electron's
   // screen.getCursorScreenPoint() is unsupported there, and the X11 tracker
   // would only see Xwayland's stale copy of the pointer — worse than nothing,
@@ -933,6 +934,9 @@ export async function startRecording(options: any) {
       '-',
     )
     appState.cursorHelper = session
+    // The helper stamps samples in video time (frame index / fps), the same
+    // clock the pixels get; the metadata writer must not shift them again.
+    appState.cursorSamplesAreVideoTimed = true
     // This encode applies the crop, so the mux must not apply it a second time.
     pendingCrop = undefined
     log.info(
@@ -1466,13 +1470,22 @@ async function cleanupAndSave(): Promise<boolean> {
  */
 async function processAndSaveMetadata(session: RecordingSession): Promise<boolean> {
   try {
-    const videoStartTime = await getVideoStartTime(session.screenVideoPath)
-    log.info(`[SYNC] Precise video start time from ffprobe: ${new Date(videoStartTime).toISOString()}`)
-
-    const finalEvents = appState.recordedMouseEvents.map((event) => ({
-      ...event,
-      timestamp: Math.max(0, event.timestamp - videoStartTime),
-    }))
+    // Helper samples are already video-relative (frame index / fps), so they
+    // must not be shifted by the file's birth time — the X11 tracker's wall-clock
+    // stamps are the ones that need that shift, and doing it twice would push
+    // every helper event into the past.
+    let finalEvents
+    if (appState.cursorSamplesAreVideoTimed) {
+      log.info('[SYNC] Cursor samples are video-timed (frame index / fps); no wall-clock offset applied.')
+      finalEvents = appState.recordedMouseEvents
+    } else {
+      const videoStartTime = await getVideoStartTime(session.screenVideoPath)
+      log.info(`[SYNC] Precise video start time from ffprobe: ${new Date(videoStartTime).toISOString()}`)
+      finalEvents = appState.recordedMouseEvents.map((event) => ({
+        ...event,
+        timestamp: Math.max(0, event.timestamp - videoStartTime),
+      }))
+    }
 
     const primaryDisplay = screen.getPrimaryDisplay()
     // What the recording's audio actually is, read back from the finished file:

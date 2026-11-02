@@ -93,6 +93,12 @@ interface AppState {
   // renderer over IPC so the main process can warn before replacing a session.
   editorProjectDirty: boolean
 
+  // True when this recording's cursor samples are already in video time (the
+  // Wayland helper stamps frame_index / fps), so the metadata writer must NOT
+  // shift them by the file's birth time. The X11 tracker stamps wall-clock
+  // dates, which DO need that shift. Set when the helper session is taken.
+  cursorSamplesAreVideoTimed: boolean
+
   // Flags
   isCleanupInProgress: boolean
 }
@@ -115,5 +121,6 @@ export const appState: AppState = {
   currentRecordingSession: null,
   currentEditorSessionFiles: null,
   editorProjectDirty: false,
+  cursorSamplesAreVideoTimed: false,
   isCleanupInProgress: false,
 }

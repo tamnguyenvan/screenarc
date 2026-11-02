@@ -19,7 +19,7 @@
 //     which keeps the helper free of FFmpeg and means the app keeps using the
 //     bundled binary it already ships.
 
-use crate::protocol::{now_ms, Control, Emitter, Event};
+use crate::protocol::{Control, Emitter, Event};
 use anyhow::{Context, Result};
 use pipewire as pw;
 use pipewire_sys as pw_sys;
@@ -30,7 +30,6 @@ use std::os::fd::{AsRawFd, BorrowedFd, OwnedFd, RawFd};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::mpsc::{Receiver, TryRecvError};
 use std::sync::{Arc, Mutex};
-use std::time::Duration;
 
 /// `spa_meta_type::SPA_META_Cursor` — the fifth entry of the enum, which bindgen
 /// does not emit for us.
@@ -148,10 +147,6 @@ struct UserData {
     main_loop: pw::main_loop::MainLoop,
     cursor_is_metadata: bool,
     clicks_available: bool,
-    /// Wall clock of the last frame actually written to the video pipe, used to
-    /// throttle the deliver rate to the rate declared to FFmpeg. Started in the
-    /// past so the first frame is always written.
-    last_frame_written: std::time::Instant,
     /// The bitmap the current samples refer to, sent to the app once. `None` until
     /// the compositor hands one over.
     cursor_image_key: Option<String>,
@@ -165,17 +160,31 @@ struct UserData {
 }
 
 impl UserData {
+    /// The video-clock time of the frame just written, in milliseconds. FFmpeg
+    /// stamps raw frames by COUNT at the declared fps, not by wall clock, so the
+    /// only sample time that lines up with the pixels is the frame index divided
+    /// by the rate — wall time drifts from the video whenever the encoder or the
+    /// compositor cannot keep the rate up, which shows as a cursor that lags the
+    /// recording. `frames` is the count of frames already written, so the frame
+    /// this sample belongs to is `frames - 1` (a sample emitted alongside frame
+    /// 0 has video time 0). Clicks are stamped the same way: they occurred
+    /// during the current frame's interval.
+    fn video_timestamp_ms(&self) -> u64 {
+        video_timestamp_ms(self.stats.frames.load(Ordering::Relaxed), self.fps)
+    }
+
     fn emit_cursor_and_clicks(&mut self) {
         if self.paused.load(Ordering::Relaxed) {
             return;
         }
+        let timestamp = self.video_timestamp_ms();
         let (position, have) = {
             let state = self.cursor.lock().unwrap();
             ((state.x, state.y), state.have_position)
         };
         if have {
             self.events.emit(Event::Move {
-                timestamp: now_ms(),
+                timestamp,
                 x: position.0,
                 y: position.1,
                 cursor_image_key: self.cursor_image_key.clone(),
@@ -186,7 +195,7 @@ impl UserData {
         loop {
             match self.clicks.try_recv() {
                 Ok((button, pressed)) => self.events.emit(Event::Click {
-                    timestamp: now_ms(),
+                    timestamp,
                     x: position.0,
                     y: position.1,
                     button,
@@ -197,6 +206,13 @@ impl UserData {
             }
         }
     }
+}
+
+/// The video-clock time in milliseconds of the frame just written, given the
+/// count of frames written so far and the declared rate. Frame 0 is time 0.
+fn video_timestamp_ms(frames_written: u64, fps: u32) -> u64 {
+    let written = frames_written.saturating_sub(1);
+    written * 1000 / u64::from(fps.max(1))
 }
 
 /// Converts a cursor bitmap to the RGBA bytes the editor draws with.
@@ -453,7 +469,6 @@ pub fn run(
         clicks_available,
         fps: 0,
         requested_fps,
-        last_frame_written: std::time::Instant::now(),
     };
 
     let listener = pw_stream
@@ -567,26 +582,15 @@ pub fn run(
                 }
             }
 
-            // Pace the pipe to the rate declared to FFmpeg. FFmpeg stamps every
-            // raw frame it receives at 1/fps of video time, so delivering at any
-            // other rate makes video time drift from wall time, and the samples
-            // (wall-stamped) then drift from the pixels — the drawn pointer
-            // trails or leads the real one. A 60Hz compositor delivering 60fps
-            // into a `-r 30` pipe used to make the recording run at 2x speed
-            // with the cursor off. Frames over the rate are dropped; their
-            // cursor meta was already read above, so the next sample carries
-            // the freshest position.
-            let us_per_frame = 1_000_000u64 / u64::from(data.fps.max(1));
-            let due = data.last_frame_written.elapsed() >= Duration::from_micros(us_per_frame);
-            if due {
-                write_frame(data, spa_buffer);
-                data.stats.frames.fetch_add(1, Ordering::Relaxed);
-                data.last_frame_written = std::time::Instant::now();
-            } else {
-                data.stats.dropped.fetch_add(1, Ordering::Relaxed);
-            }
-            // Moves and clicks are drained on every buffer, stamped with wall
-            // time — which is now the same as video time.
+            // Every buffer is written, no throttling: FFmpeg's own backpressure
+            // (the pipe fills when the encoder is slower than real time) is the
+            // pacing mechanism, and dropping frames by wall-clock interval was
+            // wrong twice — it dropped bursts the encoder could have taken and
+            // never fixed the sample/video drift.
+            write_frame(data, spa_buffer);
+            data.stats.frames.fetch_add(1, Ordering::Relaxed);
+            // Moves and clicks are stamped by the video clock (frame index /
+            // fps), which is the clock FFmpeg stamps the pixels with.
             data.emit_cursor_and_clicks();
 
             // Hand the buffer back: the compositor reuses these.
@@ -1060,6 +1064,22 @@ mod tests {
                 30
             ),
             30
+        );
+    }
+
+    #[test]
+    fn samples_are_stamped_on_the_video_clock_not_wall_time() {
+        // The video clock is frame index / fps, the clock FFmpeg stamps the
+        // pixels with. Wall time would drift whenever the encoder or the
+        // compositor cannot keep the declared rate.
+        assert_eq!(video_timestamp_ms(1, 30), 0, "first frame is time 0");
+        assert_eq!(video_timestamp_ms(16, 30), 500, "frame 15 at 30fps = 500ms");
+        assert_eq!(video_timestamp_ms(31, 30), 1000, "frame 30 at 30fps = 1s");
+        assert_eq!(video_timestamp_ms(2, 60), 16, "frame 1 at 60fps = ~16ms");
+        assert_eq!(
+            video_timestamp_ms(0, 0),
+            0,
+            "an unset rate never underflows"
         );
     }
 }
