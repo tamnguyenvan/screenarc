@@ -1,3 +1,9 @@
+## [1.17.17](https://github.com/getwithashish/DemoThat/compare/v1.17.16...v1.17.17) (2026-11-03)
+
+### Bug Fixes
+
+* **wayland:** poll all mouse devices instead of blocking on the first ([#43](https://github.com/getwithashish/DemoThat/issues/43)) ([f310ba6](https://github.com/getwithashish/DemoThat/commit/f310ba6ae9464d8400dc9a53ef0e95551c4a1723))
+
 ## [1.17.16](https://github.com/getwithashish/DemoThat/compare/v1.17.15...v1.17.16) (2026-11-02)
 
 ### Bug Fixes
