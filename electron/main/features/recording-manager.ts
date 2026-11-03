@@ -53,6 +53,14 @@ const fatalErrorKeywords = [
   'Unknown input format',
   'error opening device',
 ]
+// True while stop/cancel is in progress. FFmpeg's fatal keywords are for start
+// failures; during teardown a live pipe (webcam feeder or Wayland helper) ends
+// mid-frame, which FFmpeg reports as "Invalid buffer size" / "Invalid argument"
+// — legal, expected on stop, and NOT a failed recording. Without this guard the
+// fatal monitor shows a false "Recording Failed" dialog and a redundant
+// cleanupAndDiscard that races the real save (the recording survives, but the
+// user is told it failed).
+let recordingTeardownInProgress = false
 const SCREEN_CAPTURE_STOP_TIMEOUT_MS = 5000
 
 // Module-scoped writers used by the renderer-streamed capture paths. They
@@ -397,6 +405,7 @@ async function startActualRecording(
   appState.recordingStartTime = Date.now()
   appState.recordedMouseEvents = []
   appState.runtimeCursorImageMap = new Map()
+  recordingTeardownInProgress = false
   // Wayland: no global pointer coordinates exist to read. Electron's
   // screen.getCursorScreenPoint() is unsupported there, and the X11 tracker
   // would only see Xwayland's stale copy of the pointer — worse than nothing,
@@ -478,6 +487,10 @@ async function startActualRecording(
         log.warn(`[WebcamFeeder stderr]: ${message}`)
         if (fatalErrorKeywords.some((keyword) => message.toLowerCase().includes(keyword.toLowerCase()))) {
           log.error(`[WebcamFeeder] Fatal error detected: ${message}`)
+          if (recordingTeardownInProgress) {
+            log.warn('[WebcamFeeder] Ignoring fatal keyword during teardown (recording is being saved).')
+            return
+          }
           dialog.showErrorBox(
             'Recording Failed',
             'DemoThat could not access the webcam.\n\n' +
@@ -524,6 +537,13 @@ async function startActualRecording(
       // keyword list is module-scoped, so the webcam feeder checks it too).
       if (fatalErrorKeywords.some((keyword) => message.toLowerCase().includes(keyword.toLowerCase()))) {
         log.error(`[FFMPEG] Fatal error detected: ${message}`)
+        // Not a failure when we're already stopping: FFmpeg is shutting down and
+        // a live pipe ends mid-frame, which reads as a bogus "Invalid buffer
+        // size" / "Invalid argument". The real save path is in charge now.
+        if (recordingTeardownInProgress) {
+          log.warn('[FFMPEG] Ignoring fatal keyword during teardown (recording is being saved).')
+          return
+        }
         dialog.showErrorBox(
           'Recording Failed',
           'DemoThat could not start the recording.\n\n' +
@@ -1003,6 +1023,7 @@ export async function stopRecording() {
   // a while and the user should not be stuck with a stripped desktop.
   void restoreCleanDemoMode()
   log.info('[StopRecord] Stopping recording, preparing to save...')
+  recordingTeardownInProgress = true
   appState.tray?.destroy()
   appState.tray = null
   createSavingWindow()
@@ -1396,6 +1417,7 @@ async function muxMacScreenWebm(session: RecordingSession): Promise<void> {
  */
 export async function cancelRecording() {
   log.info('Cancelling recording and deleting files...')
+  recordingTeardownInProgress = true
   await cleanupAndDiscard()
   appState.recorderWin?.webContents.send('recording-finished', { canceled: true })
   appState.recorderWin?.show()
