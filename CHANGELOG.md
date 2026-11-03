@@ -1,3 +1,9 @@
+## [1.18.0](https://github.com/getwithashish/DemoThat/compare/v1.17.18...v1.18.0) (2026-11-03)
+
+### Features
+
+* **branding:** use the official brand-kit app icons on every platform ([#46](https://github.com/getwithashish/DemoThat/issues/46)) ([191c670](https://github.com/getwithashish/DemoThat/commit/191c6709f554d8af81f3b6d1b34d50651bccc99d))
+
 ## [1.17.18](https://github.com/getwithashish/DemoThat/compare/v1.17.17...v1.17.18) (2026-11-03)
 
 ### Bug Fixes
