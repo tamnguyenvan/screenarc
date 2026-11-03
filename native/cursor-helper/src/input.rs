@@ -70,7 +70,18 @@ pub fn candidate_devices() -> (Vec<(PathBuf, Device)>, Option<String>) {
         // Opening is where permission is decided; a device we cannot read is not
         // fatal, it just means no clicks.
         match Device::open(&path) {
-            Ok(handle) => devices.push((path, handle)),
+            Ok(handle) => {
+                // evdev's Device::open leaves the fd BLOCKING, but input::run
+                // polls several devices in a loop (4ms) expecting non-blocking
+                // reads. A blocking fetch blocks forever on the first idle
+                // device (usually the touchpad) and starves every other one —
+                // the mouse being clicked never gets read, so "clicks on" but
+                // zero click events. Without this, a recording with the
+                // touchpad in the device list has no clicks at all.
+                if handle.set_nonblocking(true).is_ok() {
+                    devices.push((path, handle));
+                }
+            }
             Err(error) => {
                 if first_error.is_none() {
                     first_error = Some(format!("{}: {}", path.display(), error));

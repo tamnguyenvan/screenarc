@@ -204,6 +204,39 @@ journalctl --user --since "5 min ago" | grep -iE "portal|screencast"
 
 **Note** — on X11 this is not needed: tools such as FFmpeg's `x11grab`, SimpleScreenRecorder, or OBS's X11 capture work without the portal.
 
+### Getting everything working on Wayland — the full checklist
+
+The screen-sharing dialog is only the first step. On Wayland, three features need separate setup, and none of them is optional if you want the full experience:
+
+1. **Start the app in a Wayland session.** Otherwise Electron runs under XWayland and screen capture may behave like X11 (or fail).
+
+   ```bash
+   ./DemoThat-<version>-linux-x64.AppImage --no-sandbox \
+     --ozone-platform-hint=wayland \
+     --enable-features=WaylandWindowDecorations,WebRTCPipeWireCapturer,GlobalShortcutsPortal
+   ```
+
+2. **Have a working ScreenCast portal** (see the section above). Without it the recording cannot start at all. On KDE: `sudo apt install xdg-desktop-portal-kde`; on GNOME: `xdg-desktop-portal-gnome`; on Sway/wlroots: `xdg-desktop-portal-wlr`. Confirm with `journalctl --user | grep -i screencast`.
+
+3. **Give the app read access to your mouse** — this is what makes click effects (click sounds and auto-zoom regions) work. Wayland has no API for click events, so the app reads them from the kernel directly, and that requires a udev rule. Recording works without it, but you get no clicks.
+
+   Create `/etc/udev/rules.d/70-demothat-mouse.rules`:
+
+   ```ini
+   KERNEL=="event*", SUBSYSTEM=="input", ENV{ID_INPUT_MOUSE}=="1", ENV{ID_INPUT_KEYBOARD}!="1", TAG+="uaccess"
+   KERNEL=="event*", SUBSYSTEM=="input", ENV{ID_INPUT_TOUCHPAD}=="1", TAG+="uaccess"
+   ```
+
+   Then reload and trigger the rules:
+
+   ```bash
+   sudo udevadm control --reload-rules && sudo udevadm trigger --subsystem-match=input
+   ```
+
+   Log out and back in (or reboot) so the access takes effect. The app's log tells you the outcome: `clicks on` means the mouse is readable; `clicks off` (or the udev hint in the log) means it is not.
+
+4. **(If they matter to you) global hotkeys.** The recorder's default shortcut keys need the shortcut portal (`GlobalShortcutsPortal` above) and a desktop that implements it — GNOME 46+ or KDE 6+. Without it the app logs a warning and the recorder's buttons still work.
+
 ## 🤝 Contributing
 
 1. Fork the repo and create a descriptive branch: `feature/your-feature` or `fix/issue-number`.
