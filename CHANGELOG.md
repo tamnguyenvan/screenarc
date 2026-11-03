@@ -1,3 +1,9 @@
+## [1.17.18](https://github.com/getwithashish/DemoThat/compare/v1.17.17...v1.17.18) (2026-11-03)
+
+### Bug Fixes
+
+* **recording:** don't show a failed-recording dialog during teardown ([#44](https://github.com/getwithashish/DemoThat/issues/44)) ([086f487](https://github.com/getwithashish/DemoThat/commit/086f487547d702130c6961a770d28afd3192a218))
+
 ## [1.17.17](https://github.com/getwithashish/DemoThat/compare/v1.17.16...v1.17.17) (2026-11-03)
 
 ### Bug Fixes
