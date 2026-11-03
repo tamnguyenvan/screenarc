@@ -102,33 +102,86 @@ pub fn run(devices: Vec<(PathBuf, Device)>, tx: Sender<(String, bool)>, stop_aft
     let mut readables: Vec<Device> = devices.into_iter().map(|(_, device)| device).collect();
     let mut last_event = Instant::now();
 
+    // Diagnostic reporting (DEMOTHAT_CICKDBG=1): the click path failed silently
+    // for months (readers at every level, "clicks on" yet no events), so expose
+    // what the loop is actually seeing so the next broken reader is fixable from
+    // a log line instead of another blind guess. Stderr lines with the marker
+    // are forwarded to the app's main log by cursor-helper.ts.
+    let dbg = std::env::var("DEMOTHAT_CICKDBG").is_ok();
+    if dbg {
+        eprintln!("[CICKDBG] reader start, {} device(s)", readables.len());
+        for d in readables.iter() {
+            eprintln!("[CICKDBG] device: {}", d.name().unwrap_or("<unnamed>"));
+        }
+    }
+
+    let mut summary = String::new();
+    let mut fetch_empty = 0u64;
+    let mut fetch_err = 0u64;
+    let mut key_total = 0u64;
+    let mut btn_match = 0u64;
+
     loop {
         if last_event.elapsed() > stop_after {
+            if dbg {
+                eprintln!(
+                    "[CICKDBG] idle timeout hit after {} total events (fetch_empty={} fetch_err={} key_total={} btn_match={})",
+                    key_total, fetch_empty, fetch_err, key_total, btn_match
+                );
+            }
             return;
         }
 
         for device in readables.iter_mut() {
             let events = match device.fetch_events() {
                 Ok(events) => events,
-                Err(_) => continue,
+                Err(e) => {
+                    fetch_err += 1;
+                    if dbg && fetch_err <= 5 {
+                        eprintln!("[CICKDBG] fetch_events err: {e}");
+                    }
+                    continue;
+                }
             };
+            let mut had = false;
             for event in events {
+                had = true;
                 last_event = Instant::now();
+                key_total += 1;
                 // Matching the summary rather than the raw type keeps this working
                 // across evdev versions that renamed their event kinds.
                 if let EventSummary::Key(_, code, value) = event.destructure() {
                     if let Some(button) = button_name(code) {
+                        btn_match += 1;
                         let pressed = value == 1;
+                        if dbg {
+                            eprintln!(
+                                "[CICKDBG] key {:?} button {} pressed={}",
+                                code, button, pressed
+                            );
+                        }
                         if tx.send((button.to_string(), pressed)).is_err() {
                             return;
                         }
                     }
                 }
+                if dbg && key_total <= 20 {
+                    summary.push_str(&format!("event; "));
+                }
+            }
+            if had && dbg && fetch_empty < 3 {
+                eprintln!("[CICKDBG] read {key_total} events total so far: {summary}");
             }
         }
 
         // Nothing to wait on: fetch_events is non-blocking, so this is a poll
         // loop. 4 ms keeps clicks aligned with a 60 fps sample stream.
+        if dbg {
+            fetch_empty += 1;
+            if fetch_empty <= 3 {
+                eprintln!("[CICKDBG] poll {fetch_empty}: no events this tick");
+            }
+        }
         std::thread::sleep(Duration::from_millis(4));
     }
 }

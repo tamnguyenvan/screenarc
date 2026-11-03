@@ -272,6 +272,9 @@ export async function startCursorHelper(options: {
     // fd 3 is the video pipe: the helper writes frames into it, we hand the other
     // end to FFmpeg. stdout carries the cursor events.
     stdio: ['pipe', 'pipe', 'pipe', 'pipe'],
+    // Debugging the click reader: set DEMOTHAT_CICKDBG=1 to make the helper's
+    // evdev loop print what it sees to stderr, which we forward to the app log.
+    env: { ...process.env, DEMOTHAT_CICKDBG: process.env.DEMOTHAT_CICKDBG || '' },
   })
   active = child
 
@@ -374,6 +377,12 @@ export async function startCursorHelper(options: {
     child.stderr?.on('data', (chunk: string) => {
       stderr += chunk
       if (stderr.length > 4000) stderr = stderr.slice(-4000)
+      // Forward the click-reader diagnostics to the app log (the helper's
+      // evdev loop prints these with DEMOTHAT_CICKDBG=1 set).
+      chunk
+        .split('\n')
+        .filter((line) => line.startsWith('[CICKDBG]'))
+        .forEach((line) => log.warn(`[CursorHelper] ${line}`))
     })
 
     child.on('error', (error) => {
