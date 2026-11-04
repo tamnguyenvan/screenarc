@@ -1,3 +1,9 @@
+## [1.18.1](https://github.com/getwithashish/DemoThat/compare/v1.18.0...v1.18.1) (2026-11-04)
+
+### Bug Fixes
+
+* **wayland:** read click devices the way cat does — raw, blocking, per-device ([#47](https://github.com/getwithashish/DemoThat/issues/47)) ([6062b88](https://github.com/getwithashish/DemoThat/commit/6062b88aefacc2139d65fa68d9129b2df0cacbcb))
+
 ## [1.18.0](https://github.com/getwithashish/DemoThat/compare/v1.17.18...v1.18.0) (2026-11-03)
 
 ### Features
