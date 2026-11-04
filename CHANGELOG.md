@@ -1,3 +1,9 @@
+## [1.19.0](https://github.com/getwithashish/DemoThat/compare/v1.18.1...v1.19.0) (2026-11-04)
+
+### Features
+
+* **wayland:** tell the user that a click is a physical press before recording ([#50](https://github.com/getwithashish/DemoThat/issues/50)) ([f790cc0](https://github.com/getwithashish/DemoThat/commit/f790cc0eea03f01f7b6e1fe940251a6cc8933246))
+
 ## [1.18.1](https://github.com/getwithashish/DemoThat/compare/v1.18.0...v1.18.1) (2026-11-04)
 
 ### Bug Fixes
