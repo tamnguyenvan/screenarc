@@ -157,11 +157,13 @@ fn start_click_reader(config: &Config, events: &mut Emitter<std::io::Stdout>) ->
 
 fn spawn_click_thread(
     tx: mpsc::Sender<(String, bool)>,
-    devices: Vec<(std::path::PathBuf, evdev::Device)>,
+    devices: Vec<(std::path::PathBuf, evdev::raw_stream::RawDevice)>,
     idle_timeout_ms: u64,
 ) -> std::thread::JoinHandle<()> {
-    // The reader polls rather than blocks, so it stops by itself once events stop
-    // arriving for longer than a recording can plausibly pause.
+    // Run returns after spawning one reader thread per device; the threads
+    // themselves live until the process exits (the app stops the helper at the
+    // end of a recording). The former 2s/10min idle self-stop no longer
+    // applies: with a blocking read there is no poll loop to time out.
     let idle = Duration::from_millis(idle_timeout_ms.max(500));
     std::thread::spawn(move || input::run(devices, tx, idle))
 }

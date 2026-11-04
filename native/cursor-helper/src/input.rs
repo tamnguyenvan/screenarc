@@ -10,11 +10,21 @@
 //   * the pointer position does NOT come from here (evdev reports relative
 //     motion); it comes from the portal's cursor metadata. A click is stamped
 //     with the position of the nearest sample the portal has given us.
+//
+// Reader: one thread per device, raw blocking reads. This is deliberate: a
+// live test on the user's KDE Wayland desktop proved a plain blocking read on
+// /dev/input/eventN receives button events the whole time, while the evdev
+// sync stream (Device::fetch_events with SYN_DROPPED state tracking) returned
+// EAGAIN for the whole session — "clicks on" yet zero events. RawDevice wraps
+// plain read() exactly like `cat` does, which is what the test showed working.
 
-use evdev::{Device, EventSummary, KeyCode, RelativeAxisCode};
+use evdev::raw_stream;
+use evdev::{EventSummary, KeyCode, RelativeAxisCode};
 use std::path::PathBuf;
 use std::sync::mpsc::Sender;
-use std::time::{Duration, Instant};
+use std::time::Duration;
+
+type RawDevice = evdev::raw_stream::RawDevice;
 
 /// Buttons we care about. Anything else — including every key on a keyboard — is
 /// ignored, and only *pointer* devices are ever opened.
@@ -51,13 +61,17 @@ pub fn is_pointer_device(keys: &[KeyCode], has_relative_motion: bool) -> bool {
 
 /// Devices that look like a pointer. Errors are returned so the caller can tell
 /// the user about permissions instead of silently producing no clicks.
-pub fn candidate_devices() -> (Vec<(PathBuf, Device)>, Option<String>) {
+///
+/// The RawDevice from enumerate is already opened; a device that could not be
+/// opened is skipped, so "clicks on" means the device opened AND looks like a
+/// pointer.
+pub fn candidate_devices() -> (Vec<(PathBuf, RawDevice)>, Option<String>) {
     let mut devices = Vec::new();
-    let mut first_error = None;
+    let first_error = None;
 
-    for (path, device) in evdev::enumerate() {
-        let supported = device.supported_keys();
-        let keys: Vec<KeyCode> = supported
+    for (path, device) in raw_stream::enumerate() {
+        let keys: Vec<KeyCode> = device
+            .supported_keys()
             .map(|keys| keys.iter().collect())
             .unwrap_or_default();
         let relative = device
@@ -67,122 +81,72 @@ pub fn candidate_devices() -> (Vec<(PathBuf, Device)>, Option<String>) {
         if !is_pointer_device(&keys, relative) {
             continue;
         }
-        // Opening is where permission is decided; a device we cannot read is not
-        // fatal, it just means no clicks.
-        match Device::open(&path) {
-            Ok(handle) => {
-                // evdev's Device::open leaves the fd BLOCKING, but input::run
-                // polls several devices in a loop (4ms) expecting non-blocking
-                // reads. A blocking fetch blocks forever on the first idle
-                // device (usually the touchpad) and starves every other one —
-                // the mouse being clicked never gets read, so "clicks on" but
-                // zero click events. Without this, a recording with the
-                // touchpad in the device list has no clicks at all.
-                if handle.set_nonblocking(true).is_ok() {
-                    devices.push((path, handle));
-                }
-            }
-            Err(error) => {
-                if first_error.is_none() {
-                    first_error = Some(format!("{}: {}", path.display(), error));
-                }
-            }
-        }
+        devices.push((path, device));
     }
 
     (devices, first_error)
 }
 
-/// Polls the pointer devices and reports button transitions.
+/// Reads one device in a blocking loop and reports button transitions.
 ///
-/// Blocking and long-lived: it runs on its own thread and stops when the process
-/// does, or as soon as `stop_after` has passed with no events (the app's way of
-/// ending the reader when a recording is stopped).
-pub fn run(devices: Vec<(PathBuf, Device)>, tx: Sender<(String, bool)>, stop_after: Duration) {
-    let mut readables: Vec<Device> = devices.into_iter().map(|(_, device)| device).collect();
-    let mut last_event = Instant::now();
-
-    // Diagnostic reporting (DEMOTHAT_CICKDBG=1): the click path failed silently
-    // for months (readers at every level, "clicks on" yet no events), so expose
-    // what the loop is actually seeing so the next broken reader is fixable from
-    // a log line instead of another blind guess. Stderr lines with the marker
-    // are forwarded to the app's main log by cursor-helper.ts.
-    let dbg = std::env::var("DEMOTHAT_CICKDBG").is_ok();
+/// Blocking reads are the point: they're what `cat /dev/input/eventN` does,
+/// and that is what a live recording proved delivers events. The sync stream's
+/// O_NONBLOCK polling never delivered any.
+fn run_device(mut device: RawDevice, tx: Sender<(String, bool)>, dbg: bool) {
     if dbg {
-        eprintln!("[CICKDBG] reader start, {} device(s)", readables.len());
-        for d in readables.iter() {
-            eprintln!("[CICKDBG] device: {}", d.name().unwrap_or("<unnamed>"));
+        eprintln!(
+            "[CICKDBG] device thread: {}",
+            device.name().unwrap_or("<unnamed>")
+        );
+    }
+    loop {
+        let events = match device.fetch_events() {
+            Ok(events) => events,
+            Err(error) => {
+                if dbg {
+                    eprintln!("[CICKDBG] device read ended: {error}");
+                }
+                return;
+            }
+        };
+        for event in events {
+            // Matching the summary rather than the raw type keeps this working
+            // across evdev versions that renamed their event kinds.
+            if let EventSummary::Key(_, code, value) = event.destructure() {
+                if let Some(button) = button_name(code) {
+                    let pressed = value == 1;
+                    if dbg {
+                        eprintln!(
+                            "[CICKDBG] key {:?} button {} pressed={}",
+                            code, button, pressed
+                        );
+                    }
+                    if tx.send((button.to_string(), pressed)).is_err() {
+                        return;
+                    }
+                }
+            }
         }
     }
+}
 
-    let mut summary = String::new();
-    let mut fetch_empty = 0u64;
-    let mut fetch_err = 0u64;
-    let mut key_total = 0u64;
-    let mut btn_match = 0u64;
-
-    loop {
-        if last_event.elapsed() > stop_after {
-            if dbg {
-                eprintln!(
-                    "[CICKDBG] idle timeout hit after {} total events (fetch_empty={} fetch_err={} key_total={} btn_match={})",
-                    key_total, fetch_empty, fetch_err, key_total, btn_match
-                );
-            }
-            return;
+/// Spawns one blocking reader thread per pointer device, then returns.
+///
+/// Each device gets a thread so a blocking read on one node never starves
+/// another. Threads die when the process exits; the app stops the helper at the
+/// end of a recording, so no explicit shutdown is needed (`stop_after` from the
+/// poll-loop era is ignored).
+pub fn run(devices: Vec<(PathBuf, RawDevice)>, tx: Sender<(String, bool)>, _stop_after: Duration) {
+    let dbg = std::env::var("DEMOTHAT_CICKDBG").is_ok();
+    if dbg {
+        eprintln!("[CICKDBG] reader start, {} device(s)", devices.len());
+        for (path, _) in devices.iter() {
+            eprintln!("[CICKDBG] device path: {}", path.display());
         }
-
-        for device in readables.iter_mut() {
-            let events = match device.fetch_events() {
-                Ok(events) => events,
-                Err(e) => {
-                    fetch_err += 1;
-                    if dbg && fetch_err <= 5 {
-                        eprintln!("[CICKDBG] fetch_events err: {e}");
-                    }
-                    continue;
-                }
-            };
-            let mut had = false;
-            for event in events {
-                had = true;
-                last_event = Instant::now();
-                key_total += 1;
-                // Matching the summary rather than the raw type keeps this working
-                // across evdev versions that renamed their event kinds.
-                if let EventSummary::Key(_, code, value) = event.destructure() {
-                    if let Some(button) = button_name(code) {
-                        btn_match += 1;
-                        let pressed = value == 1;
-                        if dbg {
-                            eprintln!(
-                                "[CICKDBG] key {:?} button {} pressed={}",
-                                code, button, pressed
-                            );
-                        }
-                        if tx.send((button.to_string(), pressed)).is_err() {
-                            return;
-                        }
-                    }
-                }
-                if dbg && key_total <= 20 {
-                    summary.push_str(&format!("event; "));
-                }
-            }
-            if had && dbg && fetch_empty < 3 {
-                eprintln!("[CICKDBG] read {key_total} events total so far: {summary}");
-            }
-        }
-
-        // Nothing to wait on: fetch_events is non-blocking, so this is a poll
-        // loop. 4 ms keeps clicks aligned with a 60 fps sample stream.
-        if dbg {
-            fetch_empty += 1;
-            if fetch_empty <= 3 {
-                eprintln!("[CICKDBG] poll {fetch_empty}: no events this tick");
-            }
-        }
-        std::thread::sleep(Duration::from_millis(4));
+    }
+    for (_, device) in devices {
+        let tx = tx.clone();
+        std::thread::spawn(move || run_device(device, tx, dbg));
     }
 }
 
