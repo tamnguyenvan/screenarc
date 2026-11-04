@@ -1,8 +1,9 @@
-<p align="center">
-  <img src="docs/assets/small-banner.png" alt="DemoThat" width="120" />
-</p>
-
-<h1 align="center">DemoThat</h1>
+<h1 align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/brand/logo-horizontal-on-dark.svg" />
+    <img src="docs/assets/brand/logo-horizontal-on-light.svg" alt="DemoThat" width="360" />
+  </picture>
+</h1>
 
 <p align="center">
   <strong>Record your screen, let DemoThat auto-zoom the action, and publish a shareable clip.</strong><br />
