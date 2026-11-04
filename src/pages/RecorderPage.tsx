@@ -604,6 +604,17 @@ export function RecorderPage() {
               <X size={ICON_SIZE} strokeWidth={ICON_STROKE} />
             </button>
 
+            {/* App logo. Part of the drag handle, so it is not interactive. */}
+            <img
+              src="media://demothat-appicon.png"
+              alt=""
+              draggable={false}
+              className="h-7 w-7 shrink-0 rounded-seg"
+              aria-hidden="true"
+            />
+
+            <div className="h-5 w-px bg-line"></div>
+
             {/* Source Toggle */}
             <div
               className="flex items-center gap-0.5 rounded-seg border border-line bg-ctl p-0.5"
