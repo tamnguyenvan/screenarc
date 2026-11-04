@@ -42,13 +42,28 @@ body {
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
 }
 
+/* App logo with the spinner ring turning around it */
+.mark {
+    position: relative;
+    width: 3rem;
+    height: 3rem;
+    display: grid;
+    place-items: center;
+}
+
+.mark img {
+    width: 1.75rem;
+    height: 1.75rem;
+    border-radius: 0.4rem;
+    -webkit-user-drag: none;
+}
+
 /* Spinner styles */
 .spinner {
-    width: 2.5rem;
-    height: 2.5rem;
+    position: absolute;
+    inset: 0;
     color: rgba(255, 255, 255, 0.8);
     animation: spin 1s linear infinite;
-    margin-bottom: 0.5rem;
 }
 
 .spinner svg {
