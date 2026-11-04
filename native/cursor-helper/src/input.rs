@@ -113,9 +113,9 @@ fn run_device(mut device: RawDevice, tx: Sender<(String, bool)>, dbg: bool) {
             // Matching the summary rather than the raw type keeps this working
             // across evdev versions that renamed their event kinds.
             if let EventSummary::Key(_, code, value) = event.destructure() {
-                // Shortcut: log EVERY key code that arrives (mapped or not) so a
-                // trace shows what a click actually produces instead of silently
-                // dropping an unexpected code. Drop this when clicks are proven.
+                // Trace every key code that arrives (mapped or not) so a log
+                // shows what a click produces. Clicks need a physical press: a
+                // tap on a click-pad is consumed as a gesture and never arrives.
                 if dbg {
                     eprintln!("[CICKDBG] key code={:?} value={}", code, value);
                 }

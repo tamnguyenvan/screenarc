@@ -235,6 +235,8 @@ The screen-sharing dialog is only the first step. On Wayland, three features nee
 
    Log out and back in (or reboot) so the access takes effect. The app's log tells you the outcome: `clicks on` means the mouse is readable; `clicks off` (or the udev hint in the log) means it is not.
 
+   **A click is a physical press, not a tap.** The app reads button events from the kernel the same way system input does. On a click-pad, a light tap is often consumed as a gesture (tap-to-click) and never reaches the kernel as a button press, so no click is recorded. Press the click-pad down to the tactile click — a real mouse click always works. If hands-free tap-to-click is your default and you want every tap to be a click, a physical mouse is the reliable choice.
+
 4. **(If they matter to you) global hotkeys.** The recorder's default shortcut keys need the shortcut portal (`GlobalShortcutsPortal` above) and a desktop that implements it — GNOME 46+ or KDE 6+. Without it the app logs a warning and the recorder's buttons still work.
 
 ## 🤝 Contributing
