@@ -69,6 +69,7 @@ export function RecorderPage() {
   const [actionInProgress, setActionInProgress] = useState<ActionInProgress>('none')
   /** Set by the cursor helper when clicks could not be recorded (evdev permission). */
   const [clicksUnavailableMessage, setClicksUnavailableMessage] = useState<string | null>(null)
+  const [clicksHintMessage, setClicksHintMessage] = useState<string | null>(null)
   const [source, setSource] = useState<RecordingSource>('fullscreen')
   const [displays, setDisplays] = useState<DisplayInfo[]>([])
   const [selectedDisplayId, setSelectedDisplayId] = useState<string>('')
@@ -282,6 +283,13 @@ export function RecorderPage() {
       setClicksUnavailableMessage(message)
     })
 
+    // On Wayland clicks ARE read, but a tap is a gesture and never recorded;
+    // the message tells the user to press the touchpad or use a mouse.
+    const cleanupClicksHint = window.electronAPI.onCursorClicksHint?.((message) => {
+      console.info('[Recorder] wayland click hint:', message)
+      setClicksHintMessage(message)
+    })
+
     return () => {
       cleanupStarted()
       cleanupFinished()
@@ -289,6 +297,7 @@ export function RecorderPage() {
       cleanupStopScreenCapture?.()
       cleanupTriggerStart()
       cleanupClicksOff?.()
+      cleanupClicksHint?.()
     }
   }, [reloadDevices, setActionState, stopSystemAudio, stopScreenCapture])
 
@@ -888,6 +897,13 @@ export function RecorderPage() {
             <div className="mx-auto mt-2 flex max-w-[720px] items-start gap-2 rounded-ctl border border-line bg-panel px-3 py-2 text-xs text-muted">
               <InfoCircle size={14} strokeWidth={ICON_STROKE} className="mt-px shrink-0 text-accent" />
               <span>{capture.notice}</span>
+            </div>
+          )}
+
+          {clicksHintMessage && (
+            <div className="mx-auto mt-2 flex max-w-[720px] items-start gap-2 rounded-ctl border border-line bg-panel px-3 py-2 text-xs text-muted">
+              <InfoCircle size={14} strokeWidth={ICON_STROKE} className="mt-px shrink-0 text-accent" />
+              <span>{clicksHintMessage}</span>
             </div>
           )}
 

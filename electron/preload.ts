@@ -218,6 +218,18 @@ export const electronAPI = {
     }
   },
 
+  /**
+   * The cursor helper IS reading buttons, but on Wayland a light tap is a
+   * gesture and never becomes a recorded click. The message explains pressing.
+   */
+  onCursorClicksHint: (callback: (message: string) => void) => {
+    const listener = (_event: IpcRendererEvent, message: string) => callback(message)
+    ipcRenderer.on('recorder:cursor-clicks-hint', listener)
+    return () => {
+      ipcRenderer.removeListener('recorder:cursor-clicks-hint', listener)
+    }
+  },
+
   onRecordingFinished: (callback: (result: RecordingResult) => void) => {
     const listener = (_event: IpcRendererEvent, result: RecordingResult) => callback(result)
     ipcRenderer.on('recording-finished', listener)

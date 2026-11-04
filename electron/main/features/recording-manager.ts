@@ -989,6 +989,17 @@ export async function startRecording(options: any) {
           '(repeat for ID_INPUT_TOUCHPAD), then run sudo udevadm control --reload-rules && sudo udevadm trigger ' +
           '--subsystem-match=input. Or add your user to the input group and log back in.',
       )
+    } else if (requiresPortalCapture()) {
+      // On Wayland the app reads button events from the kernel, exactly like
+      // the desktop's own input handling. A light tap on a click-pad is often
+      // consumed as a tap-to-click gesture and never reaches the kernel, so the
+      // recorded click exists only for a full physical press (or a real mouse).
+      appState.recorderWin?.webContents.send(
+        'recorder:cursor-clicks-hint',
+        'On Wayland a click is a physical press of the touchpad (or a mouse button), not a tap. ' +
+          'A light tap is handled as a gesture and is not recorded — press the touchpad down ' +
+          'until it clicks, or use a mouse.',
+      )
     }
   }
   // With the helper capturing, FFmpeg is fed raw frames on a pipe instead: the
