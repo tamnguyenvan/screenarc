@@ -367,11 +367,11 @@ export function createMouseTracker(): IMouseTracker | null {
       }
       return new LinuxMouseTracker()
     case 'win32':
-      if (!mouseEvents) {
-        dialog.showErrorBox('Dependency Missing', 'Could not load the required module for mouse tracking on Windows.')
-        return null
+      if (mouseEvents) {
+        return new WindowsMouseTracker()
       }
-      return new WindowsMouseTracker()
+      log.warn('[MouseTracker] Native global-mouse-events unavailable, falling back to screen polling.')
+      return new MacOSMouseTracker()
 
     case 'darwin':
       // Always available — uses Electron's built-in screen API, no native deps.
